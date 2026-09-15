@@ -175,7 +175,7 @@ describe("o kit aponta para o que o CI realmente publica", () => {
 
   it.each([undefined, "registry.example/outro-dono"])(
     "ghcr_status consulta token e manifesto no IMG_NS (%s)",
-    (namespace) => {
+    (namespace: string | undefined) => {
       const ns = namespace ?? imgNs();
       const [registry, owner] = ns.split("/");
       const saida = execFileSync(

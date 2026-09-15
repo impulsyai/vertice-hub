@@ -1,0 +1,11 @@
+{
+  "extends": "../tsconfig.typecheck.json",
+  "include": [
+    "../types/**/*.d.ts",
+    "../next-env.d.ts",
+    "../**/*.ts",
+    "../**/*.tsx",
+    "**/*.ts",
+    "**/*.tsx"
+  ]
+}
