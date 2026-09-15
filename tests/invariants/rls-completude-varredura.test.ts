@@ -219,6 +219,31 @@ const PROVA_PROPRIA: readonly Excecao[] = [
       "da organização viraram venda, e quem o lê é o servidor com o admin client " +
       "filtrando organization_id à mão (a tela `/app/settings/conversoes`).",
   },
+  // ─── Vértice People Foundation (migration 0257) ───
+  {
+    tabela: "client_companies",
+    razao: "tests/invariants/people-rls-isolation.test.ts — isolamento cross-tenant e with check validados com countAs/writeCountAs",
+  },
+  {
+    tabela: "client_company_contacts",
+    razao: "tests/invariants/people-rls-isolation.test.ts — isolamento cross-tenant de contatos B2B",
+  },
+  {
+    tabela: "vertice_candidates",
+    razao: "tests/invariants/people-rls-isolation.test.ts — isolamento cross-tenant do banco permanente de talentos",
+  },
+  {
+    tabela: "vertice_candidate_resumes",
+    razao: "tests/invariants/people-rls-isolation.test.ts — isolamento cross-tenant e integridade de unicidade de CV atual",
+  },
+  {
+    tabela: "vertice_job_openings",
+    razao: "tests/invariants/people-rls-isolation.test.ts — isolamento cross-tenant de vagas B2B",
+  },
+  {
+    tabela: "vertice_job_applications",
+    razao: "tests/invariants/people-rls-isolation.test.ts — isolamento cross-tenant e gatilho de status de candidatura",
+  },
 ];
 
 /**
