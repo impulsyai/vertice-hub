@@ -15,7 +15,7 @@ import type { Role } from "@/lib/auth/types";
  * Doutrina: docs/doctrine/sistema-vivo.md — "por qual porta se chega até mim?"
  */
 
-export type NavGroupId = "atendimento" | "crm" | "ia" | "canais" | "analise" | "organizacao";
+export type NavGroupId = "atendimento" | "crm" | "recrutamento" | "ia" | "canais" | "analise" | "organizacao";
 
 export interface NavGroup {
   id: NavGroupId;
@@ -48,26 +48,15 @@ export interface NavMetadata {
 /**
  * Grupos por OBJETIVO, na ordem de uso: o que se abre toda hora primeiro, o que
  * se ajusta uma vez por mês por último.
- *
- * "Análise" e não "Observabilidade": quem instala isto numa VPS é dono de PME,
- * não engenheiro. E configurar o sistema (grupo IA) é atividade diferente de
- * observar o sistema funcionando (grupo Análise) — por isso Evolução da IA mora
- * aqui, e não junto dos agentes.
- *
- * Hub só onde o grupo passa de 4 telas. Abaixo disso ele cabe inteiro no
- * sidebar, e um hub de 3 itens seria só um clique a mais para chegar onde já
- * dava para chegar.
- *
- * O CRM cruzou essa linha com a tela de Tarefas (PR #546), e o hub dele é a
- * cobrança de uma promessa escrita: o comentário de densidade do `Sidebar.tsx`
- * dizia, desde a vez em que Produtos estourou a dobra por uma linha, que
- * "quando o quinto destino de CRM aparecer, é hub que se cria, não mais 4px que
- * se raspa". Tarefas foi o quinto. Raspar de novo devolveria 13px e adiaria a
- * mesma conversa para a sexta tela.
  */
 export const NAV_GROUPS: NavGroup[] = [
   { id: "atendimento", label: "Atendimento" },
   { id: "crm", label: "CRM", hub: { href: "/app/crm", label: "Ver tudo em CRM" } },
+  {
+    id: "recrutamento",
+    label: "Recrutamento",
+    hub: { href: "/app/recrutamento", label: "Ver tudo em Recrutamento" },
+  },
   { id: "ia", label: "Agente de IA", hub: { href: "/app/ai", label: "Ver tudo em IA" } },
   { id: "canais", label: "Canais" },
   { id: "analise", label: "Análise", hub: { href: "/app/analise", label: "Ver tudo em Análise" } },
@@ -272,6 +261,60 @@ export const NAV_CATALOG = [
     // e escrever os motivos de perda é trabalho de montagem, feito uma vez e
     // revisitado por `manager` de vez em quando — enquanto Funis, Contatos e
     // Tarefas se abrem todo dia. É esse o corte que decide quem fica no menu.
+  },
+  {
+    href: "/app/crm/empresas",
+    label: "Empresas",
+    description: "Empresas clientes B2B, contatos vinculados e posições abertas.",
+    icon: "Buildings",
+    group: "crm",
+    section: "O dia a dia da venda",
+    sidebar: true,
+  },
+
+  // ---- Recrutamento — R&S e Banco de Talentos ----
+  {
+    href: "/app/recrutamento/talentos",
+    label: "Banco de Talentos",
+    description: "Candidatos cadastrados, histórico profissional e currículos versionados.",
+    icon: "UsersThree",
+    group: "recrutamento",
+    section: "Gestão de Talentos",
+    sidebar: true,
+  },
+  {
+    href: "/app/recrutamento/vagas",
+    label: "Vagas",
+    description: "Posições abertas para empresas clientes e acompanhamento de processo.",
+    icon: "ClipboardText",
+    group: "recrutamento",
+    section: "Processos Seletivos",
+    sidebar: true,
+  },
+  {
+    href: "/app/recrutamento/pipeline",
+    label: "Funil de Seleção",
+    description: "Quadro com as 10 etapas seletivas de 01 Recebido a 10 Desistiu.",
+    icon: "Kanban",
+    group: "recrutamento",
+    section: "Processos Seletivos",
+    sidebar: true,
+  },
+  {
+    href: "/app/recrutamento/candidaturas",
+    label: "Candidaturas",
+    description: "Visão consolidada de todas as candidaturas ativas e histórico.",
+    icon: "ListChecks",
+    group: "recrutamento",
+    section: "Processos Seletivos",
+  },
+  {
+    href: "/app/recrutamento/curriculos",
+    label: "Currículos",
+    description: "Acervo de arquivos e versões de currículos em armazenamento seguro.",
+    icon: "FileText",
+    group: "recrutamento",
+    section: "Gestão de Talentos",
   },
 
   // ---- Agente de IA — montar, ensinar, acompanhar ----

@@ -142,4 +142,9 @@ export {
   GoogleLogo,
   MapPin,
   ArrowsOutSimple,
+  User,
+  ArrowLeft,
+  Briefcase,
+  EnvelopeSimple,
+  LinkedinLogo,
 } from "@phosphor-icons/react/dist/ssr";

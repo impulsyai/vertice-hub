@@ -537,6 +537,17 @@ export const AUDIT_ACTIONS = [
   // porque toda leitura de `admin/` é auditada neste repo — e porque aqui o
   // operador enxerga o agente publicado na organização de outra pessoa.
   "platform_admin.tenant_agents_viewed",
+
+  // Domínio Vértice People & B2B (Fase 4.2)
+  "people.company_created",
+  "people.company_updated",
+  "people.candidate_created",
+  "people.candidate_updated",
+  "people.resume_uploaded",
+  "people.job_created",
+  "people.job_updated",
+  "people.application_created",
+  "people.application_stage_changed",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

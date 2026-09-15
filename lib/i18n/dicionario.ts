@@ -37,6 +37,14 @@ import type { Idioma } from "./idiomas";
 type Traducoes = Record<string, Partial<Record<Exclude<Idioma, "pt-BR">, string>>>;
 
 export const DICIONARIO: Traducoes = {
+  "Recrutamento": { es: "Reclutamiento" },
+  "Ver tudo em Recrutamento": { es: "Ver todo en Reclutamiento" },
+  "Banco de Talentos": { es: "Banco de Talentos" },
+  "Vagas": { es: "Vacantes" },
+  "Funil de Seleção": { es: "Embudo de Selección" },
+  "Candidaturas": { es: "Postulaciones" },
+  "Currículos": { es: "Currículos" },
+  "Empresas": { es: "Empresas" },
   "Versão publicada": { es: "Versión publicada" },
   "Publicado em": { es: "Publicado el" },
   "Nenhum agente publicado": { es: "Ningún agente publicado" },
