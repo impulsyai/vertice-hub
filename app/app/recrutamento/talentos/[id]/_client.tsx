@@ -112,7 +112,7 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
             <Badge variant="outline" className="capitalize">{candidate.status.replace("_", " ")}</Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {candidate.current_role ?? t("Sem cargo informado")} {candidate.current_company ? `• ${candidate.current_company}` : ""}
+            {candidate.current_job_title ?? candidate.current_role ?? t("Sem cargo informado")} {candidate.current_company ? `• ${candidate.current_company}` : ""}
           </p>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Candidate, CandidateResume } from "./types";
+import type { Candidate } from "./types";
 
 export function calculateSha256(buffer: Buffer | Uint8Array): string {
   return createHash("sha256").update(buffer).digest("hex");
@@ -15,6 +15,16 @@ export function normalizePhone(raw: string | null | undefined): string | null {
   return `+${digits}`;
 }
 
+export function normalizeLinkedInUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let url = raw.trim();
+  if (!url) return null;
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url}`;
+  }
+  return url.replace(/\/+$/, "");
+}
+
 export interface CandidateInput {
   full_name: string;
   email?: string | null;
@@ -22,6 +32,7 @@ export interface CandidateInput {
   linkedin_url?: string | null;
   city?: string | null;
   state?: string | null;
+  current_job_title?: string | null;
   current_role?: string | null;
   current_company?: string | null;
   area?: string | null;
@@ -36,8 +47,8 @@ export interface CandidateInput {
 }
 
 /**
- * Deduplicação robusta de candidatos por e-mail normalizado, telefone E.164 ou contact_id.
- * Impede duplicação óbvia de registros no banco.
+ * Deduplicação robusta e race-safe de candidatos por e-mail normalizado, telefone E.164 ou contact_id.
+ * Em caso de colisão concorrente (23505), recupera o registro vencedor sem explodir a requisição.
  */
 export async function getOrCreateCandidate(
   supabase: SupabaseClient,
@@ -46,8 +57,9 @@ export async function getOrCreateCandidate(
 ): Promise<{ candidate: Candidate; created: boolean }> {
   const normEmail = input.email ? input.email.trim().toLowerCase() : null;
   const normPhone = input.phone_e164 ? normalizePhone(input.phone_e164) : null;
+  const normLinkedIn = normalizeLinkedInUrl(input.linkedin_url);
 
-  // 1. Busca por e-mail normalizado
+  // 1. Busca prévia por e-mail normalizado
   if (normEmail) {
     const { data: byEmail } = await supabase
       .from("vertice_candidates")
@@ -61,7 +73,7 @@ export async function getOrCreateCandidate(
     }
   }
 
-  // 2. Busca por telefone E.164
+  // 2. Busca prévia por telefone E.164
   if (normPhone) {
     const { data: byPhone } = await supabase
       .from("vertice_candidates")
@@ -75,7 +87,7 @@ export async function getOrCreateCandidate(
     }
   }
 
-  // 3. Busca por contact_id
+  // 3. Busca prévia por contact_id
   if (input.contact_id) {
     const { data: byContact } = await supabase
       .from("vertice_candidates")
@@ -89,16 +101,16 @@ export async function getOrCreateCandidate(
     }
   }
 
-  // 4. Criação do novo candidato
+  // 4. Montagem do payload de criação com current_job_title
   const payload = {
     organization_id: organizationId,
     full_name: input.full_name.trim(),
     email: normEmail,
     phone_e164: normPhone,
-    linkedin_url: input.linkedin_url?.trim() || null,
+    linkedin_url: normLinkedIn,
     city: input.city?.trim() || null,
     state: input.state?.trim() || null,
-    current_role: input.current_role?.trim() || null,
+    current_job_title: (input.current_job_title ?? input.current_role)?.trim() || null,
     current_company: input.current_company?.trim() || null,
     area: input.area?.trim() || null,
     seniority: input.seniority?.trim() || null,
@@ -117,8 +129,42 @@ export async function getOrCreateCandidate(
     .select("*")
     .single();
 
-  if (error || !created) {
-    throw new Error(`Erro ao criar candidato: ${error?.message || "Registro não retornado"}`);
+  if (error) {
+    // Tratamento de corrida concorrente: unique_violation (23505)
+    if (error.code === "23505") {
+      if (normEmail) {
+        const { data: retryEmail } = await supabase
+          .from("vertice_candidates")
+          .select("*")
+          .eq("organization_id", organizationId)
+          .eq("email_normalized", normEmail)
+          .maybeSingle();
+        if (retryEmail) return { candidate: retryEmail as Candidate, created: false };
+      }
+      if (normPhone) {
+        const { data: retryPhone } = await supabase
+          .from("vertice_candidates")
+          .select("*")
+          .eq("organization_id", organizationId)
+          .eq("phone_e164", normPhone)
+          .maybeSingle();
+        if (retryPhone) return { candidate: retryPhone as Candidate, created: false };
+      }
+      if (input.contact_id) {
+        const { data: retryContact } = await supabase
+          .from("vertice_candidates")
+          .select("*")
+          .eq("organization_id", organizationId)
+          .eq("contact_id", input.contact_id)
+          .maybeSingle();
+        if (retryContact) return { candidate: retryContact as Candidate, created: false };
+      }
+    }
+    throw new Error(`Erro ao criar candidato: ${error.message || "Registro não retornado"}`);
+  }
+
+  if (!created) {
+    throw new Error("Erro ao criar candidato: registro não retornado.");
   }
 
   return { candidate: created as Candidate, created: true };

@@ -73,7 +73,7 @@ export async function PATCH(
     return fail("update_failed", error?.message || "Erro ao atualizar empresa.", 500);
   }
 
-  audit({
+  await audit({
     action: "people.company_updated",
     actorUserId: authz.user.id,
     organizationId: authz.org.orgId,
@@ -107,6 +107,14 @@ export async function DELETE(
   if (error) {
     return fail("delete_failed", error.message, 500);
   }
+
+  await audit({
+    action: "people.company_deleted",
+    actorUserId: authz.user.id,
+    organizationId: authz.org.orgId,
+    resourceType: "client_company",
+    resourceId: id,
+  });
 
   return ok({ deleted: true, id });
 }

@@ -52,7 +52,9 @@ export interface Candidate {
   linkedin_url: string | null;
   city: string | null;
   state: string | null;
-  current_role: string | null;
+  current_job_title: string | null;
+  /** @deprecated Utilizar current_job_title */
+  current_role?: string | null;
   current_company: string | null;
   area: string | null;
   seniority: string | null;

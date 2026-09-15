@@ -194,7 +194,7 @@ export function PipelineClient() {
                                   </div>
 
                                   <div className="text-xs text-muted-foreground line-clamp-1">
-                                    {app.candidate?.current_role ?? t("Sem cargo")}
+                                    {app.candidate?.current_job_title ?? app.candidate?.current_role ?? t("Sem cargo")}
                                   </div>
 
                                   <div className="pt-1.5 border-t border-border/40 flex flex-col gap-1 text-[11px] text-muted-foreground">

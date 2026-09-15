@@ -541,11 +541,14 @@ export const AUDIT_ACTIONS = [
   // Domínio Vértice People & B2B (Fase 4.2)
   "people.company_created",
   "people.company_updated",
+  "people.company_deleted",
   "people.candidate_created",
   "people.candidate_updated",
+  "people.candidate_deleted",
   "people.resume_uploaded",
   "people.job_created",
   "people.job_updated",
+  "people.job_deleted",
   "people.application_created",
   "people.application_stage_changed",
 ] as const;

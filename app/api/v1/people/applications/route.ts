@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createClient();
 
-  // 1. Validar que a Vaga pertence à organização e está aberta
+  // 1. Validar que a Vaga pertence à organização e está rigorosamente 'open'
   const { data: job } = await supabase
     .from("vertice_job_openings")
     .select("id, status")
@@ -92,11 +92,15 @@ export async function POST(req: NextRequest) {
     return fail("job_not_found", "Vaga não encontrada na organização.", 404);
   }
 
-  if (job.status === "closed" || job.status === "cancelled") {
-    return fail("job_closed", "Não é permitido adicionar candidaturas a uma vaga fechada ou cancelada.", 400);
+  if (job.status !== "open") {
+    return fail(
+      "job_not_open",
+      `Candidaturas só podem ser criadas para vagas abertas (status atual: '${job.status}').`,
+      422
+    );
   }
 
-  // 2. Validar que o Candidato pertence à organização
+  // 2. Validar que o Candidato pertence à mesma organização
   const { data: candidate } = await supabase
     .from("vertice_candidates")
     .select("id, status")
@@ -120,13 +124,37 @@ export async function POST(req: NextRequest) {
     return fail("already_applied", "Candidato já está inscrito nesta vaga.", 409);
   }
 
-  // 4. Se não forneceu resume_id, pegar o currículo atual do candidato
+  // 4. Validar titularidade do currículo (Resume Ownership)
   let resumeId = parsed.data.resume_id || null;
-  if (!resumeId) {
+
+  if (resumeId) {
+    const { data: resumeCheck } = await supabase
+      .from("vertice_candidate_resumes")
+      .select("id, candidate_id, organization_id")
+      .eq("id", resumeId)
+      .maybeSingle();
+
+    if (!resumeCheck) {
+      return fail("resume_not_found", "Currículo informado não foi encontrado.", 404);
+    }
+
+    if (
+      resumeCheck.organization_id !== authz.org.orgId ||
+      resumeCheck.candidate_id !== parsed.data.candidate_id
+    ) {
+      return fail(
+        "resume_ownership_mismatch",
+        "O currículo informado não pertence a este candidato ou à mesma organização.",
+        422
+      );
+    }
+  } else {
+    // Se não fornecido, puxa o currículo ativo (is_current) do candidato
     const { data: currentResume } = await supabase
       .from("vertice_candidate_resumes")
       .select("id")
       .eq("candidate_id", parsed.data.candidate_id)
+      .eq("organization_id", authz.org.orgId)
       .eq("is_current", true)
       .maybeSingle();
 
@@ -156,7 +184,7 @@ export async function POST(req: NextRequest) {
     return fail("database_error", insertError?.message || "Erro ao criar candidatura", 500);
   }
 
-  audit({
+  await audit({
     action: "people.application_created",
     actorUserId: authz.user.id,
     organizationId: authz.org.orgId,

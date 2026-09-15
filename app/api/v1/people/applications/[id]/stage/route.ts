@@ -34,7 +34,7 @@ export async function PATCH(
 
   const supabase = await createClient();
 
-  // Validar se a candidatura pertence à organização
+  // Validar se a candidatura pertence à organização (identidade candidate_id e job_opening_id imutáveis)
   const { data: currentApp } = await supabase
     .from("vertice_job_applications")
     .select("id, stage, candidate_id, job_opening_id")
@@ -64,7 +64,7 @@ export async function PATCH(
     return fail("update_failed", error?.message || "Erro ao atualizar estágio.", 500);
   }
 
-  audit({
+  await audit({
     action: "people.application_stage_changed",
     actorUserId: authz.user.id,
     organizationId: authz.org.orgId,

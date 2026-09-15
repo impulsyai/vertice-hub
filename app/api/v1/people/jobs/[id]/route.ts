@@ -58,8 +58,8 @@ export async function PATCH(
 
   const supabase = await createClient();
 
-  // Tratamento de closed_at e opened_at
-  const payload: Record<string, any> = {
+  // Tratamento de closed_at e opened_at com Record<string, unknown> (sem any)
+  const payload: Record<string, unknown> = {
     ...parsed.data,
     updated_at: new Date().toISOString(),
   };
@@ -82,7 +82,7 @@ export async function PATCH(
     return fail("update_failed", error?.message || "Erro ao atualizar vaga.", 500);
   }
 
-  audit({
+  await audit({
     action: "people.job_updated",
     actorUserId: authz.user.id,
     organizationId: authz.org.orgId,
@@ -116,6 +116,14 @@ export async function DELETE(
   if (error) {
     return fail("delete_failed", error.message, 500);
   }
+
+  await audit({
+    action: "people.job_deleted",
+    actorUserId: authz.user.id,
+    organizationId: authz.org.orgId,
+    resourceType: "vertice_job_opening",
+    resourceId: id,
+  });
 
   return ok({ deleted: true, id });
 }

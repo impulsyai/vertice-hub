@@ -141,7 +141,7 @@ export function CandidaturasClient() {
                       >
                         {app.candidate?.full_name ?? t("Candidato")}
                       </Link>
-                      <span className="text-xs text-muted-foreground">{app.candidate?.current_role ?? "—"}</span>
+                      <span className="text-xs text-muted-foreground">{app.candidate?.current_job_title ?? app.candidate?.current_role ?? "—"}</span>
                     </td>
                     <td className="p-4">
                       <Link

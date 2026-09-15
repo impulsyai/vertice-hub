@@ -158,7 +158,7 @@ export function VagaDetalheClient({ id }: { id: string }) {
                           <ArrowSquareOut className="h-3 w-3" />
                         </Link>
                         <div className="text-xs text-muted-foreground">
-                          {app.candidate?.current_role ?? "—"}
+                          {app.candidate?.current_job_title ?? app.candidate?.current_role ?? "—"}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -271,7 +271,7 @@ function AddCandidateToJobDialog({
               <SelectContent>
                 {candidates.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.full_name} ({c.current_role ?? t("Sem cargo")})
+                    {c.full_name} ({c.current_job_title ?? c.current_role ?? t("Sem cargo")})
                   </SelectItem>
                 ))}
               </SelectContent>

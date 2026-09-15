@@ -5,8 +5,14 @@ import { requireRole } from "@/lib/auth/require-role";
 import { requireSupportWrite } from "@/lib/impersonate/support";
 import { createClient } from "@/lib/supabase/server";
 import { createCompanySchema } from "@/lib/people/schemas";
+import type { ClientCompany } from "@/lib/people/types";
 
 export const dynamic = "force-dynamic";
+
+interface CompanyDbRow extends ClientCompany {
+  contacts?: unknown[];
+  jobs?: Array<{ status?: string }>;
+}
 
 export async function GET(req: NextRequest) {
   const authz = await requireRole("viewer");
@@ -29,7 +35,9 @@ export async function GET(req: NextRequest) {
     .range(offset, offset + limit - 1);
 
   if (search) {
-    query = query.or(`legal_name.ilike.%${search}%,trade_name.ilike.%${search}%,city.ilike.%${search}%,industry.ilike.%${search}%`);
+    query = query.or(
+      `legal_name.ilike.%${search}%,trade_name.ilike.%${search}%,city.ilike.%${search}%,industry.ilike.%${search}%`
+    );
   }
   if (status) {
     query = query.eq("status", status);
@@ -41,10 +49,14 @@ export async function GET(req: NextRequest) {
     return fail("database_error", error.message, 500);
   }
 
-  const companies = (data || []).map((c: any) => ({
+  const rows = (data || []) as unknown as CompanyDbRow[];
+
+  const companies = rows.map((c) => ({
     ...c,
     contacts_count: Array.isArray(c.contacts) ? c.contacts.length : 0,
-    open_jobs_count: Array.isArray(c.jobs) ? c.jobs.filter((j: any) => j.status === "open").length : 0,
+    open_jobs_count: Array.isArray(c.jobs)
+      ? c.jobs.filter((j) => j.status === "open").length
+      : 0,
   }));
 
   return ok({
@@ -93,7 +105,7 @@ export async function POST(req: NextRequest) {
     return fail("database_error", error?.message || "Erro ao criar empresa", 500);
   }
 
-  audit({
+  await audit({
     action: "people.company_created",
     actorUserId: authz.user.id,
     organizationId: authz.org.orgId,

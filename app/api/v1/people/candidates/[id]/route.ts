@@ -20,7 +20,9 @@ export async function GET(
 
   const { data: candidate, error } = await supabase
     .from("vertice_candidates")
-    .select("*, resumes:vertice_candidate_resumes(*), applications:vertice_job_applications(*, job:vertice_job_openings(*, company:client_companies(*)))")
+    .select(
+      "*, resumes:vertice_candidate_resumes(*), applications:vertice_job_applications(*, job:vertice_job_openings(*, company:client_companies(*)))"
+    )
     .eq("id", id)
     .eq("organization_id", authz.org.orgId)
     .single();
@@ -58,12 +60,18 @@ export async function PATCH(
 
   const supabase = await createClient();
 
+  const updatePayload: Record<string, unknown> = {
+    ...parsed.data,
+    updated_at: new Date().toISOString(),
+  };
+
+  if ("current_role" in parsed.data && !("current_job_title" in parsed.data)) {
+    updatePayload.current_job_title = parsed.data.current_role;
+  }
+
   const { data: updated, error } = await supabase
     .from("vertice_candidates")
-    .update({
-      ...parsed.data,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq("id", id)
     .eq("organization_id", authz.org.orgId)
     .select()
@@ -73,7 +81,7 @@ export async function PATCH(
     return fail("update_failed", error?.message || "Erro ao atualizar candidato.", 500);
   }
 
-  audit({
+  await audit({
     action: "people.candidate_updated",
     actorUserId: authz.user.id,
     organizationId: authz.org.orgId,
@@ -107,6 +115,14 @@ export async function DELETE(
   if (error) {
     return fail("delete_failed", error.message, 500);
   }
+
+  await audit({
+    action: "people.candidate_deleted",
+    actorUserId: authz.user.id,
+    organizationId: authz.org.orgId,
+    resourceType: "vertice_candidate",
+    resourceId: id,
+  });
 
   return ok({ deleted: true, id });
 }

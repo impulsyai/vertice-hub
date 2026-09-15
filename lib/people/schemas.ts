@@ -50,6 +50,7 @@ export const createCandidateSchema = z.object({
   linkedin_url: z.string().trim().url("URL inválida").max(255).nullable().optional().or(z.literal("")),
   city: z.string().trim().max(100).nullable().optional(),
   state: z.string().trim().max(50).nullable().optional(),
+  current_job_title: z.string().trim().max(150).nullable().optional(),
   current_role: z.string().trim().max(150).nullable().optional(),
   current_company: z.string().trim().max(150).nullable().optional(),
   area: z.string().trim().max(100).nullable().optional(),

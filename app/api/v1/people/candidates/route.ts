@@ -6,8 +6,13 @@ import { requireSupportWrite } from "@/lib/impersonate/support";
 import { createClient } from "@/lib/supabase/server";
 import { createCandidateSchema } from "@/lib/people/schemas";
 import { getOrCreateCandidate } from "@/lib/people/services";
+import type { Candidate, CandidateResume } from "@/lib/people/types";
 
 export const dynamic = "force-dynamic";
+
+interface CandidateDbRow extends Omit<Candidate, "current_resume"> {
+  current_resume?: CandidateResume[] | CandidateResume | null;
+}
 
 export async function GET(req: NextRequest) {
   const authz = await requireRole("viewer");
@@ -33,7 +38,9 @@ export async function GET(req: NextRequest) {
     .range(offset, offset + limit - 1);
 
   if (search) {
-    query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,current_role.ilike.%${search}%,current_company.ilike.%${search}%`);
+    query = query.or(
+      `full_name.ilike.%${search}%,email.ilike.%${search}%,current_job_title.ilike.%${search}%,current_company.ilike.%${search}%`
+    );
   }
   if (status) {
     query = query.eq("status", status);
@@ -54,10 +61,16 @@ export async function GET(req: NextRequest) {
     return fail("database_error", error.message, 500);
   }
 
+  const rows = (data || []) as unknown as CandidateDbRow[];
+
   // Filtrar apenas o resumo marcado como is_current para cada candidato
-  const candidates = (data || []).map((cand: any) => {
-    const resumes = Array.isArray(cand.current_resume) ? cand.current_resume : [];
-    const activeResume = resumes.find((r: any) => r.is_current) || resumes[0] || null;
+  const candidates: Candidate[] = rows.map((cand) => {
+    const resumes = Array.isArray(cand.current_resume)
+      ? cand.current_resume
+      : cand.current_resume
+        ? [cand.current_resume]
+        : [];
+    const activeResume = resumes.find((r) => r.is_current) || resumes[0] || null;
     return { ...cand, current_resume: activeResume };
   });
 
@@ -100,7 +113,7 @@ export async function POST(req: NextRequest) {
       parsed.data,
     );
 
-    audit({
+    await audit({
       action: "people.candidate_created",
       actorUserId: authz.user.id,
       organizationId: authz.org.orgId,
@@ -110,7 +123,8 @@ export async function POST(req: NextRequest) {
     });
 
     return ok(candidate, { status: created ? 201 : 200 });
-  } catch (err: any) {
-    return fail("creation_failed", err.message || "Erro ao salvar candidato", 500);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erro ao salvar candidato";
+    return fail("creation_failed", message, 500);
   }
 }

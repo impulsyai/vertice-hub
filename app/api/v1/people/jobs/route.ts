@@ -5,8 +5,13 @@ import { requireRole } from "@/lib/auth/require-role";
 import { requireSupportWrite } from "@/lib/impersonate/support";
 import { createClient } from "@/lib/supabase/server";
 import { createJobSchema } from "@/lib/people/schemas";
+import type { JobOpening } from "@/lib/people/types";
 
 export const dynamic = "force-dynamic";
+
+interface JobDbRow extends JobOpening {
+  applications?: Array<{ id: string; stage: string }>;
+}
 
 export async function GET(req: NextRequest) {
   const authz = await requireRole("viewer");
@@ -49,12 +54,20 @@ export async function GET(req: NextRequest) {
     return fail("database_error", error.message, 500);
   }
 
-  const jobs = (data || []).map((j: any) => {
+  const rows = (data || []) as unknown as JobDbRow[];
+
+  const jobs = rows.map((j) => {
     const apps = Array.isArray(j.applications) ? j.applications : [];
     return {
       ...j,
       applications_count: apps.length,
-      shortlist_count: apps.filter((a: any) => a.stage === "shortlist" || a.stage === "client_interview" || a.stage === "finalist" || a.stage === "approved").length,
+      shortlist_count: apps.filter(
+        (a) =>
+          a.stage === "shortlist" ||
+          a.stage === "client_interview" ||
+          a.stage === "finalist" ||
+          a.stage === "approved"
+      ).length,
     };
   });
 
@@ -90,7 +103,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createClient();
 
-  // Validar se a empresa pertence à organização
+  // Validar se a empresa pertence à organização (mesmo tenant)
   const { data: company } = await supabase
     .from("client_companies")
     .select("id")
@@ -117,7 +130,7 @@ export async function POST(req: NextRequest) {
     return fail("database_error", error?.message || "Erro ao criar vaga", 500);
   }
 
-  audit({
+  await audit({
     action: "people.job_created",
     actorUserId: authz.user.id,
     organizationId: authz.org.orgId,

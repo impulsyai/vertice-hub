@@ -267,9 +267,8 @@ export const NAV_CATALOG = [
     label: "Empresas",
     description: "Empresas clientes B2B, contatos vinculados e posições abertas.",
     icon: "Buildings",
-    group: "crm",
-    section: "O dia a dia da venda",
-    sidebar: true,
+    group: "recrutamento",
+    section: "Contas e Clientes",
   },
 
   // ---- Recrutamento — R&S e Banco de Talentos ----

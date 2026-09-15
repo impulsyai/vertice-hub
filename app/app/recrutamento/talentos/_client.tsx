@@ -177,7 +177,7 @@ export function TalentosClient() {
                     <span className="text-xs text-muted-foreground">{c.email ?? c.phone_e164 ?? "—"}</span>
                   </td>
                   <td className="p-3.5">
-                    <div className="text-foreground">{c.current_role ?? "—"}</div>
+                    <div className="text-foreground">{c.current_job_title ?? c.current_role ?? "—"}</div>
                     {c.current_company && (
                       <div className="text-xs text-muted-foreground">{c.current_company}</div>
                     )}
@@ -262,7 +262,7 @@ function NewCandidateDialog({ open, onOpenChange }: { open: boolean; onOpenChang
     email?: string;
     phone_e164?: string;
     linkedin_url?: string;
-    current_role?: string;
+    current_job_title?: string;
     current_company?: string;
     area?: string;
     seniority?: string;
@@ -276,7 +276,7 @@ function NewCandidateDialog({ open, onOpenChange }: { open: boolean; onOpenChang
     email?: string;
     phone_e164?: string;
     linkedin_url?: string;
-    current_role?: string;
+    current_job_title?: string;
     current_company?: string;
     area?: string;
     seniority?: string;
@@ -290,7 +290,7 @@ function NewCandidateDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         email: data.email || undefined,
         phone_e164: data.phone_e164 || undefined,
         linkedin_url: data.linkedin_url || undefined,
-        current_role: data.current_role || undefined,
+        current_job_title: data.current_job_title || undefined,
         current_company: data.current_company || undefined,
         area: data.area || undefined,
         seniority: data.seniority || undefined,
@@ -335,8 +335,8 @@ function NewCandidateDialog({ open, onOpenChange }: { open: boolean; onOpenChang
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="current_role">{t("Cargo Atual")}</Label>
-              <Input id="current_role" placeholder={t("ex: Gerente de Operações")} {...register("current_role")} />
+              <Label htmlFor="current_job_title">{t("Cargo Atual")}</Label>
+              <Input id="current_job_title" placeholder={t("ex: Gerente de Operações")} {...register("current_job_title")} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="current_company">{t("Empresa Atual")}</Label>
