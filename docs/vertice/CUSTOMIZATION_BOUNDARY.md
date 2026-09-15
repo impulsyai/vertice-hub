@@ -12,23 +12,25 @@ Todo código específico de Recrutamento & Seleção (R&S) e Empresas B2B deve r
 ## 2. Mapa de Arquitetura e Diretórios
 
 ### 2.1. Arquivos Core Tocados (Strict Touch Budget)
-Somente pontos canônicos de registro do Deskcomm são alterados:
+Somente pontos canônicos de registro e testes de governança do Deskcomm foram alterados:
 - `lib/navigation/catalogo.ts`: Registro do grupo `recrutamento` e rotas no `NAV_CATALOG`.
 - `lib/navigation/registry.ts`: Exportações e ícones da interface.
+- `lib/ui/icons.ts`: Exportação canônica dos ícones `User`, `ArrowLeft`, `Briefcase`, `EnvelopeSimple`, `LinkedinLogo`.
 - `lib/i18n/dicionario.ts`: Dicionário bilíngue para novos rótulos de navegação (obrigatório para aprovação em `tests/unit/idioma-da-interface.test.ts`).
 - `lib/audit/actions.ts`: Adição de códigos canônicos de auditoria `people.*`.
-- `supabase/baseline.sql`: Espelhamento idempotente das novas tabelas e policies.
+- `supabase/baseline.sql`: Espelhamento idempotente das novas tabelas e policies (posicionado antes do bloco de varredura anon).
+- `tests/unit/sidebar-grupos.test.tsx`: Inclusão do grupo `Recrutamento` na ordem de títulos da Sidebar.
+- `tests/invariants/rls-completude-varredura.test.ts`: Registro das 6 tabelas de People em `PROVA_PROPRIA`.
 
 ### 2.2. Módulos Isolados (Novos Arquivos)
-- **Domínio & Serviços People:** `lib/people/` (tipos, schemas Zod, deduplicação, hash SHA-256 e transições de pipeline).
+- **Domínio & Serviços People:** `lib/people/` (`types.ts`, `schemas.ts`, `services.ts`, `client-hooks.ts`).
 - **Rotas de API:** `app/api/v1/people/` (`candidates/`, `resumes/`, `jobs/`, `applications/`, `companies/`).
 - **Páginas do App:**
-  - `app/app/recrutamento/` (`talentos/`, `curriculos/`, `vagas/`, `candidaturas/`, `pipeline/`, `page.tsx`).
-  - `app/app/empresas/` (`page.tsx`, `_client.tsx`).
-- **Componentes UI:** `components/people/` (tabelas, cards, dialogs, kanban especializado).
+  - `app/app/recrutamento/` (`page.tsx`, `talentos/`, `curriculos/`, `vagas/`, `candidaturas/`, `pipeline/`).
+  - `app/app/crm/empresas/` (`page.tsx`, `_client.tsx`).
 - **Migração do Banco de Dados:** `supabase/migrations/20260915120000_0257_vertice_people_foundation.sql`.
 - **Testes de Invariantes & RLS:** `tests/invariants/people-rls-isolation.test.ts`.
-- **Documentação Especializada:** `docs/vertice/`.
+- **Documentação Especializada:** `docs/vertice/` (`PEOPLE_ARCHITECTURE.md`, `PEOPLE_DATA_MODEL.md`, `PEOPLE_SECURITY.md`).
 
 ---
 

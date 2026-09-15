@@ -45,7 +45,8 @@ git push origin sync/upstream-v1.26.0
 # 7. Merge para main e publicação de Release
 git checkout main
 git merge sync/upstream-v1.26.0
-git tag v1.26.0-vertice.1 -m "Release Vértice Hub v1.26.0-vertice.1"
+# Nota: tags NUNCA usam hífen (ex: NÃO usar v1.26.0-vertice.1), pois ultima_versao_publicada() filtra com grep -v -- '-'
+git tag v1.26.0 -m "Release Vértice Hub v1.26.0 (base upstream v1.25.1 + People Foundation)"
 git push origin main --tags
 ```
 
