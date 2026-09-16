@@ -196,6 +196,27 @@ describe("cascadeRedactContact — foto de perfil", () => {
 });
 
 describe("drainStorageRedactionQueue — o arquivo sai do bucket", () => {
+  it("recusa path de outro tenant antes de chamar o Storage com service_role", async () => {
+    filaPendente = [
+      {
+        id: "fila-cross-tenant",
+        organization_id: ORG,
+        bucket: "candidate-resumes",
+        object_path: "99999999-9999-4999-8999-999999999999/candidato/arquivo.pdf",
+        attempts: 0,
+      },
+    ];
+
+    const stats = await drainStorageRedactionQueue({ limit: 10 });
+
+    expect(removes).toEqual([]);
+    expect(stats).toMatchObject({ attempted: 1, failed: 1, deleted: 0 });
+    expect(updates.find((u) => u.tabela === "storage_redaction_queue")?.patch).toMatchObject({
+      status: "failed",
+      error_message: "invalid_storage_scope",
+    });
+  });
+
   it("remove o objeto do bucket e marca a linha como deleted", async () => {
     // "Enfileirou" não é "removeu". Este é o teste que cobra a diferença.
     filaPendente = [

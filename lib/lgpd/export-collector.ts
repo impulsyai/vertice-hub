@@ -90,6 +90,28 @@ export interface ActivityRow {
   performed_at: string;
 }
 
+/** Perfil profissional People ligado ao contato titular. */
+export interface CandidateRow {
+  id: string;
+  full_name: string;
+  email: string | null;
+  phone_e164: string | null;
+  linkedin_url: string | null;
+  city: string | null;
+  state: string | null;
+  current_job_title: string | null;
+  current_company: string | null;
+  area: string | null;
+  seniority: string | null;
+  expected_salary: number | null;
+  availability: string | null;
+  status: string;
+  source: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /**
  * Compromisso da agenda do titular.
  *
@@ -233,6 +255,8 @@ export interface ExportPayload {
   leads: LeadRow[];
   orders: OrderRow[];
   activities: ActivityRow[];
+  /** Perfil People quando o schema da organização possui vínculo com o contato. */
+  candidates?: CandidateRow[];
   appointments: AppointmentRow[];
   tasks: TaskRow[];
   webhook_captures: CaptureRow[];
@@ -380,6 +404,30 @@ export async function collectExportData(args: CollectArgs): Promise<ExportPayloa
         created_at: data.created_at,
         last_activity_at: data.last_activity_at ?? null,
       };
+    }
+  }
+
+  // People — perfil profissional diretamente ligado ao contato titular.
+  // A anonimização redige estes campos; o pedido de acesso precisa exportar a
+  // mesma superfície antes da redação.
+  let candidates: CandidateRow[] = [];
+  if (contactId) {
+    const { data, error } = await admin
+      .from("vertice_candidates")
+      .select(
+        "id, full_name, email, phone_e164, linkedin_url, city, state, current_job_title, current_company, area, seniority, expected_salary, availability, status, source, notes, created_at, updated_at",
+      )
+      .eq("organization_id", organizationId)
+      .eq("contact_id", contactId)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) {
+      logger.error("[lgpd-export-worker] candidates load failed", {
+        request_id: requestId,
+      });
+      throw new Error("lgpd_export_candidates_failed");
+    } else if (data) {
+      candidates = data as CandidateRow[];
     }
   }
 
@@ -790,7 +838,8 @@ export async function collectExportData(args: CollectArgs): Promise<ExportPayloa
     organization_display_name: controlador.display_name,
     dpo_email: controlador.dpo_email,
     generated_at: new Date().toISOString(),
-    no_local_footprint: !contact && conversations.length === 0 && orders.length === 0,
+    no_local_footprint:
+      !contact && candidates.length === 0 && conversations.length === 0 && orders.length === 0,
     contact,
     consents,
     conversations,
@@ -799,6 +848,7 @@ export async function collectExportData(args: CollectArgs): Promise<ExportPayloa
     leads,
     orders,
     activities,
+    candidates,
     appointments,
     tasks,
     webhook_captures,
@@ -831,6 +881,7 @@ function emptyPayload(
     leads: [],
     orders: [],
     activities: [],
+    candidates: [],
     appointments: [],
     tasks: [],
     webhook_captures: [],

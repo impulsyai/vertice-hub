@@ -67,6 +67,15 @@ const ANON_PERMITIDO: readonly Excecao[] = [];
  */
 const AUTHENTICATED_PERMITIDO: readonly Excecao[] = [
   {
+    fn: "fn_register_candidate_resume(uuid,uuid,text,text,text,bigint,text,text,text,text)",
+    razao:
+      "POST app/api/v1/people/resumes/route.ts usa createClient da sessão e delega a " +
+      "lib/people/resume-registration.ts. A RPC recusa UID nulo, exige agent+ via " +
+      "fn_role_at_least, trava candidato da organização e valida SHA, tamanho, MIME e path. " +
+      "tests/invariants/people-rls-isolation.test.ts prova agent A, usuário B cross-tenant, " +
+      "viewer, anon, UID nulo e service_role sem efeitos laterais.",
+  },
+  {
     fn: "fn_reply_action(uuid,uuid,text,text,text,text)",
     razao:
       "POST app/api/v1/ai/replies/[id]/route.ts usa createClient da sessão. " +

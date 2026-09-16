@@ -25513,12 +25513,11 @@ create trigger trg_sync_candidate_status_on_application
 notify pgrst, 'reload schema';
 
 
--- ---- VARREDURA anon: função nova nasce exposta em quem ATUALIZA (migration 0116) ----
+-- ---- PRÉ-VARREDURA histórica (migration 0116; a varredura final está no EOF) ----
 --
--- ⚠️ ESTE BLOCO É, DE PROPÓSITO, O ÚLTIMO DO ARQUIVO. Apêndice novo entra ANTES
-
--- dele — quem o empurrar para o meio desarma a cura para tudo que vier depois.
--- Vigiado por `tests/unit/varredura-anon-e-o-ultimo-bloco.test.ts`.
+-- Este bloco histórico permanece idempotente para quem atualiza estados antigos.
+-- A varredura canônica é repetida no EOF, depois de todos os apêndices, e é ela
+-- que `tests/unit/varredura-anon-e-o-ultimo-bloco.test.ts` vigia.
 --
 -- A 0108 revogou anon numa LISTA de 8 funções, medida num banco instalado do
 -- ZERO. Quem ATUALIZA tem outro estado: o `ALTER DEFAULT PRIVILEGES ... GRANT
@@ -25539,6 +25538,99 @@ notify pgrst, 'reload schema';
 -- `revoke from public` não remove; e grant a PUBLIC, do qual anon HERDA, que
 -- `revoke from anon` não remove. O privilégio EFETIVO de authenticated e
 -- service_role é medido ANTES e devolvido depois — tira anon sem tirar leitura.
+-- 0258 final state: one backend-generated object key per upload attempt.
+drop policy if exists tenant_delete_unreferenced_candidate_resumes on storage.objects;
+drop function if exists public.fn_claim_candidate_resume_cleanup(text, uuid);
+drop function if exists public.fn_release_candidate_resume_cleanup(text, uuid);
+drop function if exists public.fn_can_delete_candidate_resume_object(text);
+drop table if exists public.vertice_resume_cleanup_claims cascade;
+
+create or replace function public.fn_register_candidate_resume(
+  p_org_id uuid, p_candidate_id uuid, p_storage_path text, p_original_filename text,
+  p_mime_type text, p_file_size_bytes bigint, p_sha256 text,
+  p_source_type text default 'manual', p_source_mailbox text default null,
+  p_source_message_id text default null
+)
+returns jsonb language plpgsql security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_existing_id uuid;
+  v_existing_path text;
+  v_extension text;
+  v_expected_prefix text;
+  v_new_resume public.vertice_candidate_resumes%rowtype;
+begin
+  if auth.uid() is null then raise exception 'Authentication required' using errcode = '42501'; end if;
+  if not public.fn_role_at_least(p_org_id, 'agent') then raise exception 'Insufficient role for organization' using errcode = '42501'; end if;
+  perform 1 from public.vertice_candidates where id = p_candidate_id and organization_id = p_org_id for update;
+  if not found then raise exception 'Candidate not found in organization' using errcode = 'P0002'; end if;
+  if p_sha256 is null or p_sha256 !~ '^[0-9a-f]{64}$' then raise exception 'Invalid SHA-256' using errcode = '22023'; end if;
+  if p_file_size_bytes is null or p_file_size_bytes <= 0 or p_file_size_bytes > 15728640 then raise exception 'Invalid resume size' using errcode = '22023'; end if;
+  v_extension := case p_mime_type
+    when 'application/pdf' then 'pdf'
+    when 'application/msword' then 'doc'
+    when 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' then 'docx'
+    else null
+  end;
+  if v_extension is null then raise exception 'Invalid resume MIME type' using errcode = '22023'; end if;
+  if nullif(btrim(p_original_filename), '') is null or lower(p_original_filename) !~ ('[.]' || v_extension || '$') then raise exception 'Invalid original filename' using errcode = '22023'; end if;
+  select id, storage_path into v_existing_id, v_existing_path from public.vertice_candidate_resumes
+   where organization_id = p_org_id and candidate_id = p_candidate_id and sha256 = p_sha256 limit 1;
+  v_expected_prefix := p_org_id::text || '/' || p_candidate_id::text || '/';
+  if p_storage_path is null or (p_storage_path <> coalesce(v_existing_path, '') and p_storage_path !~ ('^' || v_expected_prefix || '[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}[.]' || v_extension || '$')) then
+    raise exception 'Invalid resume storage path' using errcode = '22023';
+  end if;
+  if not exists (select 1 from storage.objects o where o.bucket_id = 'candidate-resumes' and o.name = p_storage_path) then raise exception 'Resume object not found in storage' using errcode = 'P0002'; end if;
+  if v_existing_id is not null then
+    update public.vertice_candidate_resumes set is_current = false, updated_at = now() where organization_id = p_org_id and candidate_id = p_candidate_id and id <> v_existing_id and is_current = true;
+    update public.vertice_candidate_resumes set is_current = true, updated_at = now() where organization_id = p_org_id and candidate_id = p_candidate_id and id = v_existing_id returning * into v_new_resume;
+    return jsonb_build_object('resume', to_jsonb(v_new_resume), 'deduplicated', true);
+  end if;
+  update public.vertice_candidate_resumes set is_current = false, updated_at = now() where organization_id = p_org_id and candidate_id = p_candidate_id and is_current = true;
+  insert into public.vertice_candidate_resumes (organization_id, candidate_id, storage_path, original_filename, mime_type, file_size_bytes, sha256, source_type, source_mailbox, source_message_id, is_current)
+  values (p_org_id, p_candidate_id, p_storage_path, p_original_filename, p_mime_type, p_file_size_bytes, p_sha256, coalesce(p_source_type, 'manual'), p_source_mailbox, p_source_message_id, true)
+  returning * into v_new_resume;
+  return jsonb_build_object('resume', to_jsonb(v_new_resume), 'deduplicated', false);
+end;
+$$;
+
+revoke execute on function public.fn_register_candidate_resume(uuid, uuid, text, text, text, bigint, text, text, text, text) from public, anon, service_role;
+grant execute on function public.fn_register_candidate_resume(uuid, uuid, text, text, text, bigint, text, text, text, text) to authenticated;
+create unique index if not exists vertice_candidate_resumes_storage_path_key on public.vertice_candidate_resumes (storage_path);
+revoke insert, update, delete on public.vertice_candidate_resumes from authenticated;
+grant select on public.vertice_candidate_resumes to authenticated;
+
+alter function public.fn_check_job_is_open_on_application() set search_path = public, pg_temp;
+alter function public.fn_ensure_candidate_contact_same_org() set search_path = public, pg_temp;
+alter function public.fn_ensure_client_company_contact_same_org() set search_path = public, pg_temp;
+alter function public.fn_prevent_application_identity_change() set search_path = public, pg_temp;
+alter function public.fn_sync_candidate_status_from_applications() set search_path = public, pg_temp;
+revoke execute on function public.fn_check_job_is_open_on_application() from public, anon, authenticated;
+revoke execute on function public.fn_ensure_candidate_contact_same_org() from public, anon, authenticated;
+revoke execute on function public.fn_ensure_client_company_contact_same_org() from public, anon, authenticated;
+revoke execute on function public.fn_prevent_application_identity_change() from public, anon, authenticated;
+revoke execute on function public.fn_sync_candidate_status_from_applications() from public, anon, authenticated;
+grant execute on function public.fn_check_job_is_open_on_application() to service_role;
+grant execute on function public.fn_ensure_candidate_contact_same_org() to service_role;
+grant execute on function public.fn_ensure_client_company_contact_same_org() to service_role;
+grant execute on function public.fn_prevent_application_identity_change() to service_role;
+grant execute on function public.fn_sync_candidate_status_from_applications() to service_role;
+
+revoke delete on storage.objects from authenticated;
+revoke update on storage.objects from authenticated;
+alter table storage.objects enable row level security;
+drop policy if exists tenant_delete_unreferenced_candidate_resumes on storage.objects;
+drop policy if exists tenant_insert_candidate_resumes on storage.objects;
+create policy tenant_insert_candidate_resumes on storage.objects for insert with check (
+  bucket_id = 'candidate-resumes'
+  and name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}[.](pdf|doc|docx)$'
+  and exists (select 1 from public.user_organizations uo where uo.user_id = auth.uid() and uo.revoked_at is null and uo.organization_id::text = split_part(name, '/', 1) and public.fn_role_at_least(uo.organization_id, 'agent'))
+  and exists (select 1 from public.vertice_candidates c where c.organization_id::text = split_part(name, '/', 1) and c.id::text = split_part(name, '/', 2))
+);
+
+notify pgrst, 'reload schema';
+
 do $$
 declare
   f record;
@@ -25633,3 +25725,625 @@ create trigger trg_platform_settings_touch
   before update on public.platform_settings
   for each row execute function public.fn_touch_updated_at();
 
+-- ============================================================================
+-- APÊNDICE 0258_people_security_storage_hardening
+-- Espelho da migration 20260915230000 para install/update idempotente.
+-- ============================================================================
+-- 0258_people_security_storage_hardening
+-- Cleanup claims never expire automatically: a stale claim fails closed and
+-- is safer than allowing an older request to delete a later valid record.
+/* Legacy cleanup-claim implementation superseded by backend-generated object keys.
+create table if not exists public.vertice_resume_cleanup_claims (
+  storage_path text primary key,
+  organization_id uuid not null,
+  candidate_id uuid not null,
+  claim_token uuid not null,
+  claimed_by uuid not null references auth.users(id) on delete cascade,
+  claimed_at timestamptz not null default now(),
+  constraint vertice_resume_cleanup_claims_candidate_fk
+    foreign key (organization_id, candidate_id)
+    references public.vertice_candidates(organization_id, id)
+    on delete cascade
+);
+
+alter table public.vertice_resume_cleanup_claims enable row level security;
+drop policy if exists vertice_resume_cleanup_claims_select on public.vertice_resume_cleanup_claims;
+create policy vertice_resume_cleanup_claims_select
+  on public.vertice_resume_cleanup_claims
+  for select
+  to authenticated
+  using (
+    claimed_by = (select auth.uid())
+    and organization_id in (select * from public.fn_user_org_ids())
+  );
+
+revoke all on public.vertice_resume_cleanup_claims from public, anon, authenticated;
+grant select on public.vertice_resume_cleanup_claims to authenticated;
+grant all on public.vertice_resume_cleanup_claims to service_role;
+-- Fecha a superfície SECURITY DEFINER da People Foundation, torna o cleanup
+-- de Storage comprovável e inclui o domínio People no apagamento LGPD.
+
+-- A RPC permanece SECURITY DEFINER porque precisa promover/demitir versões na
+-- mesma transação. A autorização, porém, pertence à própria função: ela é uma
+-- superfície pública da Data API e não pode confiar somente na rota HTTP.
+create or replace function public.fn_register_candidate_resume(
+  p_org_id uuid,
+  p_candidate_id uuid,
+  p_storage_path text,
+  p_original_filename text,
+  p_mime_type text,
+  p_file_size_bytes bigint,
+  p_sha256 text,
+  p_source_type text default 'manual',
+  p_source_mailbox text default null,
+  p_source_message_id text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_existing_id uuid;
+  v_extension text;
+  v_expected_path text;
+  v_new_resume public.vertice_candidate_resumes%rowtype;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required'
+      using errcode = '42501';
+  end if;
+
+  if not public.fn_role_at_least(p_org_id, 'agent') then
+    raise exception 'Insufficient role for organization'
+      using errcode = '42501';
+  end if;
+
+  -- O lock serializa todas as promoções do mesmo candidato e também comprova
+  -- que o candidato pertence à organização antes da primeira mutação.
+  perform 1
+    from public.vertice_candidates
+   where id = p_candidate_id
+     and organization_id = p_org_id
+   for update;
+
+  if not found then
+    raise exception 'Candidate not found in organization'
+      using errcode = 'P0002';
+  end if;
+
+  if p_sha256 is null or p_sha256 !~ '^[0-9a-f]{64}$' then
+    raise exception 'Invalid SHA-256'
+      using errcode = '22023';
+  end if;
+
+  if p_file_size_bytes is null or p_file_size_bytes <= 0 or p_file_size_bytes > 15728640 then
+    raise exception 'Invalid resume size'
+      using errcode = '22023';
+  end if;
+
+  v_extension := case p_mime_type
+    when 'application/pdf' then 'pdf'
+    when 'application/msword' then 'doc'
+    when 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' then 'docx'
+    else null
+  end;
+
+  if v_extension is null then
+    raise exception 'Invalid resume MIME type'
+      using errcode = '22023';
+  end if;
+
+  if nullif(btrim(p_original_filename), '') is null
+     or lower(p_original_filename) !~ ('[.]' || v_extension || '$') then
+    raise exception 'Invalid original filename'
+      using errcode = '22023';
+  end if;
+
+  v_expected_path := p_org_id::text || '/' || p_candidate_id::text || '/' || p_sha256 || '.' || v_extension;
+  if p_storage_path is distinct from v_expected_path then
+    raise exception 'Invalid resume storage path'
+      using errcode = '22023';
+  end if;
+
+  if exists (
+    select 1
+      from public.vertice_resume_cleanup_claims cl
+     where cl.storage_path = p_storage_path
+  ) then
+    raise exception 'Resume storage path is reserved for cleanup'
+      using errcode = '55P03';
+  end if;
+
+  -- A RPC não aceita criar metadado para um objeto ausente. Além de fechar a
+  -- chamada direta com path forjado, esta checagem completa o protocolo de
+  -- concorrência do cleanup: quem apagar primeiro faz o registrador abortar;
+  -- quem registrar primeiro faz a policy DELETE abortar.
+  if not exists (
+    select 1
+      from storage.objects o
+     where o.bucket_id = 'candidate-resumes'
+       and o.name = p_storage_path
+  ) then
+    raise exception 'Resume object not found in storage'
+      using errcode = 'P0002';
+  end if;
+
+  select id
+    into v_existing_id
+    from public.vertice_candidate_resumes
+   where organization_id = p_org_id
+     and candidate_id = p_candidate_id
+     and sha256 = p_sha256
+   limit 1;
+
+  if v_existing_id is not null then
+    update public.vertice_candidate_resumes
+       set is_current = false,
+           updated_at = now()
+     where organization_id = p_org_id
+       and candidate_id = p_candidate_id
+       and id <> v_existing_id
+       and is_current = true;
+
+    update public.vertice_candidate_resumes
+       set is_current = true,
+           updated_at = now()
+     where organization_id = p_org_id
+       and candidate_id = p_candidate_id
+       and id = v_existing_id
+    returning * into v_new_resume;
+
+    return jsonb_build_object('resume', to_jsonb(v_new_resume), 'deduplicated', true);
+  end if;
+
+  update public.vertice_candidate_resumes
+     set is_current = false,
+         updated_at = now()
+   where organization_id = p_org_id
+     and candidate_id = p_candidate_id
+     and is_current = true;
+
+  insert into public.vertice_candidate_resumes (
+    organization_id,
+    candidate_id,
+    storage_path,
+    original_filename,
+    mime_type,
+    file_size_bytes,
+    sha256,
+    source_type,
+    source_mailbox,
+    source_message_id,
+    is_current
+  ) values (
+    p_org_id,
+    p_candidate_id,
+    p_storage_path,
+    p_original_filename,
+    p_mime_type,
+    p_file_size_bytes,
+    p_sha256,
+    coalesce(p_source_type, 'manual'),
+    p_source_mailbox,
+    p_source_message_id,
+    true
+  )
+  returning * into v_new_resume;
+
+  return jsonb_build_object('resume', to_jsonb(v_new_resume), 'deduplicated', false);
+end;
+$$;
+
+revoke execute on function public.fn_register_candidate_resume(uuid, uuid, text, text, text, bigint, text, text, text, text)
+  from public, anon, service_role;
+grant execute on function public.fn_register_candidate_resume(uuid, uuid, text, text, text, bigint, text, text, text, text)
+  to authenticated;
+
+-- Funções de trigger não são endpoints. O trigger continua executando como
+-- owner, mas nenhuma sessão autenticada pode chamá-las diretamente.
+alter function public.fn_check_job_is_open_on_application() set search_path = public, pg_temp;
+alter function public.fn_ensure_candidate_contact_same_org() set search_path = public, pg_temp;
+alter function public.fn_ensure_client_company_contact_same_org() set search_path = public, pg_temp;
+alter function public.fn_prevent_application_identity_change() set search_path = public, pg_temp;
+alter function public.fn_sync_candidate_status_from_applications() set search_path = public, pg_temp;
+
+revoke execute on function public.fn_check_job_is_open_on_application() from public, anon, authenticated;
+revoke execute on function public.fn_ensure_candidate_contact_same_org() from public, anon, authenticated;
+revoke execute on function public.fn_ensure_client_company_contact_same_org() from public, anon, authenticated;
+revoke execute on function public.fn_prevent_application_identity_change() from public, anon, authenticated;
+revoke execute on function public.fn_sync_candidate_status_from_applications() from public, anon, authenticated;
+
+grant execute on function public.fn_check_job_is_open_on_application() to service_role;
+grant execute on function public.fn_ensure_candidate_contact_same_org() to service_role;
+grant execute on function public.fn_ensure_client_company_contact_same_org() to service_role;
+grant execute on function public.fn_prevent_application_identity_change() to service_role;
+grant execute on function public.fn_sync_candidate_status_from_applications() to service_role;
+
+-- Sem policy UPDATE: a aplicação cria uma vez (upsert=false) e nunca sobrescreve.
+-- A função de policy trava o candidato pelo mesmo lock usado pela RPC. O par
+-- lock + existência do objeto na RPC elimina a janela em que o cleanup poderia
+-- remover o objeto enquanto outro request concluía o registro vencedor.
+create or replace function public.fn_claim_candidate_resume_cleanup(
+  p_storage_path text,
+  p_claim_token uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_org_id uuid;
+  v_candidate_id uuid;
+  v_inserted integer := 0;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required'
+      using errcode = '42501';
+  end if;
+
+  if p_claim_token is null
+     or p_storage_path is null
+     or p_storage_path !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/[0-9a-f]{64}[.](pdf|doc|docx)$' then
+    return false;
+  end if;
+
+  v_org_id := split_part(p_storage_path, '/', 1)::uuid;
+  v_candidate_id := split_part(p_storage_path, '/', 2)::uuid;
+
+  if not public.fn_role_at_least(v_org_id, 'agent') then
+    return false;
+  end if;
+
+  perform 1
+    from public.vertice_candidates c
+   where c.organization_id = v_org_id
+     and c.id = v_candidate_id
+   for update;
+  if not found then
+    return false;
+  end if;
+
+  if exists (
+    select 1
+      from public.vertice_candidate_resumes r
+     where r.organization_id = v_org_id
+       and r.candidate_id = v_candidate_id
+       and r.storage_path = p_storage_path
+  ) then
+    return false;
+  end if;
+
+  if not exists (
+    select 1
+      from storage.objects o
+     where o.bucket_id = 'candidate-resumes'
+       and o.name = p_storage_path
+  ) then
+    return false;
+  end if;
+
+  insert into public.vertice_resume_cleanup_claims (
+    storage_path,
+    organization_id,
+    candidate_id,
+    claim_token,
+    claimed_by
+  ) values (
+    p_storage_path,
+    v_org_id,
+    v_candidate_id,
+    p_claim_token,
+    auth.uid()
+  )
+  on conflict (storage_path) do nothing;
+  get diagnostics v_inserted = row_count;
+
+  return v_inserted = 1;
+end;
+$$;
+
+revoke execute on function public.fn_claim_candidate_resume_cleanup(text, uuid)
+  from public, anon, service_role;
+grant execute on function public.fn_claim_candidate_resume_cleanup(text, uuid)
+  to authenticated;
+
+create or replace function public.fn_release_candidate_resume_cleanup(
+  p_storage_path text,
+  p_claim_token uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_deleted integer := 0;
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required'
+      using errcode = '42501';
+  end if;
+
+  delete from public.vertice_resume_cleanup_claims
+   where storage_path = p_storage_path
+     and claim_token = p_claim_token
+     and claimed_by = auth.uid();
+  get diagnostics v_deleted = row_count;
+  return v_deleted = 1;
+end;
+$$;
+
+revoke execute on function public.fn_release_candidate_resume_cleanup(text, uuid)
+  from public, anon, service_role;
+grant execute on function public.fn_release_candidate_resume_cleanup(text, uuid)
+  to authenticated;
+
+create or replace function public.fn_can_delete_candidate_resume_object(p_name text)
+returns boolean
+language plpgsql
+volatile
+security invoker
+set search_path = public, pg_temp
+as $$
+declare
+  v_org_id uuid;
+  v_candidate_id uuid;
+begin
+  if p_name is null or p_name !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/[0-9a-f]{64}[.](pdf|doc|docx)$' then
+    return false;
+  end if;
+
+  v_org_id := split_part(p_name, '/', 1)::uuid;
+  v_candidate_id := split_part(p_name, '/', 2)::uuid;
+
+  if not public.fn_role_at_least(v_org_id, 'agent') then
+    return false;
+  end if;
+
+  if auth.uid() is null or not exists (
+    select 1
+      from public.vertice_candidates c
+     where c.organization_id = v_org_id
+       and c.id = v_candidate_id
+  ) then
+    return false;
+  end if;
+
+  return exists (
+    select 1
+      from public.vertice_resume_cleanup_claims cl
+     where cl.storage_path = p_name
+       and cl.organization_id = v_org_id
+       and cl.candidate_id = v_candidate_id
+       and cl.claimed_by = auth.uid()
+  )
+  and not exists (
+    select 1
+      from public.vertice_candidate_resumes r
+     where r.organization_id = v_org_id
+       and r.candidate_id = v_candidate_id
+       and r.storage_path = p_name
+  );
+end;
+$$;
+
+revoke execute on function public.fn_can_delete_candidate_resume_object(text)
+  from public, anon, service_role;
+grant execute on function public.fn_can_delete_candidate_resume_object(text)
+  to authenticated;
+
+-- O Storage API atua como `authenticated`; privilégios de tabela ainda são
+-- necessários antes de a RLS decidir. UPDATE continua deliberadamente ausente.
+grant select, insert, delete on storage.objects to authenticated;
+revoke update on storage.objects from authenticated;
+
+drop policy if exists tenant_delete_unreferenced_candidate_resumes on storage.objects;
+create policy tenant_delete_unreferenced_candidate_resumes
+  on storage.objects
+  for delete
+  to authenticated
+  using (
+    bucket_id = 'candidate-resumes'
+    and public.fn_can_delete_candidate_resume_object(name)
+  );
+*/
+
+-- A fila é uma fronteira privilegiada: o worker consome com service_role e
+-- apaga o path sem passar pelas policies do bucket. Usuários podem consultar o
+-- estado do próprio tenant, mas nunca fabricar, editar ou apagar comandos.
+drop policy if exists tenant_isolation_storage_redaction_queue_all
+  on public.storage_redaction_queue;
+drop policy if exists tenant_select_storage_redaction_queue
+  on public.storage_redaction_queue;
+create policy tenant_select_storage_redaction_queue
+  on public.storage_redaction_queue
+  for select
+  to authenticated
+  using (organization_id in (select * from public.fn_user_org_ids()));
+
+revoke insert, update, delete on public.storage_redaction_queue
+  from public, anon, authenticated;
+grant select on public.storage_redaction_queue to authenticated;
+grant all on public.storage_redaction_queue to service_role;
+
+-- O apagamento People fica preso ao fato canônico de o contato ter sido
+-- anonimizado. Assim cobre a RPC LGPD, a rota direta e manutenção manual.
+create or replace function public.fn_redact_people_on_contact_anonymized()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  insert into public.storage_redaction_queue (
+    organization_id,
+    request_id,
+    bucket,
+    object_path
+  )
+  select r.organization_id, null, 'candidate-resumes', r.storage_path
+    from public.vertice_candidate_resumes r
+    join public.vertice_candidates c
+      on c.organization_id = r.organization_id
+     and c.id = r.candidate_id
+   where c.organization_id = new.organization_id
+     and c.contact_id = new.id
+  on conflict (bucket, object_path) do nothing;
+
+  update public.vertice_job_applications a
+     set notes = null,
+         rejection_reason = null,
+         resume_id = null,
+         updated_at = now()
+    from public.vertice_candidates c
+   where c.organization_id = new.organization_id
+     and c.contact_id = new.id
+     and a.organization_id = c.organization_id
+     and a.candidate_id = c.id;
+
+  delete from public.vertice_candidate_resumes r
+  using public.vertice_candidates c
+   where c.organization_id = new.organization_id
+     and c.contact_id = new.id
+     and r.organization_id = c.organization_id
+     and r.candidate_id = c.id;
+
+  update public.vertice_candidates
+     set full_name = 'Candidato Anonimizado #' || substring(id::text from 1 for 8),
+         email = null,
+         phone_e164 = null,
+         linkedin_url = null,
+         city = null,
+         state = null,
+         current_job_title = null,
+         current_company = null,
+         area = null,
+         seniority = null,
+         expected_salary = null,
+         availability = null,
+         notes = null,
+         updated_at = now()
+   where organization_id = new.organization_id
+     and contact_id = new.id;
+
+  return new;
+end;
+$$;
+
+revoke execute on function public.fn_redact_people_on_contact_anonymized()
+  from public, anon, authenticated;
+grant execute on function public.fn_redact_people_on_contact_anonymized()
+  to service_role;
+
+drop trigger if exists trg_redact_people_on_contact_anonymized on public.contacts;
+create trigger trg_redact_people_on_contact_anonymized
+  after update of is_anonymized on public.contacts
+  for each row
+  when (old.is_anonymized = false and new.is_anonymized = true)
+  execute function public.fn_redact_people_on_contact_anonymized();
+
+ notify pgrst, 'reload schema';
+
+-- 0258 final state after the legacy appendix body: remove claim state and
+-- restore the backend-generated object-key protocol.
+drop policy if exists tenant_delete_unreferenced_candidate_resumes on storage.objects;
+drop function if exists public.fn_claim_candidate_resume_cleanup(text, uuid);
+drop function if exists public.fn_release_candidate_resume_cleanup(text, uuid);
+drop function if exists public.fn_can_delete_candidate_resume_object(text);
+drop table if exists public.vertice_resume_cleanup_claims cascade;
+
+create or replace function public.fn_register_candidate_resume(
+  p_org_id uuid, p_candidate_id uuid, p_storage_path text, p_original_filename text,
+  p_mime_type text, p_file_size_bytes bigint, p_sha256 text,
+  p_source_type text default 'manual', p_source_mailbox text default null,
+  p_source_message_id text default null
+)
+returns jsonb language plpgsql security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_existing_id uuid;
+  v_existing_path text;
+  v_extension text;
+  v_expected_prefix text;
+  v_new_resume public.vertice_candidate_resumes%rowtype;
+begin
+  if auth.uid() is null then raise exception 'Authentication required' using errcode = '42501'; end if;
+  if not public.fn_role_at_least(p_org_id, 'agent') then raise exception 'Insufficient role for organization' using errcode = '42501'; end if;
+  perform 1 from public.vertice_candidates where id = p_candidate_id and organization_id = p_org_id for update;
+  if not found then raise exception 'Candidate not found in organization' using errcode = 'P0002'; end if;
+  if p_sha256 is null or p_sha256 !~ '^[0-9a-f]{64}$' then raise exception 'Invalid SHA-256' using errcode = '22023'; end if;
+  if p_file_size_bytes is null or p_file_size_bytes <= 0 or p_file_size_bytes > 15728640 then raise exception 'Invalid resume size' using errcode = '22023'; end if;
+  v_extension := case p_mime_type when 'application/pdf' then 'pdf' when 'application/msword' then 'doc' when 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' then 'docx' else null end;
+  if v_extension is null then raise exception 'Invalid resume MIME type' using errcode = '22023'; end if;
+  if nullif(btrim(p_original_filename), '') is null or lower(p_original_filename) !~ ('[.]' || v_extension || '$') then raise exception 'Invalid original filename' using errcode = '22023'; end if;
+  select id, storage_path into v_existing_id, v_existing_path from public.vertice_candidate_resumes where organization_id = p_org_id and candidate_id = p_candidate_id and sha256 = p_sha256 limit 1;
+  v_expected_prefix := p_org_id::text || '/' || p_candidate_id::text || '/';
+  if p_storage_path is null or (p_storage_path <> coalesce(v_existing_path, '') and p_storage_path !~ ('^' || v_expected_prefix || '[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}[.]' || v_extension || '$')) then raise exception 'Invalid resume storage path' using errcode = '22023'; end if;
+  if not exists (select 1 from storage.objects o where o.bucket_id = 'candidate-resumes' and o.name = p_storage_path) then raise exception 'Resume object not found in storage' using errcode = 'P0002'; end if;
+  if v_existing_id is not null then
+    update public.vertice_candidate_resumes set is_current = false, updated_at = now() where organization_id = p_org_id and candidate_id = p_candidate_id and id <> v_existing_id and is_current = true;
+    update public.vertice_candidate_resumes set is_current = true, updated_at = now() where organization_id = p_org_id and candidate_id = p_candidate_id and id = v_existing_id returning * into v_new_resume;
+    return jsonb_build_object('resume', to_jsonb(v_new_resume), 'deduplicated', true);
+  end if;
+  update public.vertice_candidate_resumes set is_current = false, updated_at = now() where organization_id = p_org_id and candidate_id = p_candidate_id and is_current = true;
+  insert into public.vertice_candidate_resumes (organization_id, candidate_id, storage_path, original_filename, mime_type, file_size_bytes, sha256, source_type, source_mailbox, source_message_id, is_current)
+  values (p_org_id, p_candidate_id, p_storage_path, p_original_filename, p_mime_type, p_file_size_bytes, p_sha256, coalesce(p_source_type, 'manual'), p_source_mailbox, p_source_message_id, true)
+  returning * into v_new_resume;
+  return jsonb_build_object('resume', to_jsonb(v_new_resume), 'deduplicated', false);
+end;
+$$;
+revoke execute on function public.fn_register_candidate_resume(uuid, uuid, text, text, text, bigint, text, text, text, text) from public, anon, service_role;
+grant execute on function public.fn_register_candidate_resume(uuid, uuid, text, text, text, bigint, text, text, text, text) to authenticated;
+create unique index if not exists vertice_candidate_resumes_storage_path_key on public.vertice_candidate_resumes (storage_path);
+revoke insert, update, delete on public.vertice_candidate_resumes from authenticated;
+grant select on public.vertice_candidate_resumes to authenticated;
+revoke delete on storage.objects from authenticated;
+revoke update on storage.objects from authenticated;
+alter table storage.objects enable row level security;
+drop policy if exists tenant_delete_unreferenced_candidate_resumes on storage.objects;
+drop policy if exists tenant_insert_candidate_resumes on storage.objects;
+create policy tenant_insert_candidate_resumes on storage.objects for insert with check (
+  bucket_id = 'candidate-resumes'
+  and name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}[.](pdf|doc|docx)$'
+  and exists (select 1 from public.user_organizations uo where uo.user_id = auth.uid() and uo.revoked_at is null and uo.organization_id::text = split_part(name, '/', 1) and public.fn_role_at_least(uo.organization_id, 'agent'))
+  and exists (select 1 from public.vertice_candidates c where c.organization_id::text = split_part(name, '/', 1) and c.id::text = split_part(name, '/', 2))
+);
+
+-- ---- VARREDURA anon: função nova nasce exposta em quem ATUALIZA (migration 0116) ----
+-- Este é, de propósito, o último bloco do baseline. O apêndice 0258 cria
+-- funções SECURITY DEFINER e precisa vir antes desta cura final.
+do $$
+declare
+  f record;
+  tinha_auth boolean;
+  tinha_service boolean;
+begin
+  if to_regrole('anon') is null then
+    return;
+  end if;
+
+  for f in
+    select p.oid, p.oid::regprocedure as assinatura
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.prosecdef
+  loop
+    tinha_auth := to_regrole('authenticated') is not null
+                  and has_function_privilege('authenticated', f.oid, 'EXECUTE');
+    tinha_service := to_regrole('service_role') is not null
+                     and has_function_privilege('service_role', f.oid, 'EXECUTE');
+
+    execute format('revoke execute on function %s from public, anon', f.assinatura);
+
+    if tinha_auth then
+      execute format('grant execute on function %s to authenticated', f.assinatura);
+    end if;
+    if tinha_service then
+      execute format('grant execute on function %s to service_role', f.assinatura);
+    end if;
+  end loop;
+end $$;
