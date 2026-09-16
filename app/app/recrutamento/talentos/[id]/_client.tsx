@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
+import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
 import {
   User,
   ArrowLeft,
@@ -26,6 +27,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 export function CandidatoDetalheClient({ id }: { id: string }) {
   const t = useT();
+  const tagDoIdioma = useTagDeIdioma();
   const qc = useQueryClient();
   const { data, isLoading, error } = useCandidateDetail(id);
   const [isUploading, setIsUploading] = useState(false);
@@ -142,7 +144,7 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
               <div>
                 <span className="text-xs text-muted-foreground block">{t("Pretensão Salarial")}</span>
                 <span className="font-medium">
-                  {candidate.expected_salary ? `R$ ${candidate.expected_salary.toLocaleString("pt-BR")}` : "—"}
+                  {candidate.expected_salary ? `R$ ${candidate.expected_salary.toLocaleString(tagDoIdioma)}` : "—"}
                 </span>
               </div>
               <div>
@@ -228,7 +230,7 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
                           <div className="text-xs text-muted-foreground flex gap-2">
                             <span>{(r.file_size_bytes / 1024).toFixed(1)} KB</span>
                             <span>•</span>
-                            <span>{new Date(r.created_at).toLocaleDateString("pt-BR")}</span>
+                            <span>{new Date(r.created_at).toLocaleDateString(tagDoIdioma)}</span>
                           </div>
                         </div>
                       </div>

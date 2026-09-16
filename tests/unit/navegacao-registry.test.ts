@@ -120,6 +120,21 @@ describe("sidebarGroups", () => {
     expect(NAV_GROUPS.find((g) => g.id === "crm")?.hub?.href).toBe("/app/crm");
   });
 
+  it("Recrutamento usa o hub sem ocupar três linhas diretas no sidebar", () => {
+    const recrutamento = sidebarGroups(true, null).find((g) => g.group.id === "recrutamento");
+    expect(recrutamento?.items.map((i) => i.href)).toEqual([]);
+    expect(NAV_GROUPS.find((g) => g.id === "recrutamento")?.hub?.href).toBe(
+      "/app/recrutamento",
+    );
+
+    const hub = hubSections("recrutamento", true, null).flatMap((s) =>
+      s.items.map((i) => i.href),
+    );
+    expect(hub).toContain("/app/recrutamento/talentos");
+    expect(hub).toContain("/app/recrutamento/vagas");
+    expect(hub).toContain("/app/recrutamento/pipeline");
+  });
+
   it("omite o grupo inteiro quando o papel não vê nenhum item dele", () => {
     // CANAIS é todo manager+/admin: um agent não deve ver o título órfão.
     const ids = sidebarGroups(AGENT.platform, AGENT.role).map((g) => g.group.id);

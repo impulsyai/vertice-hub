@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
+import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
 import { FileText, DownloadSimple, User, ArrowSquareOut } from "@/lib/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { useResumeList } from "@/lib/people/client-hooks";
 
 export function CurriculosClient() {
   const t = useT();
+  const tagDoIdioma = useTagDeIdioma();
   const { data, isLoading } = useResumeList();
   const resumes = data?.data ?? [];
 
@@ -92,7 +94,7 @@ export function CurriculosClient() {
                   </td>
                   <td className="p-4 text-muted-foreground">{(r.file_size_bytes / 1024).toFixed(1)} KB</td>
                   <td className="p-4 text-muted-foreground capitalize">{r.source_type}</td>
-                  <td className="p-4 text-muted-foreground">{new Date(r.created_at).toLocaleDateString("pt-BR")}</td>
+                  <td className="p-4 text-muted-foreground">{new Date(r.created_at).toLocaleDateString(tagDoIdioma)}</td>
                   <td className="p-4">
                     {r.is_current ? (
                       <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">
