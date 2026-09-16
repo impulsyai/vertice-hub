@@ -111,6 +111,13 @@ test("Org A conclui o fluxo People e Org B não lê, altera nem baixa os recurso
   expect(dossier.data.resumes).toContainEqual(expect.objectContaining({ id: resume.data.id, is_current: true }));
   expect(dossier.data.applications).toHaveLength(1);
 
+  await page.goto(`/app/recrutamento/talentos/${candidate.data.id}`);
+  await expect(page.getByText(`Candidato People E2E ${suffix}`, { exact: true })).toBeVisible();
+  await expect(page.getByText(`curriculo-${suffix}.pdf`, { exact: true })).toBeVisible();
+
+  await page.goto(`/app/recrutamento/vagas/${job.data.id}`);
+  await expect(page.getByText(`Vaga People E2E ${suffix}`, { exact: true })).toBeVisible();
+
   await switchOrganization(page, orgs.org_b_id, orgs.org_b_nome);
 
   const forbiddenRead = await page.request.get(`/api/v1/people/candidates/${candidate.data.id}`);

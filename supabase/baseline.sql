@@ -26284,6 +26284,7 @@ begin
   v_expected_prefix := p_org_id::text || '/' || p_candidate_id::text || '/';
   if p_storage_path is null or (p_storage_path <> coalesce(v_existing_path, '') and p_storage_path !~ ('^' || v_expected_prefix || '[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}[.]' || v_extension || '$')) then raise exception 'Invalid resume storage path' using errcode = '22023'; end if;
   if not exists (select 1 from storage.objects o where o.bucket_id = 'candidate-resumes' and o.name = p_storage_path) then raise exception 'Resume object not found in storage' using errcode = 'P0002'; end if;
+  if v_existing_id is null and not exists (select 1 from storage.objects o where o.bucket_id = 'candidate-resumes' and o.name = p_storage_path and o.owner = auth.uid()) then raise exception 'Resume object is not owned by caller' using errcode = '42501'; end if;
   if v_existing_id is not null then
     update public.vertice_candidate_resumes set is_current = false, updated_at = now() where organization_id = p_org_id and candidate_id = p_candidate_id and id <> v_existing_id and is_current = true;
     update public.vertice_candidate_resumes set is_current = true, updated_at = now() where organization_id = p_org_id and candidate_id = p_candidate_id and id = v_existing_id returning * into v_new_resume;

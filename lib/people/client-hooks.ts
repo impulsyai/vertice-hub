@@ -26,6 +26,15 @@ interface ApiEnvelope<T> {
   data: T;
 }
 
+type CandidateDetailRow = VerticeCandidate & {
+  resumes?: VerticeCandidateResume[];
+  applications?: VerticeJobApplication[];
+};
+
+type JobDetailRow = VerticeJobOpening & {
+  applications?: VerticeJobApplication[];
+};
+
 function unwrap<T>(response: ApiEnvelope<T>): T {
   return response.data;
 }
@@ -113,10 +122,12 @@ export function useCandidateDetail(candidateId?: string | null) {
     enabled: !!candidateId,
     queryFn: async () => {
       try {
-        const response = await apiClient.get<ApiEnvelope<{ candidate: VerticeCandidate; resumes: VerticeCandidateResume[]; applications: VerticeJobApplication[] }>>(
+        const response = await apiClient.get<ApiEnvelope<CandidateDetailRow>>(
           `/api/v1/people/candidates/${candidateId}`,
         );
-        return unwrap(response);
+        const row = unwrap(response);
+        const { resumes = [], applications = [], ...candidate } = row;
+        return { candidate: candidate as VerticeCandidate, resumes, applications };
       } catch (err) {
         showApiError(err);
         throw err;
@@ -203,10 +214,12 @@ export function useJobDetail(jobId?: string | null) {
     enabled: !!jobId,
     queryFn: async () => {
       try {
-        const response = await apiClient.get<ApiEnvelope<{ job: VerticeJobOpening; applications: VerticeJobApplication[] }>>(
+        const response = await apiClient.get<ApiEnvelope<JobDetailRow>>(
           `/api/v1/people/jobs/${jobId}`,
         );
-        return unwrap(response);
+        const row = unwrap(response);
+        const { applications = [], ...job } = row;
+        return { job: job as VerticeJobOpening, applications };
       } catch (err) {
         showApiError(err);
         throw err;

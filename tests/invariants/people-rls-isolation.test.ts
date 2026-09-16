@@ -82,6 +82,19 @@ async function tenant(tag: string): Promise<Tenant> {
   return fixture;
 }
 
+async function addAgent(t: Tenant, tag: string): Promise<string> {
+  const user = randomUUID();
+  await pool.query("insert into auth.users(id,email) values($1,$2)", [
+    user,
+    `${tag}-${user}@invariant.test`,
+  ]);
+  await pool.query(
+    "insert into user_organizations(user_id,organization_id,role,accepted_at) values($1,$2,'agent',now())",
+    [user, t.org],
+  );
+  return user;
+}
+
 const rpc = `select public.fn_register_candidate_resume(
   $1::uuid,$2::uuid,$3::text,$4::text,$5::text,$6::bigint,$7::text,$8::text,$9::text,$10::text
 ) result`;
@@ -133,6 +146,26 @@ describe("People 4.2.2 — ACL, integridade e LGPD", () => {
     await expect(
       asRole("authenticated", b.agent, "insert into storage.objects(bucket_id,name,owner) values('candidate-resumes',$1,$2)", [path, b.agent]),
     ).rejects.toMatchObject({ code: "42501" });
+  });
+
+  it("impede outro agent do mesmo tenant de adotar o object key da tentativa", async () => {
+    const a = await tenant("rpc-owner");
+    const otherAgent = await addAgent(a, "rpc-owner-other");
+    const sha = "9".repeat(64);
+    const path = await putObject(a, sha);
+
+    await expect(asRole("authenticated", otherAgent, rpc, args(a, sha, path))).rejects.toMatchObject({
+      code: "42501",
+    });
+    expect(
+      Number(
+        (await pool.query("select count(*) from vertice_candidate_resumes where storage_path=$1", [path]))
+          .rows[0].count,
+      ),
+    ).toBe(0);
+    expect(
+      Number((await pool.query("select count(*) from storage.objects where name=$1", [path])).rows[0].count),
+    ).toBe(1);
   });
 
   it("agent da própria organização registra, deduplica e promove atomicamente", async () => {

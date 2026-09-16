@@ -118,6 +118,20 @@ begin
       using errcode = 'P0002';
   end if;
 
+  -- Um path novo representa a tentativa do próprio caller. Sem este vínculo,
+  -- outro agent do mesmo tenant poderia observar um upload ainda não registrado
+  -- e adotá-lo via chamada direta à RPC antes do cleanup server-side.
+  if v_existing_id is null and not exists (
+    select 1
+      from storage.objects o
+     where o.bucket_id = 'candidate-resumes'
+       and o.name = p_storage_path
+       and o.owner = auth.uid()
+  ) then
+    raise exception 'Resume object is not owned by caller'
+      using errcode = '42501';
+  end if;
+
   if v_existing_id is not null then
     update public.vertice_candidate_resumes
        set is_current = false,
