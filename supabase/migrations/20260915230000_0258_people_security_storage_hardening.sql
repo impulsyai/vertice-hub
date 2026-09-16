@@ -213,7 +213,8 @@ grant select on public.vertice_candidate_resumes to authenticated;
 -- de chamar o Storage com o client administrativo.
 revoke delete on storage.objects from authenticated;
 revoke update on storage.objects from authenticated;
-alter table storage.objects enable row level security;
+-- `storage.objects` is owned and RLS-managed by the Supabase Storage stack.
+-- Do not ALTER the managed table here; its RLS is enabled by Storage itself.
 drop policy if exists tenant_delete_unreferenced_candidate_resumes on storage.objects;
 
 drop policy if exists tenant_insert_candidate_resumes on storage.objects;
