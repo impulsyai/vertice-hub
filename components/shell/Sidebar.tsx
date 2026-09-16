@@ -220,10 +220,17 @@ export function SidebarContent({
       >
         {grupos.map(({ group, items }) => {
           const tituloId = `nav-grupo-${group.id}`;
-          // Um grupo sem atalho diário já é, por definição, uma única
-          // porta para o hub. Desenhar cabeçalho expansível + "Ver tudo" nesse
-          // caso duplica a mesma escolha e custa uma linha inteira da dobra.
-          const hubDireto = !collapsed && items.length === 0 ? group.hub : undefined;
+          // Recrutamento foi desenhado como hub-only: seus destinos continuam
+          // no hub e na busca, mas não ocupam linhas na barra. Nesse caso, um
+          // cabeçalho expansível + "Ver tudo" duplicaria a mesma escolha.
+          //
+          // Não generalizar para qualquer grupo vazio: a personalização de
+          // interface pode ocultar temporariamente todos os atalhos de CRM/IA,
+          // e nesses grupos o link "Ver tudo" é parte do contrato de navegação.
+          const hubDireto =
+            !collapsed && group.id === "recrutamento" && items.length === 0
+              ? group.hub
+              : undefined;
           // Recolhido o sidebar inteiro (rail de 64px), o grupo sempre mostra
           // seus itens — não há onde desenhar cabeçalho nem seta para fechá-lo.
           const aberto = collapsed || !gruposFechados.has(group.id);
