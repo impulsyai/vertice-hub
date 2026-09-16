@@ -51,7 +51,7 @@ export function CandidaturasClient() {
         <Link href="/app/recrutamento/pipeline">
           <Button className="gap-2 shrink-0">
             <Kanban className="h-4 w-4" />
-            {t("Abrir Pipeline Kanban")}
+            {t("Abrir Funil de Seleção")}
           </Button>
         </Link>
       </header>

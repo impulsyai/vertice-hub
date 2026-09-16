@@ -114,7 +114,7 @@ export function TalentosClient() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-[195px]">
             <SelectValue placeholder={t("Senioridade")} />
           </SelectTrigger>
           <SelectContent>

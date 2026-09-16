@@ -80,6 +80,21 @@ export function useCreateCompany() {
   });
 }
 
+export function useUpdateCompany(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: Record<string, unknown>) => {
+      const response = await apiClient.patch<ApiEnvelope<ClientCompany>>(`/api/v1/people/companies/${id}`, body);
+      return unwrap(response);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["people-companies"] });
+      qc.invalidateQueries({ queryKey: ["people-company-detail", id] });
+    },
+    onError: (err) => showApiError(err),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Candidates
 // ---------------------------------------------------------------------------
@@ -145,6 +160,21 @@ export function useCreateCandidate() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["people-candidates"] });
+    },
+    onError: (err) => showApiError(err),
+  });
+}
+
+export function useUpdateCandidate(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: Record<string, unknown>) => {
+      const response = await apiClient.patch<ApiEnvelope<VerticeCandidate>>(`/api/v1/people/candidates/${id}`, body);
+      return unwrap(response);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["people-candidates"] });
+      qc.invalidateQueries({ queryKey: ["people-candidate-detail", id] });
     },
     onError: (err) => showApiError(err),
   });
@@ -237,6 +267,22 @@ export function useCreateJob() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["people-jobs"] });
+    },
+    onError: (err) => showApiError(err),
+  });
+}
+
+export function useUpdateJob(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: Record<string, unknown>) => {
+      const response = await apiClient.patch<ApiEnvelope<VerticeJobOpening>>(`/api/v1/people/jobs/${id}`, body);
+      return unwrap(response);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["people-jobs"] });
+      qc.invalidateQueries({ queryKey: ["people-job-detail", id] });
+      qc.invalidateQueries({ queryKey: ["people-applications"] });
     },
     onError: (err) => showApiError(err),
   });

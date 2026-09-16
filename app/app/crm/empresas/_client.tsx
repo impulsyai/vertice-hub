@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
-import { Buildings, Plus, MagnifyingGlass } from "@/lib/ui/icons";
+import { Buildings, Plus, MagnifyingGlass, PencilSimple } from "@/lib/ui/icons";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,8 +19,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { useCompanyList, useCreateCompany } from "@/lib/people/client-hooks";
+import { useCompanyList, useCreateCompany, useUpdateCompany } from "@/lib/people/client-hooks";
 import type { ClientCompany } from "@/lib/people/types";
 
 export function EmpresasClient() {
@@ -27,6 +35,7 @@ export function EmpresasClient() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [isNewOpen, setIsNewOpen] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<ClientCompany | null>(null);
 
   const { data, isLoading } = useCompanyList({ search: search || undefined, page, limit: 20 });
   const companies = data?.data ?? [];
@@ -92,6 +101,7 @@ export function EmpresasClient() {
                 <th className="p-4">{t("Localização")}</th>
                 <th className="p-4">{t("Website")}</th>
                 <th className="p-4">{t("Status")}</th>
+                <th className="p-4 text-right">{t("Ações")}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -126,6 +136,17 @@ export function EmpresasClient() {
                       {company.status === "active" ? t("Ativa") : company.status === "prospect" ? t("Prospect") : t("Inativa")}
                     </Badge>
                   </td>
+                  <td className="p-4 text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5 h-8 text-xs"
+                      onClick={() => setEditingCompany(company)}
+                    >
+                      <PencilSimple className="h-3.5 w-3.5" />
+                      {t("Editar")}
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -159,6 +180,17 @@ export function EmpresasClient() {
       )}
 
       <NewCompanyDialog open={isNewOpen} onOpenChange={setIsNewOpen} />
+
+      {editingCompany && (
+        <EditCompanyDialog
+          key={editingCompany.id + (editingCompany.updated_at ?? "")}
+          company={editingCompany}
+          open={!!editingCompany}
+          onOpenChange={(open) => {
+            if (!open) setEditingCompany(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -253,6 +285,154 @@ function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? t("Salvando...") : t("Criar Empresa")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditCompanyDialog({
+  company,
+  open,
+  onOpenChange,
+}: {
+  company: ClientCompany;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const t = useT();
+  const update = useUpdateCompany(company.id);
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { isSubmitting },
+  } = useForm<{
+    trade_name: string;
+    legal_name?: string;
+    industry?: string;
+    website?: string;
+    city?: string;
+    state?: string;
+    status: "prospect" | "active" | "inactive";
+    notes?: string;
+  }>({
+    defaultValues: {
+      trade_name: company.trade_name ?? "",
+      legal_name: company.legal_name ?? "",
+      industry: company.industry ?? "",
+      website: company.website ?? "",
+      city: company.city ?? "",
+      state: company.state ?? "",
+      status: company.status ?? "active",
+      notes: company.notes ?? "",
+    },
+  });
+
+  const selectedStatus = watch("status");
+
+  async function onSubmit(data: {
+    trade_name: string;
+    legal_name?: string;
+    industry?: string;
+    website?: string;
+    city?: string;
+    state?: string;
+    status: "prospect" | "active" | "inactive";
+    notes?: string;
+  }) {
+    try {
+      await update.mutateAsync({
+        trade_name: data.trade_name,
+        legal_name: data.legal_name || null,
+        industry: data.industry || null,
+        website: data.website || null,
+        city: data.city || null,
+        state: data.state || null,
+        status: data.status,
+        notes: data.notes || null,
+      });
+      toast.success(t("Empresa atualizada com sucesso!"));
+      onOpenChange(false);
+    } catch {
+      // erro tratado no hook
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{t("Editar Empresa")}</DialogTitle>
+          <DialogDescription>
+            {t("Atualize os dados da empresa contratante.")}
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+          <div className="space-y-1">
+            <Label htmlFor="edit_trade_name">{t("Nome Fantasia")} *</Label>
+            <Input id="edit_trade_name" required {...register("trade_name", { required: true })} />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="edit_legal_name">{t("Razão Social")}</Label>
+            <Input id="edit_legal_name" {...register("legal_name")} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="edit_industry">{t("Setor de Atuação")}</Label>
+              <Input id="edit_industry" {...register("industry")} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit_website">{t("Website")}</Label>
+              <Input id="edit_website" {...register("website")} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="edit_city">{t("Cidade")}</Label>
+              <Input id="edit_city" {...register("city")} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit_state">{t("Estado (UF)")}</Label>
+              <Input id="edit_state" maxLength={2} {...register("state")} />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label>{t("Status")}</Label>
+            <Select
+              value={selectedStatus}
+              onValueChange={(val) => setValue("status", val as "prospect" | "active" | "inactive")}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">{t("Ativa")}</SelectItem>
+                <SelectItem value="prospect">{t("Prospect")}</SelectItem>
+                <SelectItem value="inactive">{t("Inativa")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="edit_notes">{t("Observações")}</Label>
+            <Textarea id="edit_notes" rows={3} {...register("notes")} />
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {t("Cancelar")}
+            </Button>
+            <Button type="submit" disabled={isSubmitting || update.isPending}>
+              {isSubmitting || update.isPending ? t("Salvando...") : t("Salvar Alterações")}
             </Button>
           </DialogFooter>
         </form>

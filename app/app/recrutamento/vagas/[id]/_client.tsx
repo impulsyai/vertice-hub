@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
 import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
@@ -13,8 +14,11 @@ import {
   Plus,
   ArrowSquareOut,
   Buildings,
+  PencilSimple,
 } from "@/lib/ui/icons";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,13 +38,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useJobDetail, useCandidateList, useCreateApplication } from "@/lib/people/client-hooks";
+import {
+  useJobDetail,
+  useCandidateList,
+  useCreateApplication,
+  useUpdateJob,
+} from "@/lib/people/client-hooks";
+import type { JobOpening, WorkModel, EmploymentType, JobPriority, JobStatus } from "@/lib/people/types";
 
 export function VagaDetalheClient({ id }: { id: string }) {
   const t = useT();
   const tagDoIdioma = useTagDeIdioma();
   const { data, isLoading, error } = useJobDetail(id);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -68,7 +79,9 @@ export function VagaDetalheClient({ id }: { id: string }) {
     );
   }
 
-  const { job, applications } = data;
+  const rawJob = (data as any)?.job ?? data;
+  const job: JobOpening = rawJob;
+  const applications = ((data as any)?.applications ?? rawJob?.applications ?? []) as any[];
 
   return (
     <div className="space-y-6 p-6">
@@ -100,9 +113,13 @@ export function VagaDetalheClient({ id }: { id: string }) {
           <Link href={`/app/recrutamento/pipeline?job_id=${job.id}`}>
             <Button className="gap-2">
               <Kanban className="h-4 w-4" />
-              {t("Abrir Pipeline R&S")}
+              {t("Abrir Funil de Seleção")}
             </Button>
           </Link>
+          <Button variant="outline" onClick={() => setIsEditOpen(true)} className="gap-2">
+            <PencilSimple className="h-4 w-4" />
+            {t("Editar Vaga")}
+          </Button>
           <Button variant="outline" onClick={() => setIsAddOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" />
             {t("Adicionar Candidato")}
@@ -215,6 +232,13 @@ export function VagaDetalheClient({ id }: { id: string }) {
         onOpenChange={setIsAddOpen}
         jobId={job.id}
       />
+
+      <EditJobDialog
+        key={job.id + (job.updated_at ?? "")}
+        job={job}
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+      />
     </div>
   );
 }
@@ -293,3 +317,263 @@ function AddCandidateToJobDialog({
     </Dialog>
   );
 }
+
+function EditJobDialog({
+  job,
+  open,
+  onOpenChange,
+}: {
+  job: JobOpening;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const t = useT();
+  const update = useUpdateJob(job.id);
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { isSubmitting },
+  } = useForm<{
+    title: string;
+    department?: string;
+    city?: string;
+    state?: string;
+    work_model: WorkModel;
+    employment_type: EmploymentType;
+    priority: JobPriority;
+    status: JobStatus;
+    openings_count: number;
+    salary_min?: number;
+    salary_max?: number;
+    description?: string;
+    requirements?: string;
+  }>({
+    defaultValues: {
+      title: job.title ?? "",
+      department: job.department ?? "",
+      city: job.city ?? "",
+      state: job.state ?? "",
+      work_model: job.work_model ?? "presential",
+      employment_type: job.employment_type ?? "clt",
+      priority: job.priority ?? "medium",
+      status: job.status ?? "open",
+      openings_count: job.openings_count ?? 1,
+      salary_min: job.salary_min ?? undefined,
+      salary_max: job.salary_max ?? undefined,
+      description: job.description ?? "",
+      requirements: job.requirements ?? "",
+    },
+  });
+
+  const selectedWorkModel = watch("work_model");
+  const selectedEmploymentType = watch("employment_type");
+  const selectedPriority = watch("priority");
+  const selectedStatus = watch("status");
+
+  async function onSubmit(data: {
+    title: string;
+    department?: string;
+    city?: string;
+    state?: string;
+    work_model: WorkModel;
+    employment_type: EmploymentType;
+    priority: JobPriority;
+    status: JobStatus;
+    openings_count: number;
+    salary_min?: number;
+    salary_max?: number;
+    description?: string;
+    requirements?: string;
+  }) {
+    try {
+      await update.mutateAsync({
+        title: data.title,
+        department: data.department || null,
+        city: data.city || null,
+        state: data.state || null,
+        work_model: data.work_model,
+        employment_type: data.employment_type,
+        priority: data.priority,
+        status: data.status,
+        openings_count: Number(data.openings_count) || 1,
+        salary_min: data.salary_min ? Number(data.salary_min) : null,
+        salary_max: data.salary_max ? Number(data.salary_max) : null,
+        description: data.description || null,
+        requirements: data.requirements || null,
+      });
+      toast.success(t("Vaga atualizada com sucesso!"));
+      onOpenChange(false);
+    } catch {
+      // erro tratado no hook
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{t("Editar Vaga")}</DialogTitle>
+          <DialogDescription>
+            {t("Atualize as informações da vaga de recrutamento.")}
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+          <div className="space-y-1">
+            <Label htmlFor="edit-job-title">{t("Título da Vaga")} *</Label>
+            <Input id="edit-job-title" required {...register("title", { required: true })} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="edit-job-dept">{t("Departamento")}</Label>
+              <Input id="edit-job-dept" {...register("department")} />
+            </div>
+            <div className="space-y-1">
+              <Label>{t("Modelo de Trabalho")}</Label>
+              <Select
+                value={selectedWorkModel}
+                onValueChange={(val) => setValue("work_model", val as WorkModel)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="presential">{t("Presencial")}</SelectItem>
+                  <SelectItem value="hybrid">{t("Híbrido")}</SelectItem>
+                  <SelectItem value="remote">{t("Remoto")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="edit-job-city">{t("Cidade")}</Label>
+              <Input id="edit-job-city" {...register("city")} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit-job-state">{t("Estado")}</Label>
+              <Input id="edit-job-state" maxLength={2} placeholder="PE" {...register("state")} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label>{t("Tipo de Contratação")}</Label>
+              <Select
+                value={selectedEmploymentType}
+                onValueChange={(val) => setValue("employment_type", val as EmploymentType)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="clt">{t("CLT")}</SelectItem>
+                  <SelectItem value="pj">{t("PJ")}</SelectItem>
+                  <SelectItem value="internship">{t("Estágio")}</SelectItem>
+                  <SelectItem value="temporary">{t("Temporário")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>{t("Prioridade")}</Label>
+              <Select
+                value={selectedPriority}
+                onValueChange={(val) => setValue("priority", val as JobPriority)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">{t("Baixa")}</SelectItem>
+                  <SelectItem value="medium">{t("Média")}</SelectItem>
+                  <SelectItem value="high">{t("Alta")}</SelectItem>
+                  <SelectItem value="urgent">{t("Urgente")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>{t("Status")}</Label>
+              <Select
+                value={selectedStatus}
+                onValueChange={(val) => setValue("status", val as JobStatus)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open">{t("Aberta")}</SelectItem>
+                  <SelectItem value="draft">{t("Rascunho")}</SelectItem>
+                  <SelectItem value="paused">{t("Pausada")}</SelectItem>
+                  <SelectItem value="closed">{t("Fechada")}</SelectItem>
+                  <SelectItem value="cancelled">{t("Cancelada")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="edit-job-openings">{t("Quantidade de Vagas")}</Label>
+              <Input
+                id="edit-job-openings"
+                type="number"
+                min={1}
+                {...register("openings_count", { valueAsNumber: true })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit-job-salary-min">{t("Salário Mínimo (R$)")}</Label>
+              <Input
+                id="edit-job-salary-min"
+                type="number"
+                step="any"
+                {...register("salary_min")}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit-job-salary-max">{t("Salário Máximo (R$)")}</Label>
+              <Input
+                id="edit-job-salary-max"
+                type="number"
+                step="any"
+                {...register("salary_max")}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="edit-job-desc">{t("Descrição da Vaga")}</Label>
+            <Textarea
+              id="edit-job-desc"
+              rows={3}
+              {...register("description")}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="edit-job-reqs">{t("Requisitos e Qualificações")}</Label>
+            <Textarea
+              id="edit-job-reqs"
+              rows={3}
+              {...register("requirements")}
+            />
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {t("Cancelar")}
+            </Button>
+            <Button type="submit" disabled={isSubmitting || update.isPending}>
+              {isSubmitting || update.isPending ? t("Salvando...") : t("Salvar Alterações")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+

@@ -225,7 +225,7 @@ function NewJobDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
   const { register, handleSubmit, setValue, watch, reset, formState: { isSubmitting } } = useForm<{
     title: string;
     client_company_id: string;
-    work_model: "remote" | "hybrid" | "onsite";
+    work_model: "remote" | "hybrid" | "presential";
     location?: string;
     city?: string;
     state?: string;
@@ -234,7 +234,7 @@ function NewJobDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
     requirements?: string;
   }>({
     defaultValues: {
-      work_model: "onsite",
+      work_model: "presential",
     },
   });
 
@@ -243,7 +243,7 @@ function NewJobDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
   async function onSubmit(data: {
     title: string;
     client_company_id: string;
-    work_model: "remote" | "hybrid" | "onsite";
+    work_model: "remote" | "hybrid" | "presential";
     location?: string;
     city?: string;
     state?: string;
@@ -313,14 +313,14 @@ function NewJobDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
             <div className="space-y-1">
               <Label>{t("Modelo de Trabalho")}</Label>
               <Select
-                defaultValue="onsite"
-                onValueChange={(val) => setValue("work_model", val as "remote" | "hybrid" | "onsite")}
+                defaultValue="presential"
+                onValueChange={(val) => setValue("work_model", val as "remote" | "hybrid" | "presential")}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="onsite">{t("Presencial")}</SelectItem>
+                  <SelectItem value="presential">{t("Presencial")}</SelectItem>
                   <SelectItem value="hybrid">{t("Híbrido")}</SelectItem>
                   <SelectItem value="remote">{t("Remoto")}</SelectItem>
                 </SelectContent>

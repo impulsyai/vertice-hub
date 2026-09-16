@@ -147,9 +147,8 @@ export default defineConfig({
     // seed não tinha NENHUMA das duas fontes.
     env: publicarNoProcesso(envDoE2E()),
     url: BASE_URL,
-    // false: reusar um server que já ocupa a porta pode ser OUTRO processo
-    // (ex.: bundle do Remotion na 3000) — o teste precisa do NOSSO next start.
-    reuseExistingServer: false,
+    // Permite reusar o servidor local já ativo (porta 3000 no Docker) em ambiente de dev
+    reuseExistingServer: !process.env.CI || process.env.REUSE_EXISTING_SERVER === "true",
     // Sobre a precedência de `env`, MEDIDO (Playwright 1.5x, 2026-08-07) com um
     // webServer que imprime o que recebeu:
     //
