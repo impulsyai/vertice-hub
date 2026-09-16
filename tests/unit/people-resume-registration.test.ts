@@ -55,15 +55,25 @@ interface HarnessOptions {
   removeErrors?: Array<object | null>;
 }
 
+type UploadResult = { data: { path: string } | null; error: object | null };
+type RemoveResult = { data: { path: string }[] | null; error: object | null };
+type RpcResult = { data: { resume: CandidateResume; deduplicated: boolean } | null; error?: object | null };
+
 function harness(options: HarnessOptions = {}) {
   const finds = [...(options.finds ?? [])];
   const storageReferences = [...(options.storageReferences ?? [])];
   const rpcs = [...(options.rpcs ?? [])];
   const removeErrors = [...(options.removeErrors ?? [])];
   let filters: Record<string, unknown> = {};
-  const upload = vi.fn(async () => ({ data: null, error: options.uploadError ?? null }));
-  const remove = vi.fn(async () => ({ data: null, error: removeErrors.shift() ?? null }));
-  const rpc = vi.fn(async () => rpcs.shift() ?? { data: null, error: { code: "P0001" } });
+  const upload = vi.fn<(path: string, body: Buffer, options: { contentType: string; upsert: boolean }) => Promise<UploadResult>>(
+    async () => ({ data: null, error: options.uploadError ?? null }),
+  );
+  const remove = vi.fn<(paths: string[]) => Promise<RemoveResult>>(
+    async () => ({ data: null, error: removeErrors.shift() ?? null }),
+  );
+  const rpc = vi.fn<(...args: unknown[]) => Promise<RpcResult>>(
+    async () => rpcs.shift() ?? { data: null, error: { code: "P0001" } },
+  );
   const maybeSingle = vi.fn(async () => {
     if ("storage_path" in filters) return storageReferences.shift() ?? { data: null, error: null };
     return finds.shift() ?? { data: null, error: null };
@@ -116,7 +126,7 @@ describe("People resume registration storage orchestration", () => {
     });
 
     const result = await registerCandidateResume(h.client, input);
-    const uploadedPath = h.upload.mock.calls[0]?.[0] as string;
+    const uploadedPath = h.upload.mock.calls[0]![0];
     expect(result.storage).toBe("created");
     expect(uploadedPath).toMatch(
       new RegExp(`^${input.organizationId}/${input.candidateId}/[0-9a-f-]{36}\\.pdf$`),
@@ -139,7 +149,7 @@ describe("People resume registration storage orchestration", () => {
       registerCandidateResume(first.client, input),
       registerCandidateResume(second.client, input),
     ]);
-    expect(first.upload.mock.calls[0]?.[0]).not.toBe(second.upload.mock.calls[0]?.[0]);
+    expect(first.upload.mock.calls[0]![0]).not.toBe(second.upload.mock.calls[0]![0]);
   });
 
   it("remove somente o objeto criado pelo request quando a RPC falha antes do commit", async () => {
@@ -150,7 +160,7 @@ describe("People resume registration storage orchestration", () => {
     });
 
     await expectRegistrationError(registerCandidateResume(h.client, input), "database_error");
-    const uploadedPath = h.upload.mock.calls[0]?.[0];
+    const uploadedPath = h.upload.mock.calls[0]![0];
     expect(h.remove).toHaveBeenCalledExactlyOnceWith([uploadedPath]);
   });
 
@@ -165,7 +175,7 @@ describe("People resume registration storage orchestration", () => {
     expect(result.recoveredAfterRpc).toBe(true);
     expect(result.resume.id).toBe(committed.id);
     expect(h.remove).toHaveBeenCalledOnce();
-    expect(h.remove.mock.calls[0]?.[0][0]).not.toBe(committed.storage_path);
+    expect(h.remove.mock.calls[0]![0][0]).not.toBe(committed.storage_path);
   });
 
   it("limpa somente o objeto da tentativa ao recuperar vencedor em outro path", async () => {
@@ -179,7 +189,7 @@ describe("People resume registration storage orchestration", () => {
     const result = await registerCandidateResume(h.client, input);
     expect(result.recoveredAfterRpc).toBe(true);
     expect(h.remove).toHaveBeenCalledOnce();
-    expect(h.remove.mock.calls[0]?.[0][0]).not.toBe(committed.storage_path);
+    expect(h.remove.mock.calls[0]![0][0]).not.toBe(committed.storage_path);
   });
 
   it("nunca remove objeto preexistente quando o upload retorna colisÃ£o", async () => {

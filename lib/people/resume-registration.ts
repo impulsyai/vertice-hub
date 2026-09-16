@@ -184,7 +184,7 @@ export async function registerCandidateResume(
   }
 
   let createdByRequest = false;
-  let storage: RegisterCandidateResumeResult["storage"] = "created";
+  const storage: RegisterCandidateResumeResult["storage"] = "created";
   const bucket = supabase.storage.from(BUCKET);
   const { error: uploadError } = await bucket.upload(storagePath, input.bytes, {
     contentType: input.mimeType,
