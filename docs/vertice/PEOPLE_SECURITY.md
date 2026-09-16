@@ -1,73 +1,53 @@
 # Vértice People — Segurança, RLS e Isolamento
 
-Este documento detalha as garantias de isolamento entre organizações, controle de acesso baseado em papéis (RBAC), proteção contra vazamentos de FK e segurança de arquivos confidenciais do módulo **Vértice People** (Fase 4.2.1 Hardening).
+Este documento registra somente as garantias implementadas no módulo Vértice People após o hardening da Fase 4.2.2.
 
----
+## 1. Isolamento multi-tenant
 
-## 1. Isolamento Multi-Tenant em Duas Camadas (Defesa em Profundidade)
+As tabelas People usam RLS e filtram por `organization_id`. As relações entre candidato, currículo, vaga, empresa e candidatura usam foreign keys compostas para impedir referências entre organizações.
 
-### Camada 1: RLS (Row-Level Security)
-Todas as 6 tabelas de People possuem RLS habilitada (`ALTER TABLE ... ENABLE ROW LEVEL SECURITY`) e privilégios de `anon` sumariamente revogados (`REVOKE ALL ON ... FROM anon`).
-- **Leitura (`SELECT`)**: Restrita a membros ativos da organização via `organization_id IN (SELECT public.fn_user_org_ids())` ou superadministradores da plataforma (`public.fn_is_platform_admin()`).
-- **Escrita (`INSERT`, `UPDATE`, `DELETE`)**: Exige ao menos o papel de `agent` na organização (`public.fn_role_at_least(organization_id, 'agent')`).
-- **`WITH CHECK`**: Impede que um usuário da Org A tente inserir ou alterar registros apontando para a Org B.
+As funções gravadoras validam a organização e o papel do usuário no banco. A rota não usa `organization_id` fornecido pelo cliente como autoridade: a organização vem do contexto autenticado.
 
-### Camada 2: Integridade Declarativa no Banco (Composite Foreign Keys Same-Org)
-RLS por si só não previne falhas de orquestração interna onde uma row da Org B referencia acidentalmente IDs da Org A.
-Para tornar isso **estruturalmente impossível no PostgreSQL**:
-- Toda relação People utiliza chaves estrangeiras compostas contendo `organization_id`.
-- `vertice_job_applications` referencia `vertice_job_openings(organization_id, id)`.
-- `vertice_job_applications` referencia `vertice_candidates(organization_id, id)`.
-- `vertice_job_applications` referencia `vertice_candidate_resumes(organization_id, candidate_id, id)`.
-- `vertice_candidate_resumes` referencia `vertice_candidates(organization_id, id)`.
-- `vertice_job_openings` referencia `client_companies(organization_id, id)`.
-- `client_company_contacts` referencia `client_companies(organization_id, id)`.
+## 2. Currículos e Storage
 
-Mesmo que um atacante contorne a camada de API ou uma query privilegiada seja executada, o motor relacional do PostgreSQL aborta a transação com `foreign_key_violation` caso haja divergência de `organization_id` ou caso um currículo não pertença ao candidato da aplicação.
+- O bucket `candidate-resumes` é privado.
+- A validação da rota verifica extensão, MIME, tamanho e magic bytes antes do upload.
+- Cada tentativa gera no backend um UUID novo no formato `organization_id/candidate_id/upload_attempt_uuid.ext`.
+- `upsert:false` impede sobrescrita física.
+- `candidate_id + sha256` é a identidade lógica deduplicada.
+- `storage_path` é único para cada objeto físico.
+- Uma colisão física retorna `409 storage_conflict`; o objeto preexistente não é removido.
+- A RPC `fn_register_candidate_resume` trava o candidato, exige `agent+`, valida o objeto existente e promove/demove currículos na mesma transação.
+- `authenticated` não possui `DELETE` no bucket e não possui escrita direta em `vertice_candidate_resumes`.
 
----
+### Cleanup e ownership
 
-## 2. Proteção de Arquivos de Currículos (`candidate-resumes`)
+O cleanup é executado somente pelo backend. A aplicação mantém localmente o object key UUID criado pela tentativa e, antes de chamar o client administrativo do Storage, valida:
 
-1. **Bucket Privado**:
-   O bucket do Supabase Storage `candidate-resumes` é configurado com `public = false`. Nenhuma URL pública ou sem autenticação consegue ler os arquivos.
+1. organização e candidato correspondem ao request autenticado;
+2. o path possui o formato canônico de tentativa;
+3. nenhum registro de currículo referencia aquele `storage_path`.
 
-2. **Validação Forense Binária (`lib/people/file-validation.ts`)**:
-   Todo arquivo passa por inspeção de 3 fatores antes de ser persistido:
-   - Extensão permitida (`.pdf`, `.doc`, `.docx`).
-   - MIME type declarado compatível com a extensão.
-   - **Magic bytes**:
-     - PDF: Assinatura obrigatória `%PDF-`.
-     - DOC: Assinatura de cabeçalho OLE Compound File (`D0 CF 11 E0 A1 B1 1A E1`).
-     - DOCX: Assinatura de cabeçalho ZIP/OOXML (`50 4B 03 04` ou `50 4B 05 06`).
-   Tentativas de renomear executáveis, scripts ou páginas HTML com extensões `.pdf` são sumariamente rejeitadas com erro 400.
+Assim, dois uploads concorrentes usam objetos físicos diferentes. O vencedor mantém seu objeto; o perdedor remove somente o key gerado pela própria tentativa.
 
-3. **Substituição Atômica e Tratamento de Falhas (Sem Órfãos)**:
-   - A substituição do currículo atual é executada via RPC transacional `fn_register_candidate_resume` com bloqueio pessimista `SELECT ... FOR UPDATE` do candidato.
-   - Se a gravação no banco de dados falhar por qualquer motivo após o upload para o Storage, o arquivo recém-enviado é imediatamente removido via `supabase.storage.from("candidate-resumes").remove([storagePath])`, impedindo arquivos órfãos.
+## 3. Funções `SECURITY DEFINER`
 
-4. **Download Seguro via Signed URL**:
-   O endpoint `/api/v1/people/resumes/:id/download` valida a posse do registro no tenant do usuário ativo e emite uma Signed URL temporária com expiração em **60 segundos**.
+As funções definer People usam `SET search_path = public, pg_temp` e qualificam tabelas. As cinco funções usadas exclusivamente por triggers não são executáveis por `authenticated`; o grant direto fica com `service_role`.
 
----
+`fn_register_candidate_resume` é a única função definer gravadora exposta a `authenticated`. Ela recusa UID nulo, exige `agent+`, trava o candidato da organização e valida SHA, tamanho, MIME, nome e object key de tentativa. `public`, `anon` e `service_role` não recebem `EXECUTE`.
 
-## 3. Segurança de Funções `SECURITY DEFINER`
+## 4. Anonimização LGPD
 
-Funções de banco de dados executadas com privilégios elevados (ex: `fn_sync_candidate_status_from_applications()`):
-1. Possuem `SET search_path = public, pg_temp;` fixado para proteção contra path hijacking.
-2. Todo comando `UPDATE` ou `SELECT` filtra estritamente por `organization_id` além do ID do registro (`WHERE id = candidate_id AND organization_id = target_org_id`), impedindo qualquer efeito colateral ou escalada cross-tenant.
+Um trigger `AFTER UPDATE OF is_anonymized` em `contacts` cobre a transição `false → true`:
 
----
+- redige os campos pessoais e profissionais do candidato;
+- limpa texto livre das candidaturas e zera `resume_id`;
+- enfileira os objetos de currículo em `storage_redaction_queue`;
+- remove os registros de versões de currículo;
+- filtra todas as operações por organização e contato.
 
-## 4. Guarda de Suporte e Auditoria Append-Only
+A fila é gravável somente por produtores privilegiados. O worker valida bucket permitido, ausência de travessia e prefixo exato da organização antes de usar o client administrativo.
 
-1. **Guarda de Suporte (`requireSupportWrite()`)**:
-   Todo endpoint mutante (`POST`, `PATCH`, `DELETE`) em `/api/v1/people/*` bloqueia execuções durante sessões de suporte técnico que não possuam permissão explícita de escrita.
+## 5. Guarda e auditoria
 
-2. **Auditoria com `await` Obrigatório**:
-   Todas as operações do ciclo de vida de People registram eventos de auditoria imutáveis chamando `await audit({ ... })`:
-   - `people.company_created`, `people.company_updated`, `people.company_deleted`
-   - `people.candidate_created`, `people.candidate_updated`, `people.candidate_deleted`
-   - `people.resume_uploaded`
-   - `people.job_created`, `people.job_updated`, `people.job_deleted`
-   - `people.application_created`, `people.application_stage_changed`
+Endpoints mutantes de People respeitam `requireSupportWrite()`. Operações concluídas registram auditoria com `await audit({ ... })`, incluindo upload e deduplicação de currículos.

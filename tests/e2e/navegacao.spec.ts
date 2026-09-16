@@ -93,6 +93,7 @@ test.describe("navegação agrupada", () => {
     await expect(titulos).toHaveText([
       "Atendimento",
       "CRM",
+      "Recrutamento",
       "Agente de IA",
       "Canais",
       "Análise",
