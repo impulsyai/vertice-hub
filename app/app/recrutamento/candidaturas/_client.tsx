@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useT } from "@/hooks/i18n/useT";
+import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
 import { UsersThree, Kanban, ArrowSquareOut } from "@/lib/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,6 +21,7 @@ import { RECRUITMENT_STAGES, type RecruitmentStage } from "@/lib/people/types";
 
 export function CandidaturasClient() {
   const t = useT();
+  const tagDoIdioma = useTagDeIdioma();
   const [selectedJob, setSelectedJob] = useState<string>("all");
   const [selectedStage, setSelectedStage] = useState<string>("all");
   const [page, setPage] = useState(1);
@@ -160,7 +162,7 @@ export function CandidaturasClient() {
                       </Badge>
                     </td>
                     <td className="p-4 text-muted-foreground text-xs">
-                      {new Date(app.stage_changed_at || app.created_at).toLocaleDateString("pt-BR")}
+                      {new Date(app.stage_changed_at || app.created_at).toLocaleDateString(tagDoIdioma)}
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">

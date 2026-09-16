@@ -214,9 +214,23 @@ export function SidebarContent({
         o PR: cada linha custa 32px (28px de altura + 4px de `space-y-1`), e
         trocar N destinos do menu por um único link de hub devolve (N-1)×32px.
       */}
-      <nav className="flex-1 space-y-2 overflow-y-auto p-2" aria-label={t("Navegação principal")}>
+      <nav
+        className="flex-1 space-y-2 overflow-y-auto px-2 py-0.5"
+        aria-label={t("Navegação principal")}
+      >
         {grupos.map(({ group, items }) => {
           const tituloId = `nav-grupo-${group.id}`;
+          // Recrutamento foi desenhado como hub-only: seus destinos continuam
+          // no hub e na busca, mas não ocupam linhas na barra. Nesse caso, um
+          // cabeçalho expansível + "Ver tudo" duplicaria a mesma escolha.
+          //
+          // Não generalizar para qualquer grupo vazio: a personalização de
+          // interface pode ocultar temporariamente todos os atalhos de CRM/IA,
+          // e nesses grupos o link "Ver tudo" é parte do contrato de navegação.
+          const hubDireto =
+            !collapsed && group.id === "recrutamento" && items.length === 0
+              ? group.hub
+              : undefined;
           // Recolhido o sidebar inteiro (rail de 64px), o grupo sempre mostra
           // seus itens — não há onde desenhar cabeçalho nem seta para fechá-lo.
           const aberto = collapsed || !gruposFechados.has(group.id);
@@ -224,7 +238,24 @@ export function SidebarContent({
             <div key={group.id} className="space-y-1">
               {/* Colapsado, o sidebar tem 64px: seis rótulos ali seriam ilegíveis.
                   Vira um filete separador, que preserva o agrupamento sem texto. */}
-              {collapsed ? (
+              {hubDireto ? (
+                <h2 id={tituloId}>
+                  <Link
+                    href={hubDireto.href}
+                    aria-current={pathname === hubDireto.href ? "page" : undefined}
+                    onClick={onNavigate}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                      pathname === hubDireto.href
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+                    )}
+                  >
+                    {t(group.label)}
+                    <ArrowRight size={12} weight="bold" aria-hidden />
+                  </Link>
+                </h2>
+              ) : collapsed ? (
                 <div aria-hidden className="mx-2 border-t first:hidden" />
               ) : (
                 <h2 id={tituloId}>
@@ -247,7 +278,7 @@ export function SidebarContent({
                   </button>
                 </h2>
               )}
-              {aberto && (
+              {!hubDireto && aberto && (
                 <ul
                   aria-labelledby={collapsed ? undefined : tituloId}
                   aria-label={collapsed ? t(group.label) : undefined}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
+import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
 import {
   Briefcase,
   ArrowLeft,
@@ -37,6 +38,7 @@ import { useJobDetail, useCandidateList, useCreateApplication } from "@/lib/peop
 
 export function VagaDetalheClient({ id }: { id: string }) {
   const t = useT();
+  const tagDoIdioma = useTagDeIdioma();
   const { data, isLoading, error } = useJobDetail(id);
   const [isAddOpen, setIsAddOpen] = useState(false);
 
@@ -200,7 +202,7 @@ export function VagaDetalheClient({ id }: { id: string }) {
               <div>
                 <span className="text-xs text-muted-foreground block">{t("Data de Abertura")}</span>
                 <span className="font-medium">
-                  {job.opened_at ? new Date(job.opened_at).toLocaleDateString("pt-BR") : "—"}
+                  {job.opened_at ? new Date(job.opened_at).toLocaleDateString(tagDoIdioma) : "—"}
                 </span>
               </div>
             </CardContent>

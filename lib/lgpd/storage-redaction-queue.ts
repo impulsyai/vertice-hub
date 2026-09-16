@@ -27,6 +27,14 @@ interface QueueRow {
 
 const MAX_ATTEMPTS = 3;
 const DEFAULT_BATCH = 50;
+const ALLOWED_BUCKETS = new Set(["whatsapp-media", "candidate-resumes"]);
+
+/** Nunca entrega ao service_role um comando de remoção fora do tenant da fila. */
+export function isStorageRedactionTargetScoped(row: QueueRow): boolean {
+  if (!ALLOWED_BUCKETS.has(row.bucket)) return false;
+  if (row.object_path.startsWith("/") || row.object_path.includes("..")) return false;
+  return row.object_path.split("/")[0] === row.organization_id;
+}
 
 /**
  * Pull up to `limit` pending rows and process them sequentially.
@@ -61,6 +69,25 @@ export async function drainStorageRedactionQueue(
   for (const row of queueRows) {
     stats.attempted++;
     const nextAttempts = row.attempts + 1;
+
+    if (!isStorageRedactionTargetScoped(row)) {
+      await admin
+        .from("storage_redaction_queue")
+        .update({
+          status: "failed",
+          attempts: nextAttempts,
+          processed_at: new Date().toISOString(),
+          error_message: "invalid_storage_scope",
+        })
+        .eq("id", row.id);
+      stats.failed++;
+      logger.warn("[lgpd-redact-worker] invalid storage scope", {
+        queue_id: row.id,
+        organization_id: row.organization_id,
+        bucket: row.bucket,
+      });
+      continue;
+    }
 
     try {
       const { error: removeErr } = await admin.storage

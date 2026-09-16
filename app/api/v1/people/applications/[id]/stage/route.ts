@@ -57,7 +57,9 @@ export async function PATCH(
     })
     .eq("id", id)
     .eq("organization_id", authz.org.orgId)
-    .select("*, candidate:vertice_candidates(*), job:vertice_job_openings(*)")
+    .select(
+      "*, candidate:vertice_candidates!vertice_applications_org_cand_fk(*), job:vertice_job_openings!vertice_applications_org_job_fk(*)",
+    )
     .single();
 
   if (error || !updated) {

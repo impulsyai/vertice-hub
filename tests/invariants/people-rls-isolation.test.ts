@@ -1,380 +1,296 @@
-import { describe, expect, it } from "vitest";
-import { countAs, sql, writeCountAs } from "./gov-helpers";
+import pg from "pg";
+import { randomUUID } from "node:crypto";
+import { afterAll, describe, expect, it } from "vitest";
 
-/**
- * Invariante de Isolamento RLS e Integridade Relacional — Vértice People Foundation (0257).
- *
- * Testa contra o container Postgres de teste (baseline.sql):
- *  1. Isolamento estrito RLS entre Org A e Org B para todas as entidades People.
- *  2. Bloqueio relacional declarativo (Composite FKs e Triggers) contra gravações cross-tenant.
- *  3. Invariante de integridade de currículo: resume_id em application DEVE pertencer ao mesmo candidato e mesmo tenant.
- *  4. Invariante de vagas: application só é aceita para vagas com status = 'open'.
- *  5. Unicidade de current resume (unique violation ao tentar 2 current simultâneos).
- *  6. Transacionalidade de substituição de currículo via RPC fn_register_candidate_resume.
- *  7. Recálculo consistente de status do candidato via gatilho, preservando 'inactive' e 'do_not_contact'.
- *  8. Security Definer Cross-Tenant Probe: tentativa de injection/candidatura cross-tenant não afeta outro tenant.
- */
+const pool = new pg.Pool({
+  connectionString: `postgresql://postgres:postgres@127.0.0.1:${process.env.TEST_DB_PORT ?? 54329}/postgres`,
+});
 
-const P_ORG_A = "0257aaaa-0000-4000-8000-000000000001";
-const P_ORG_B = "0257bbbb-0000-4000-8000-000000000002";
-const P_USER_A = "0257aaaa-1111-4000-8000-000000000001";
-const P_USER_B = "0257bbbb-1111-4000-8000-000000000002";
+type ApiRole = "anon" | "authenticated" | "service_role";
 
-function seed(): void {
-  sql(`
-    insert into auth.users (id, email) values
-      ('${P_USER_A}', 'people-a@invariant.test'),
-      ('${P_USER_B}', 'people-b@invariant.test')
-      on conflict do nothing;
-
-    insert into public.organizations (id, slug, legal_name, display_name) values
-      ('${P_ORG_A}', 'people-inv-a', 'People Inv Org A', 'People A'),
-      ('${P_ORG_B}', 'people-inv-b', 'People Inv Org B', 'People B')
-      on conflict do nothing;
-
-    insert into public.user_organizations (user_id, organization_id, role, accepted_at) values
-      ('${P_USER_A}', '${P_ORG_A}', 'agent', now()),
-      ('${P_USER_B}', '${P_ORG_B}', 'agent', now())
-      on conflict do nothing;
-  `);
+async function asRole(role: ApiRole, user: string | null, query: string, values: unknown[] = []) {
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+    await client.query(`set local role ${role}`);
+    await client.query("select set_config('request.jwt.claims',$1,true)", [
+      JSON.stringify({ role, ...(user ? { sub: user } : {}) }),
+    ]);
+    const result = await client.query(query, values);
+    await client.query("commit");
+    return result;
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
-describe("Vértice People Foundation — Isolamento RLS e Integridade Declarativa (0257)", () => {
-  it("semeia tenants A e B com permissão de agent", () => {
-    seed();
-    expect(countAs(P_USER_A, `select count(*) from public.organizations where id = '${P_ORG_A}'`)).toBe(1);
-    expect(countAs(P_USER_B, `select count(*) from public.organizations where id = '${P_ORG_B}'`)).toBe(1);
-  });
+interface Tenant {
+  org: string;
+  agent: string;
+  viewer: string;
+  contact: string;
+  company: string;
+  candidate: string;
+  job: string;
+}
 
-  it("client_companies: Org B não enxerga nem altera empresas da Org A", () => {
-    seed();
-    sql(`
-      insert into public.client_companies (id, organization_id, legal_name, trade_name, status)
-      values ('0257aaaa-2222-4000-8000-000000000001', '${P_ORG_A}', 'Tramontina S.A.', 'Tramontina', 'active')
-      on conflict do nothing;
-    `);
-
-    // Org A lê a sua empresa
-    expect(countAs(P_USER_A, `select count(*) from public.client_companies where organization_id = '${P_ORG_A}'`)).toBe(1);
-    // Org B lê ZERO empresas da Org A
-    expect(countAs(P_USER_B, `select count(*) from public.client_companies where organization_id = '${P_ORG_A}'`)).toBe(0);
-
-    // Tentativa da Org B de escrever com o organization_id da Org A é bloqueada por RLS
-    const writeAttempt = writeCountAs(
-      P_USER_B,
-      `insert into public.client_companies (organization_id, legal_name, status)
-       values ('${P_ORG_A}', 'Hacked Company', 'active')`,
+async function tenant(tag: string): Promise<Tenant> {
+  const fixture: Tenant = {
+    org: randomUUID(),
+    agent: randomUUID(),
+    viewer: randomUUID(),
+    contact: randomUUID(),
+    company: randomUUID(),
+    candidate: randomUUID(),
+    job: randomUUID(),
+  };
+  await pool.query(
+    "insert into organizations(id,slug,legal_name,display_name) values($1,$2,$3,$3)",
+    [fixture.org, `people-${tag}-${fixture.org.slice(0, 8)}`, `People ${tag}`],
+  );
+  for (const role of ["agent", "viewer"] as const) {
+    const user = fixture[role];
+    await pool.query("insert into auth.users(id,email) values($1,$2)", [
+      user,
+      `${tag}-${role}-${user}@invariant.test`,
+    ]);
+    await pool.query(
+      "insert into user_organizations(user_id,organization_id,role,accepted_at) values($1,$2,$3,now())",
+      [user, fixture.org, role],
     );
-    expect(writeAttempt).toBe(0);
+  }
+  await pool.query("insert into contacts(id,organization_id,display_name) values($1,$2,$3)", [
+    fixture.contact,
+    fixture.org,
+    `Contato ${tag}`,
+  ]);
+  await pool.query(
+    "insert into client_companies(id,organization_id,legal_name,status) values($1,$2,$3,'active')",
+    [fixture.company, fixture.org, `Empresa ${tag}`],
+  );
+  await pool.query(
+    "insert into vertice_candidates(id,organization_id,contact_id,full_name,email,status,notes) values($1,$2,$3,$4,$5,'active','nota pessoal')",
+    [fixture.candidate, fixture.org, fixture.contact, `Candidato ${tag}`, `${tag}@invariant.test`],
+  );
+  await pool.query(
+    "insert into vertice_job_openings(id,organization_id,client_company_id,title,status) values($1,$2,$3,$4,'open')",
+    [fixture.job, fixture.org, fixture.company, `Vaga ${tag}`],
+  );
+  return fixture;
+}
+
+async function addAgent(t: Tenant, tag: string): Promise<string> {
+  const user = randomUUID();
+  await pool.query("insert into auth.users(id,email) values($1,$2)", [
+    user,
+    `${tag}-${user}@invariant.test`,
+  ]);
+  await pool.query(
+    "insert into user_organizations(user_id,organization_id,role,accepted_at) values($1,$2,'agent',now())",
+    [user, t.org],
+  );
+  return user;
+}
+
+const rpc = `select public.fn_register_candidate_resume(
+  $1::uuid,$2::uuid,$3::text,$4::text,$5::text,$6::bigint,$7::text,$8::text,$9::text,$10::text
+) result`;
+
+function attemptPath(t: Tenant, attempt: string, extension = "pdf") {
+  return `${t.org}/${t.candidate}/${attempt}.${extension}`;
+}
+
+function args(t: Tenant, sha: string, path = attemptPath(t, "11111111-1111-4111-8111-111111111111")) {
+  return [t.org, t.candidate, path, "curriculo.pdf", "application/pdf", 128, sha, "manual", null, null];
+}
+
+async function putObject(t: Tenant, sha: string, attempt = "11111111-1111-4111-8111-111111111111") {
+  const path = attemptPath(t, attempt);
+  await pool.query(
+    "insert into storage.objects(bucket_id,name,owner,metadata) values('candidate-resumes',$1,$2,$3)",
+    [path, t.agent, { size: 128, mimetype: "application/pdf", sha256: sha }],
+  );
+  return path;
+}
+
+async function beginAsAuthenticated(client: pg.PoolClient, user: string) {
+  await client.query("begin");
+  await client.query("set local role authenticated");
+  await client.query("select set_config('request.jwt.claims',$1,true)", [
+    JSON.stringify({ role: "authenticated", sub: user }),
+  ]);
+}
+
+afterAll(() => pool.end());
+
+describe("People 4.2.2 — ACL, integridade e LGPD", () => {
+  it("nega RPC cross-tenant com 42501 e não produz efeito lateral", async () => {
+    const a = await tenant("acl-a");
+    const b = await tenant("acl-b");
+    const sha = "a".repeat(64);
+    const path = await putObject(a, sha);
+    await expect(asRole("authenticated", b.agent, rpc, args(a, sha, path))).rejects.toMatchObject({
+      code: "42501",
+    });
+    expect(Number((await pool.query("select count(*) from vertice_candidate_resumes where storage_path=$1", [path])).rows[0].count)).toBe(0);
+    expect(Number((await pool.query("select count(*) from storage.objects where name=$1", [path])).rows[0].count)).toBe(1);
   });
 
-  it("bloqueia gravações cross-tenant via Composite Foreign Keys e Triggers (P0)", () => {
-    seed();
-    // Prepara entidades base na Org A e Org B
-    sql(`
-      insert into public.contacts (id, organization_id, full_name, email)
-      values
-        ('0257aaaa-cccc-4000-8000-000000000001', '${P_ORG_A}', 'Contato Org A', 'contato-a@exemplo.test'),
-        ('0257bbbb-cccc-4000-8000-000000000002', '${P_ORG_B}', 'Contato Org B', 'contato-b@exemplo.test')
-      on conflict do nothing;
-
-      insert into public.client_companies (id, organization_id, legal_name, status)
-      values
-        ('0257aaaa-2222-4000-8000-000000000001', '${P_ORG_A}', 'Empresa A', 'active'),
-        ('0257bbbb-2222-4000-8000-000000000002', '${P_ORG_B}', 'Empresa B', 'active')
-      on conflict do nothing;
-
-      insert into public.vertice_candidates (id, organization_id, full_name, email, status)
-      values
-        ('0257aaaa-3333-4000-8000-000000000001', '${P_ORG_A}', 'Candidato A', 'cand-a@exemplo.test', 'active'),
-        ('0257bbbb-3333-4000-8000-000000000002', '${P_ORG_B}', 'Candidato B', 'cand-b@exemplo.test', 'active')
-      on conflict do nothing;
-
-      insert into public.vertice_job_openings (id, organization_id, client_company_id, title, status)
-      values
-        ('0257aaaa-4444-4000-8000-000000000001', '${P_ORG_A}', '0257aaaa-2222-4000-8000-000000000001', 'Vaga A', 'open'),
-        ('0257bbbb-4444-4000-8000-000000000002', '${P_ORG_B}', '0257bbbb-2222-4000-8000-000000000002', 'Vaga B', 'open')
-      on conflict do nothing;
-    `);
-
-    // 1. Org B Job apontando para Company Org A deve FALHAR
-    const jobCrossCompany = sql(`
-      do $$
-      begin
-        insert into public.vertice_job_openings (organization_id, client_company_id, title, status)
-        values ('${P_ORG_B}', '0257aaaa-2222-4000-8000-000000000001', 'Vaga Cross', 'open');
-        raise exception 'Nao deveria permitir Job Org B com Company Org A';
-      exception when foreign_key_violation then
-        null;
-      end $$;
-      select count(*) from public.vertice_job_openings where title = 'Vaga Cross';
-    `);
-    expect(parseInt(jobCrossCompany, 10)).toBe(0);
-
-    // 2. Org B Candidate apontando para Contact Org A deve FALHAR (trigger same-org)
-    const candCrossContact = sql(`
-      do $$
-      begin
-        insert into public.vertice_candidates (organization_id, contact_id, full_name, email)
-        values ('${P_ORG_B}', '0257aaaa-cccc-4000-8000-000000000001', 'Candidato Cross Contact', 'cross-contact@test.com');
-        raise exception 'Nao deveria permitir Candidate Org B com Contact Org A';
-      exception when raise_exception then
-        null;
-      end $$;
-      select count(*) from public.vertice_candidates where full_name = 'Candidato Cross Contact';
-    `);
-    expect(parseInt(candCrossContact, 10)).toBe(0);
-
-    // 3. Org B CompanyContact apontando para Company Org A deve FALHAR
-    const companyContactCross = sql(`
-      do $$
-      begin
-        insert into public.client_company_contacts (organization_id, client_company_id, contact_id)
-        values ('${P_ORG_B}', '0257aaaa-2222-4000-8000-000000000001', '0257bbbb-cccc-4000-8000-000000000002');
-        raise exception 'Nao deveria permitir CompanyContact cross-tenant';
-      exception when foreign_key_violation then
-        null;
-      end $$;
-      select count(*) from public.client_company_contacts where client_company_id = '0257aaaa-2222-4000-8000-000000000001';
-    `);
-    expect(parseInt(companyContactCross, 10)).toBe(0);
-
-    // 4. Org B Resume apontando para Candidate Org A deve FALHAR
-    const resumeCrossCand = sql(`
-      do $$
-      begin
-        insert into public.vertice_candidate_resumes (
-          organization_id, candidate_id, storage_path, original_filename, mime_type, file_size_bytes, sha256, is_current
-        ) values (
-          '${P_ORG_B}', '0257aaaa-3333-4000-8000-000000000001',
-          '${P_ORG_B}/c/x.pdf', 'x.pdf', 'application/pdf', 100, 'sha-cross-resume', false
-        );
-        raise exception 'Nao deveria permitir Resume Org B com Candidate Org A';
-      exception when foreign_key_violation then
-        null;
-      end $$;
-      select count(*) from public.vertice_candidate_resumes where sha256 = 'sha-cross-resume';
-    `);
-    expect(parseInt(resumeCrossCand, 10)).toBe(0);
-
-    // 5. Org B Application apontando para Candidate Org A deve FALHAR
-    const appCrossCand = sql(`
-      do $$
-      begin
-        insert into public.vertice_job_applications (organization_id, job_opening_id, candidate_id, stage)
-        values ('${P_ORG_B}', '0257bbbb-4444-4000-8000-000000000002', '0257aaaa-3333-4000-8000-000000000001', 'received');
-        raise exception 'Nao deveria permitir Application Org B com Candidate Org A';
-      exception when foreign_key_violation then
-        null;
-      end $$;
-      select count(*) from public.vertice_job_applications where candidate_id = '0257aaaa-3333-4000-8000-000000000001' and organization_id = '${P_ORG_B}';
-    `);
-    expect(parseInt(appCrossCand, 10)).toBe(0);
-
-    // 6. Org B Application apontando para Job Org A deve FALHAR
-    const appCrossJob = sql(`
-      do $$
-      begin
-        insert into public.vertice_job_applications (organization_id, job_opening_id, candidate_id, stage)
-        values ('${P_ORG_B}', '0257aaaa-4444-4000-8000-000000000001', '0257bbbb-3333-4000-8000-000000000002', 'received');
-        raise exception 'Nao deveria permitir Application Org B com Job Org A';
-      exception when foreign_key_violation then
-        null;
-      end $$;
-      select count(*) from public.vertice_job_applications where job_opening_id = '0257aaaa-4444-4000-8000-000000000001' and organization_id = '${P_ORG_B}';
-    `);
-    expect(parseInt(appCrossJob, 10)).toBe(0);
+  it("bloqueia upload de Storage para path de outra organização", async () => {
+    const a = await tenant("storage-a");
+    const b = await tenant("storage-b");
+    const path = attemptPath(a, "22222222-2222-4222-8222-222222222222");
+    await expect(
+      asRole("authenticated", b.agent, "insert into storage.objects(bucket_id,name,owner) values('candidate-resumes',$1,$2)", [path, b.agent]),
+    ).rejects.toMatchObject({ code: "42501" });
   });
 
-  it("Security Definer Cross-Tenant Probe: tentativa de candidatura cruzada não afeta candidato de outro tenant", () => {
-    seed();
-    // Confirma status do candidato da Org A antes da sonda
-    const statusBefore = sql(`select status from public.vertice_candidates where id = '0257aaaa-3333-4000-8000-000000000001';`);
-    expect(statusBefore).toBe("active");
+  it("impede outro agent do mesmo tenant de adotar o object key da tentativa", async () => {
+    const a = await tenant("rpc-owner");
+    const otherAgent = await addAgent(a, "rpc-owner-other");
+    const sha = "9".repeat(64);
+    const path = await putObject(a, sha);
 
-    // Tentativa cross-tenant
-    sql(`
-      do $$
-      begin
-        insert into public.vertice_job_applications (organization_id, job_opening_id, candidate_id, stage)
-        values ('${P_ORG_B}', '0257bbbb-4444-4000-8000-000000000002', '0257aaaa-3333-4000-8000-000000000001', 'approved');
-      exception when foreign_key_violation then
-        null;
-      end $$;
-    `);
-
-    // Prova que o status do candidato Org A permaneceu imune
-    const statusAfter = sql(`select status from public.vertice_candidates where id = '0257aaaa-3333-4000-8000-000000000001';`);
-    expect(statusAfter).toBe("active");
+    await expect(asRole("authenticated", otherAgent, rpc, args(a, sha, path))).rejects.toMatchObject({
+      code: "42501",
+    });
+    expect(
+      Number(
+        (await pool.query("select count(*) from vertice_candidate_resumes where storage_path=$1", [path]))
+          .rows[0].count,
+      ),
+    ).toBe(0);
+    expect(
+      Number((await pool.query("select count(*) from storage.objects where name=$1", [path])).rows[0].count),
+    ).toBe(1);
   });
 
-  it("Application Resume Test: rejeita currículo de outro candidato mesmo dentro do mesmo tenant", () => {
-    seed();
-    // Cria dois candidatos no tenant A e um currículo para cada um
-    sql(`
-      insert into public.vertice_candidates (id, organization_id, full_name, email, status)
-      values
-        ('0257aaaa-7777-4000-8000-000000000001', '${P_ORG_A}', 'Candidato Alfa', 'alfa@exemplo.test', 'active'),
-        ('0257aaaa-7777-4000-8000-000000000002', '${P_ORG_A}', 'Candidato Beta', 'beta@exemplo.test', 'active')
-      on conflict do nothing;
-
-      insert into public.vertice_candidate_resumes (
-        id, organization_id, candidate_id, storage_path, original_filename, mime_type, file_size_bytes, sha256, is_current
-      ) values
-        ('0257aaaa-8888-4000-8000-000000000001', '${P_ORG_A}', '0257aaaa-7777-4000-8000-000000000001', '${P_ORG_A}/c/alfa.pdf', 'alfa.pdf', 'application/pdf', 1000, 'sha-alfa', true),
-        ('0257aaaa-8888-4000-8000-000000000002', '${P_ORG_A}', '0257aaaa-7777-4000-8000-000000000002', '${P_ORG_A}/c/beta.pdf', 'beta.pdf', 'application/pdf', 1000, 'sha-beta', true)
-      on conflict do nothing;
-    `);
-
-    // Tentar criar Application para Candidato Alfa com o Resume do Candidato Beta (mesma Org A)
-    const mismatchResume = sql(`
-      do $$
-      begin
-        insert into public.vertice_job_applications (
-          organization_id, job_opening_id, candidate_id, resume_id, stage
-        ) values (
-          '${P_ORG_A}', '0257aaaa-4444-4000-8000-000000000001',
-          '0257aaaa-7777-4000-8000-000000000001', '0257aaaa-8888-4000-8000-000000000002', 'received'
-        );
-        raise exception 'Nao deveria permitir Application com Resume de outro candidato';
-      exception when foreign_key_violation then
-        null;
-      end $$;
-      select count(*) from public.vertice_job_applications where resume_id = '0257aaaa-8888-4000-8000-000000000002' and candidate_id = '0257aaaa-7777-4000-8000-000000000001';
-    `);
-    expect(parseInt(mismatchResume, 10)).toBe(0);
+  it("agent da própria organização registra, deduplica e promove atomicamente", async () => {
+    const a = await tenant("rpc-ok");
+    const firstSha = "1".repeat(64);
+    const secondSha = "2".repeat(64);
+    const firstPath = await putObject(a, firstSha);
+    const first = (await asRole("authenticated", a.agent, rpc, args(a, firstSha, firstPath))).rows[0].result;
+    expect(first).toMatchObject({ deduplicated: false, resume: { sha256: firstSha, is_current: true, storage_path: firstPath } });
+    const secondPath = await putObject(a, secondSha, "22222222-2222-4222-8222-222222222222");
+    const second = (await asRole("authenticated", a.agent, rpc, args(a, secondSha, secondPath))).rows[0].result;
+    expect(second).toMatchObject({ deduplicated: false, resume: { sha256: secondSha, is_current: true } });
+    const promoted = (await asRole("authenticated", a.agent, rpc, args(a, firstSha, firstPath))).rows[0].result;
+    expect(promoted).toMatchObject({ deduplicated: true, resume: { sha256: firstSha, is_current: true } });
+    expect(Number((await pool.query("select count(*) from vertice_candidate_resumes where candidate_id=$1 and is_current", [a.candidate])).rows[0].count)).toBe(1);
   });
 
-  it("Application Job Test: apenas vagas com status 'open' aceitam candidaturas", () => {
-    seed();
-    // Cria vagas com status variados
-    sql(`
-      insert into public.vertice_job_openings (id, organization_id, client_company_id, title, status)
-      values
-        ('0257aaaa-9999-4000-8000-000000000001', '${P_ORG_A}', '0257aaaa-2222-4000-8000-000000000001', 'Vaga Draft', 'draft'),
-        ('0257aaaa-9999-4000-8000-000000000002', '${P_ORG_A}', '0257aaaa-2222-4000-8000-000000000001', 'Vaga Paused', 'paused'),
-        ('0257aaaa-9999-4000-8000-000000000003', '${P_ORG_A}', '0257aaaa-2222-4000-8000-000000000001', 'Vaga Closed', 'closed'),
-        ('0257aaaa-9999-4000-8000-000000000004', '${P_ORG_A}', '0257aaaa-2222-4000-8000-000000000001', 'Vaga Cancelled', 'cancelled')
-      on conflict do nothing;
-    `);
+  it("nega anon, UID nulo, viewer e service_role", async () => {
+    const a = await tenant("rpc-deny");
+    const roles: Array<[ApiRole, string | null]> = [["anon", null], ["authenticated", null], ["authenticated", a.viewer], ["service_role", null]];
+    for (const [role, user] of roles) {
+      await expect(asRole(role, user, rpc, args(a, "3".repeat(64)))).rejects.toMatchObject({ code: "42501" });
+    }
+    expect(Number((await pool.query("select count(*) from vertice_candidate_resumes where candidate_id=$1", [a.candidate])).rows[0].count)).toBe(0);
+  });
 
-    // Draft, Paused, Closed e Cancelled devem ser rejeitadas pelo trigger trg_check_job_is_open_on_application
-    const statuses = ["draft", "paused", "closed", "cancelled"];
-    for (let i = 0; i < statuses.length; i++) {
-      const jobId = `0257aaaa-9999-4000-8000-00000000000${i + 1}`;
-      const res = sql(`
-        do $$
-        begin
-          insert into public.vertice_job_applications (organization_id, job_opening_id, candidate_id, stage)
-          values ('${P_ORG_A}', '${jobId}', '0257aaaa-7777-4000-8000-000000000001', 'received');
-          raise exception 'Nao deveria permitir aplicacao em vaga %', '${statuses[i]}';
-        exception when raise_exception then
-          null;
-        end $$;
-        select count(*) from public.vertice_job_applications where job_opening_id = '${jobId}';
-      `);
-      expect(parseInt(res, 10)).toBe(0);
+  it("valida path, SHA, tamanho e MIME antes de mutar", async () => {
+    const a = await tenant("rpc-input");
+    const invalid = [
+      args(a, "4".repeat(64), "fora/path.pdf"),
+      args(a, "sha-invalido"),
+      args(a, "5".repeat(64)).map((value, index) => (index === 5 ? 0 : value)),
+      args(a, "6".repeat(64)).map((value, index) => (index === 4 ? "text/plain" : value)),
+    ];
+    for (const values of invalid) {
+      await expect(asRole("authenticated", a.agent, rpc, values)).rejects.toMatchObject({ code: "22023" });
     }
   });
 
-  it("Current Resume Invariant e Substituição Atômica (Item 12, 13 e 14)", () => {
-    seed();
-    // 1. Prova que tentar inserir segundo is_current = true dispara unique_violation
-    const uniqueCurrentViolation = sql(`
-      do $$
-      begin
-        insert into public.vertice_candidate_resumes (
-          organization_id, candidate_id, storage_path, original_filename, mime_type, file_size_bytes, sha256, is_current
-        ) values (
-          '${P_ORG_A}', '0257aaaa-7777-4000-8000-000000000001',
-          '${P_ORG_A}/c/alfa-2.pdf', 'alfa-2.pdf', 'application/pdf', 1000, 'sha-alfa-2', true
-        );
-        raise exception 'Nao deveria permitir segundo current = true simultaneo';
-      exception when unique_violation then
-        null;
-      end $$;
-      select count(*) from public.vertice_candidate_resumes where candidate_id = '0257aaaa-7777-4000-8000-000000000001' and is_current = true;
-    `);
-    expect(parseInt(uniqueCurrentViolation, 10)).toBe(1);
-
-    // 2. Prova troca atômica via RPC fn_register_candidate_resume
-    sql(`
-      select public.fn_register_candidate_resume(
-        '${P_ORG_A}'::uuid,
-        '0257aaaa-7777-4000-8000-000000000001'::uuid,
-        '${P_ORG_A}/c/alfa-atomic.pdf',
-        'alfa-atomic.pdf',
-        'application/pdf',
-        2048,
-        'sha-alfa-atomic',
-        '{"parsed": true}'::jsonb
-      );
-    `);
-
-    // Novo CV é current=true
-    const atomicCurrent = sql(`
-      select count(*) from public.vertice_candidate_resumes
-      where candidate_id = '0257aaaa-7777-4000-8000-000000000001'
-        and sha256 = 'sha-alfa-atomic'
-        and is_current = true;
-    `);
-    expect(parseInt(atomicCurrent, 10)).toBe(1);
-
-    // CV antigo virou is_current=false
-    const oldCurrent = sql(`
-      select count(*) from public.vertice_candidate_resumes
-      where candidate_id = '0257aaaa-7777-4000-8000-000000000001'
-        and sha256 = 'sha-alfa'
-        and is_current = false;
-    `);
-    expect(parseInt(oldCurrent, 10)).toBe(1);
+  it("recusa metadata sem objeto real e escrita autenticada privilegiada", async () => {
+    const a = await tenant("rpc-object");
+    await expect(asRole("authenticated", a.agent, rpc, args(a, "d".repeat(64)))).rejects.toMatchObject({ code: "P0002" });
+    await expect(
+      asRole("authenticated", a.agent, "insert into vertice_candidate_resumes(organization_id,candidate_id,storage_path,original_filename,mime_type,file_size_bytes,sha256) values($1,$2,$3,'x.pdf','application/pdf',128,$4)", [a.org, a.candidate, attemptPath(a, "33333333-3333-4333-8333-333333333333"), "e".repeat(64)]),
+    ).rejects.toMatchObject({ code: "42501" });
   });
 
-  it("Candidate Status Recalculation: derivação automática de status (Item 9)", () => {
-    seed();
-    // Cria candidato novo
-    const candId = "0257aaaa-daaa-4000-8000-000000000001";
-    const appId = "0257aaaa-eaaa-4000-8000-000000000001";
-    sql(`
-      insert into public.vertice_candidates (id, organization_id, full_name, email, status)
-      values ('${candId}', '${P_ORG_A}', 'Status Test Candidate', 'status-cand@test.com', 'active')
-      on conflict do nothing;
-    `);
-    expect(sql(`select status from public.vertice_candidates where id = '${candId}'`)).toBe("active");
+  it("concorre com dois object keys, mantém o vencedor e bloqueia DELETE do cliente", async () => {
+    const a = await tenant("race");
+    const sha = "b".repeat(64);
+    const pathA = await putObject(a, sha, "11111111-1111-4111-8111-111111111111");
+    const pathB = await putObject(a, sha, "22222222-2222-4222-8222-222222222222");
+    const clientA = await pool.connect();
+    const clientB = await pool.connect();
+    try {
+      await beginAsAuthenticated(clientA, a.agent);
+      const firstRequest = clientA.query(rpc, args(a, sha, pathA));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await beginAsAuthenticated(clientB, a.agent);
+      const secondRequest = clientB.query(rpc, args(a, sha, pathB));
+      const first = (await firstRequest).rows[0].result;
+      await clientA.query("commit");
+      const second = (await secondRequest).rows[0].result;
+      await clientB.query("commit");
+      expect(first).toMatchObject({ deduplicated: false, resume: { storage_path: pathA } });
+      expect(second).toMatchObject({ deduplicated: true, resume: { storage_path: pathA } });
+    } finally {
+      await clientA.query("rollback").catch(() => undefined);
+      await clientB.query("rollback").catch(() => undefined);
+      clientA.release();
+      clientB.release();
+    }
+    expect(Number((await pool.query("select count(*) from vertice_candidate_resumes where candidate_id=$1 and sha256=$2", [a.candidate, sha])).rows[0].count)).toBe(1);
+    expect(Number((await pool.query("select count(*) from vertice_candidate_resumes where candidate_id=$1 and is_current", [a.candidate])).rows[0].count)).toBe(1);
+    expect(Number((await pool.query("select count(*) from storage.objects where name in($1,$2)", [pathA, pathB])).rows[0].count)).toBe(2);
+    await expect(asRole("authenticated", a.agent, "delete from storage.objects where bucket_id='candidate-resumes' and name=$1", [pathB])).rejects.toMatchObject({ code: "42501" });
+    expect(Number((await pool.query("select count(*) from storage.objects where name in($1,$2)", [pathA, pathB])).rows[0].count)).toBe(2);
+  });
 
-    // Inserção em stage 'received' -> vira 'in_process'
-    sql(`
-      insert into public.vertice_job_applications (id, organization_id, job_opening_id, candidate_id, stage)
-      values ('${appId}', '${P_ORG_A}', '0257aaaa-4444-4000-8000-000000000001', '${candId}', 'received');
-    `);
-    expect(sql(`select status from public.vertice_candidates where id = '${candId}'`)).toBe("in_process");
+  it("referência de qualquer currículo impede a remoção pelo cliente", async () => {
+    const a = await tenant("delete-reference");
+    const sha = "f".repeat(64);
+    const path = await putObject(a, sha);
+    await asRole("authenticated", a.agent, rpc, args(a, sha, path));
+    await expect(asRole("authenticated", a.agent, "delete from storage.objects where bucket_id='candidate-resumes' and name=$1", [path])).rejects.toMatchObject({ code: "42501" });
+  });
 
-    // Mudança para 'screening' -> permanece 'in_process'
-    sql(`update public.vertice_job_applications set stage = 'screening' where id = '${appId}';`);
-    expect(sql(`select status from public.vertice_candidates where id = '${candId}'`)).toBe("in_process");
+  it("RLS e FKs bloqueiam tenant vizinho, currículo de outro candidato e vaga fechada", async () => {
+    const a = await tenant("relations-a");
+    const b = await tenant("relations-b");
+    expect(Number((await asRole("authenticated", b.agent, "select count(*) from vertice_candidates where organization_id=$1", [a.org])).rows[0].count)).toBe(0);
+    const path = await putObject(a, "7".repeat(64));
+    const resumeA = (await asRole("authenticated", a.agent, rpc, args(a, "7".repeat(64), path))).rows[0].result.resume.id;
+    await expect(pool.query("insert into vertice_job_applications(organization_id,job_opening_id,candidate_id,resume_id) values($1,$2,$3,$4)", [b.org, b.job, b.candidate, resumeA])).rejects.toMatchObject({ code: "23503" });
+    await pool.query("update vertice_job_openings set status='closed' where id=$1", [a.job]);
+    await expect(pool.query("insert into vertice_job_applications(organization_id,job_opening_id,candidate_id) values($1,$2,$3)", [a.org, a.job, a.candidate])).rejects.toMatchObject({ code: "22023" });
+  });
 
-    // Mudança para 'finalist' -> permanece 'in_process'
-    sql(`update public.vertice_job_applications set stage = 'finalist' where id = '${appId}';`);
-    expect(sql(`select status from public.vertice_candidates where id = '${candId}'`)).toBe("in_process");
+  it("status do candidato deriva das candidaturas e preserva bloqueios manuais", async () => {
+    const a = await tenant("status");
+    const application = randomUUID();
+    await pool.query("insert into vertice_job_applications(id,organization_id,job_opening_id,candidate_id,stage) values($1,$2,$3,$4,'received')", [application, a.org, a.job, a.candidate]);
+    expect((await pool.query("select status from vertice_candidates where id=$1", [a.candidate])).rows[0].status).toBe("in_process");
+    await pool.query("update vertice_job_applications set stage='approved' where id=$1", [application]);
+    expect((await pool.query("select status from vertice_candidates where id=$1", [a.candidate])).rows[0].status).toBe("hired");
+    await pool.query("update vertice_candidates set status='do_not_contact' where id=$1", [a.candidate]);
+    await pool.query("update vertice_job_applications set stage='screening' where id=$1", [application]);
+    expect((await pool.query("select status from vertice_candidates where id=$1", [a.candidate])).rows[0].status).toBe("do_not_contact");
+  });
 
-    // Mudança para 'approved' -> vira 'hired'
-    sql(`update public.vertice_job_applications set stage = 'approved' where id = '${appId}';`);
-    expect(sql(`select status from public.vertice_candidates where id = '${candId}'`)).toBe("hired");
-
-    // Mudança para 'rejected' -> recalcula para 'active'
-    sql(`update public.vertice_job_applications set stage = 'rejected' where id = '${appId}';`);
-    expect(sql(`select status from public.vertice_candidates where id = '${candId}'`)).toBe("active");
-
-    // Deleta candidatura -> recalcula para 'active'
-    sql(`delete from public.vertice_job_applications where id = '${appId}';`);
-    expect(sql(`select status from public.vertice_candidates where id = '${candId}'`)).toBe("active");
-
-    // Invariante: status 'inactive' ou 'do_not_contact' NÃO devem ser sobrescritos por nova candidatura
-    sql(`update public.vertice_candidates set status = 'do_not_contact' where id = '${candId}';`);
-    sql(`
-      insert into public.vertice_job_applications (organization_id, job_opening_id, candidate_id, stage)
-      values ('${P_ORG_A}', '0257aaaa-4444-4000-8000-000000000001', '${candId}', 'received');
-    `);
-    expect(sql(`select status from public.vertice_candidates where id = '${candId}'`)).toBe("do_not_contact");
+  it("anonimização redige People, enfileira Storage e não alcança tenant vizinho", async () => {
+    const a = await tenant("lgpd-a");
+    const b = await tenant("lgpd-b");
+    const sha = "8".repeat(64);
+    const path = await putObject(a, sha);
+    const registered = (await asRole("authenticated", a.agent, rpc, args(a, sha, path))).rows[0].result.resume;
+    await pool.query("insert into vertice_job_applications(organization_id,job_opening_id,candidate_id,resume_id,notes,rejection_reason) values($1,$2,$3,$4,'nota livre','motivo pessoal')", [a.org, a.job, a.candidate, registered.id]);
+    const neighborBefore = (await pool.query("select to_jsonb(c) value from vertice_candidates c where id=$1", [b.candidate])).rows[0].value;
+    await pool.query("update contacts set is_anonymized=true,anonymized_at=now() where id=$1 and organization_id=$2", [a.contact, a.org]);
+    const candidate = (await pool.query("select * from vertice_candidates where id=$1", [a.candidate])).rows[0];
+    expect(candidate).toMatchObject({ email: null, phone_e164: null, linkedin_url: null, current_job_title: null, notes: null });
+    expect(candidate.full_name).toMatch(/^Candidato Anonimizado #/);
+    expect((await pool.query("select notes,rejection_reason,resume_id from vertice_job_applications where candidate_id=$1", [a.candidate])).rows[0]).toEqual({ notes: null, rejection_reason: null, resume_id: null });
+    expect(Number((await pool.query("select count(*) from vertice_candidate_resumes where candidate_id=$1", [a.candidate])).rows[0].count)).toBe(0);
+    expect(Number((await pool.query("select count(*) from storage_redaction_queue where bucket='candidate-resumes' and object_path=$1", [path])).rows[0].count)).toBe(1);
+    expect((await pool.query("select to_jsonb(c) value from vertice_candidates c where id=$1", [b.candidate])).rows[0].value).toEqual(neighborBefore);
   });
 });

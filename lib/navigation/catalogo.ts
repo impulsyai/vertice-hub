@@ -279,7 +279,6 @@ export const NAV_CATALOG = [
     icon: "UsersThree",
     group: "recrutamento",
     section: "Gestão de Talentos",
-    sidebar: true,
   },
   {
     href: "/app/recrutamento/vagas",
@@ -288,7 +287,6 @@ export const NAV_CATALOG = [
     icon: "ClipboardText",
     group: "recrutamento",
     section: "Processos Seletivos",
-    sidebar: true,
   },
   {
     href: "/app/recrutamento/pipeline",
@@ -297,7 +295,6 @@ export const NAV_CATALOG = [
     icon: "Kanban",
     group: "recrutamento",
     section: "Processos Seletivos",
-    sidebar: true,
   },
   {
     href: "/app/recrutamento/candidaturas",

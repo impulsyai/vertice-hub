@@ -171,7 +171,7 @@ describe("baseline.sql é re-aplicável", () => {
         // gate nenhum — ele ensina a ignorá-lo.
         const escapado = nome.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const dropAntes = LINHAS.slice(0, i).some((l) =>
-          new RegExp(`drop policy if exists "?${escapado}"?\\s`, "i").test(l),
+          new RegExp(`drop policy if exists "?${escapado}"?(?:\\s|$)`, "i").test(l),
         );
         if (dropAntes) guardadasNoApendice++;
         else problemas.push(`apêndice ${i + 1}: "${nome}" sem drop-if-exists — mudança de corpo não chega`);

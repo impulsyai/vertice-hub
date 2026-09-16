@@ -136,6 +136,29 @@ describe("Sidebar agrupado", () => {
     expect(screen.getByRole("link", { name: /Ver tudo em IA/ })).toHaveAttribute("href", "/app/ai");
   });
 
+  it("usa uma única porta quando o grupo só tem o hub", () => {
+    comoPapel("admin");
+    render(<Sidebar collapsed={false} />);
+    expect(screen.getByRole("link", { name: "Recrutamento" })).toHaveAttribute(
+      "href",
+      "/app/recrutamento",
+    );
+    expect(screen.queryByRole("link", { name: "Ver tudo em Recrutamento" })).toBeNull();
+  });
+
+  it("preserva o rótulo do hub quando a personalização esvazia outro grupo", () => {
+    comoPapel("admin");
+    authRef.activeOrg!.interface_settings = {
+      preset: "simplificada",
+      destinos: ["/app/products"],
+    };
+    render(<Sidebar collapsed={false} />);
+    expect(screen.getByRole("link", { name: "Ver tudo em CRM" })).toHaveAttribute(
+      "href",
+      "/app/crm",
+    );
+  });
+
   it("colapsado esconde os títulos mas mantém os links", () => {
     comoPapel("admin");
     render(<Sidebar collapsed />);

@@ -21,7 +21,7 @@ export async function GET(
   const { data: candidate, error } = await supabase
     .from("vertice_candidates")
     .select(
-      "*, resumes:vertice_candidate_resumes(*), applications:vertice_job_applications(*, job:vertice_job_openings(*, company:client_companies(*)))"
+        "*, resumes:vertice_candidate_resumes!vertice_candidate_resumes_org_cand_fk(*), applications:vertice_job_applications!vertice_applications_org_cand_fk(*, job:vertice_job_openings!vertice_applications_org_job_fk(*, company:client_companies!vertice_job_openings_org_company_fk(*)))"
     )
     .eq("id", id)
     .eq("organization_id", authz.org.orgId)
@@ -75,10 +75,14 @@ export async function PATCH(
     .eq("id", id)
     .eq("organization_id", authz.org.orgId)
     .select()
-    .single();
+    .maybeSingle();
 
-  if (error || !updated) {
-    return fail("update_failed", error?.message || "Erro ao atualizar candidato.", 500);
+  if (error) {
+    return fail("update_failed", "Erro ao atualizar candidato.", 500);
+  }
+
+  if (!updated) {
+    return fail("not_found", "Candidato não encontrado.", 404);
   }
 
   await audit({
