@@ -228,7 +228,8 @@ test.describe("navegação agrupada", () => {
       const nav = document.querySelector('nav[aria-label="Navegação principal"]')!;
       const r = nav.getBoundingClientRect();
       return {
-        rola: nav.scrollHeight > Math.round(r.height) + 1,
+        scrollHeight: nav.scrollHeight,
+        alturaVisivel: Math.round(r.height),
         titulosFora: [...nav.querySelectorAll("h2")].filter(
           (h) => h.getBoundingClientRect().bottom > r.bottom,
         ).length,
@@ -236,7 +237,10 @@ test.describe("navegação agrupada", () => {
     });
 
     expect(m.titulosFora, "grupo inteiro invisível é o problema que viemos resolver").toBe(0);
-    expect(m.rola, "em 900px o menu inteiro tem de caber sem scroll").toBe(false);
+    expect(
+      m.scrollHeight,
+      `em 900px o menu inteiro tem de caber sem scroll (conteúdo=${m.scrollHeight}px, visível=${m.alturaVisivel}px)`,
+    ).toBeLessThanOrEqual(m.alturaVisivel + 1);
   });
 
   test.describe("mobile", () => {

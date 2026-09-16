@@ -136,6 +136,16 @@ describe("Sidebar agrupado", () => {
     expect(screen.getByRole("link", { name: /Ver tudo em IA/ })).toHaveAttribute("href", "/app/ai");
   });
 
+  it("usa uma única porta quando o grupo só tem o hub", () => {
+    comoPapel("admin");
+    render(<Sidebar collapsed={false} />);
+    expect(screen.getByRole("link", { name: "Recrutamento" })).toHaveAttribute(
+      "href",
+      "/app/recrutamento",
+    );
+    expect(screen.queryByRole("link", { name: "Ver tudo em Recrutamento" })).toBeNull();
+  });
+
   it("colapsado esconde os títulos mas mantém os links", () => {
     comoPapel("admin");
     render(<Sidebar collapsed />);
