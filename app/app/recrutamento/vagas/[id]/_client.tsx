@@ -452,7 +452,7 @@ function EditJobDialog({
               <Input id="edit-job-city" {...register("city")} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="edit-job-state">{t("Estado")}</Label>
+              <Label htmlFor="edit-job-state">{t("UF")}</Label>
               <Input id="edit-job-state" maxLength={2} placeholder="PE" {...register("state")} />
             </div>
           </div>

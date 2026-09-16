@@ -162,6 +162,8 @@ export const DICIONARIO: Traducoes = {
   "ex: Multinacional S.A.": { es: "ej.: Multinacional S.A." },
   "ex: Operações, Financeiro": { es: "ej.: Operaciones, Finanzas" },
   "ex: Gerência, Sênior": { es: "ej.: Gerencia, Sénior" },
+  "ex: Imediata, 30 dias": { es: "ej.: Inmediata, 30 días" },
+  "Estado": { es: "Estado" },
   "UF": { es: "UF" },
   "PE": { es: "PE" },
   "Perfil LinkedIn": { es: "Perfil de LinkedIn" },
