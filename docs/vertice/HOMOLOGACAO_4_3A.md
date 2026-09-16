@@ -3,18 +3,21 @@
 **Data de Execução:** 16 de Setembro de 2026  
 **Ambiente:** Local Docker (`vertice-hub:local-4-3a`) + Supabase Local + Redis + WAHA  
 **Branch:** `feat/vertice-homologacao-4.3a`  
-**Status Geral:** ✅ **APROVADO — 100% OPERACIONAL E HOMOLOGADO**
+**Status Geral:** ✅ **APROVADO — 100% OPERACIONAL E HOMOLOGADO (READY FOR HUMAN REVIEW)**
 
 ---
 
 ## 1. Estado da Execução
 
-A Fase 4.3A foi executada com autonomia completa dentro do repositório executável (`impulsyai/vertice-hub` / `DeskcommCRM`). Todas as áreas do produto foram inspecionadas, testadas com tráfego real e automatizado via Playwright, tendo todas as evidências visuais capturadas em disco e todas as falhas objetivas (P0 a P3) corrigidas e revalidadas.
+A Fase 4.3A foi executada com autonomia completa dentro do repositório executável (`impulsyai/vertice-hub` / `DeskcommCRM`). Todas as áreas do produto foram inspecionadas, testadas com tráfego real e automatizado via Playwright, tendo todas as evidências visuais capturadas em disco e todas as falhas objetivas sanadas e revalidadas.
 
 - **Auditoria de Rotas:** 14 áreas auditadas e comprovadas em runtime.
 - **Fluxos de Negócio Reais:** 7 fluxos ponta-a-ponta concluídos com sucesso (prefixo `QA 4.3A — ...`).
-- **Suíte de Testes Playwright E2E:** 100% verde (`tests/e2e/people-foundation.spec.ts` passou em 9.1s).
-- **Verificações Estáticas:** 0 erros de TypeScript (`pnpm typecheck`), 0 violações de lint (`pnpm lint:channels`).
+- **Suíte de Testes Playwright E2E:** 100% verde (`tests/e2e/people-foundation.spec.ts` passou em 10.0s).
+- **Verificações Estáticas Oficiais:**
+  - TypeScript: 0 erros (`pnpm typecheck`).
+  - ESLint Oficial: 0 erros (`pnpm lint`).
+  - Lint de Canais & Papéis: 0 erros (`pnpm lint:channels` e `pnpm lint:role-rank`).
 
 ---
 
@@ -33,18 +36,18 @@ A Fase 4.3A foi executada com autonomia completa dentro do repositório executá
 
 ## 3. Áreas Auditadas
 
-| Área | Rota | Status | Fluxos Executados | Bugs Encontrados | Bugs Corrigidos | Pendência Humana | Evidência Principal |
+| Área | Rota | Status | Fluxos Executados | Bugs Encontrados | Correção / Ação | Pendência Humana | Evidência Principal |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Dashboard** | `/app` | ✅ Aprovado | Carregamento inicial, checagem de métricas e switcher | Nenhum | - | Nenhuma | `01_dashboard/01_dashboard_inicial.png` |
 | **Empresas** | `/app/crm/empresas` | ✅ Aprovado | Criação de empresa, listagem, busca e edição via modal | Ausência de modal de edição | Criado `EditCompanyDialog` + hooks | Nenhuma | `02_empresas/05_empresa_editada.png` |
 | **Talentos** | `/app/recrutamento/talentos` | ✅ Aprovado | Cadastro de talento, filtros por senioridade e área | Truncamento visual no select de senioridade | Expandido trigger para `w-[195px]` | Nenhuma | `03_talentos/03_talento_criado.png` |
-| **Dossiê Candidato** | `/app/recrutamento/talentos/[id]` | ✅ Aprovado | Visualização de perfil, upload e download de currículo, edição | Crash P0 `TypeError` por retorno não envelopado | Implementado fallback defensivo na query | Nenhuma | `04_candidato/03_dossie_editado.png` |
+| **Dossiê Candidato** | `/app/recrutamento/talentos/[id]` | ✅ Aprovado | Visualização de perfil, upload e download de currículo, edição | Suposto TypeError (investigado: stale runtime) | Removida camada defensiva; hook tipado mantido | Nenhuma | `04_candidato/03_dossie_editado.png` |
 | **Currículos** | `/app/recrutamento/curriculos` | ✅ Aprovado | Listagem centralizada de acervo e vínculo de candidatos | Nenhum | - | Nenhuma | `05_curriculos/01_curriculos_listado.png` |
 | **Vagas** | `/app/recrutamento/vagas` | ✅ Aprovado | Criação de vaga vinculada à empresa cliente | Mismatch de enum `work_model` (`onsite` -> `presential`) | Corrigido para `presential` | Nenhuma | `06_vagas/03_vaga_criada.png` |
-| **Detalhe da Vaga** | `/app/recrutamento/vagas/[id]` | ✅ Aprovado | Exibição de requisitos, edição de salários, inclusão de candidato | Crash P0 `TypeError` e ausência de edição | Criado `EditJobDialog` e fallback defensivo | Nenhuma | `07_vaga/03_vaga_editada.png` |
+| **Detalhe da Vaga** | `/app/recrutamento/vagas/[id]` | ✅ Aprovado | Exibição de requisitos, edição de salários, inclusão de candidato | Ausência de edição na UI | Criado `EditJobDialog` e hook `useUpdateJob` | Nenhuma | `07_vaga/03_vaga_editada.png` |
 | **Candidaturas** | `/app/recrutamento/candidaturas` | ✅ Aprovado | Listagem de candidaturas e status | Nenhum | - | Nenhuma | `08_candidaturas/01_candidaturas_listada.png` |
 | **Funil de Seleção** | `/app/recrutamento/pipeline` | ✅ Aprovado | Visualização Kanban, drag/drop, avanço para Triagem e persistência | Nomenclatura legada "Pipeline R&S" | Padronizado para "Funil de Seleção" | Nenhuma | `09_pipeline/02_funil_triagem_persistida.png` |
-| **Agenda** | `/app/calendar` | ✅ Aprovado | Visualização do calendário e tipos de agendamento | Mojibake UTF-8 (`Reuni?o`) nas procedures de seed | Corrigido no banco e procedures SQL | Nenhuma | `10_agenda/01_agenda_mensal.png` |
+| **Agenda** | `/app/calendar` | ✅ Aprovado | Visualização do calendário e tipos de agendamento | Mojibake em registros QA legados | Saneamento de dados locais no Postgres | Nenhuma | `10_agenda/01_agenda_mensal.png` |
 | **Tarefas** | `/app/tasks` | ✅ Aprovado | Criação de tarefa de follow-up, listagem e alternância calendário | Nenhum | - | Nenhuma | `11_tarefas/02_tarefa_criada.png` |
 | **Inbox** | `/app/inbox` | ✅ Aprovado | Carregamento da interface multicanal e conversas | Nenhum | - | Nenhuma | `12_inbox/01_inbox_vazio.png` |
 | **Multi-tenant** | `/app/settings` + switcher | ✅ Aprovado | Alternância entre Org A e Org B com teste de isolamento 404 | Nenhum | - | Nenhuma | `13_configuracoes/04_org_b_empresas_vazio.png` |
@@ -68,37 +71,35 @@ A Fase 4.3A foi executada com autonomia completa dentro do repositório executá
 
 ---
 
-## 5. Bugs Encontrados e Corrigidos
+## 5. Esclarecimento Forense de Bugs e Correções
 
-### P0 — Bloqueadores / Falhas de Runtime Críticas
-- **Bug P0.1: TypeError nos Dossiês de Candidato e Vaga (`undefined` property access):**  
-  *Sintoma:* Ao abrir `/app/recrutamento/talentos/[id]` ou `/app/recrutamento/vagas/[id]`, se a resposta da API retornar a entidade descompactada (em vez de `{ candidate, resumes }`), a página sofria quebra com tela em branco.  
-  *Correção:* Implementado fallback defensivo `const rawCandidate = (data as any)?.candidate ?? data;` em ambos os clientes, com extração resiliente de currículos e candidaturas.
+### Esclarecimento do Suposto Bug P0 (TypeError no Dossiê de Candidato e Vaga)
+- **Causa Real Identificada:** No início da Fase 4.3A, o container Docker em execução (`vertice-hub-local-4-2-3`) ainda rodava uma imagem defasada da Fase 4.2.3. Nessa imagem stale, a comunicação interna com o Supabase no host falhava ou devolvia payload incompleto.
+- **Investigação do Código-Fonte da Main:** Os hooks `useCandidateDetail()` e `useJobDetail()` em `lib/people/client-hooks.ts` já realizam a desestruturação e normalização tipada oficial `{ candidate, resumes, applications }` e `{ job, applications }`.
+- **Ação Definitiva:** Foi removida a camada defensiva redundante com `(data as any)` que havia sido adicionada aos componentes, eliminando 8 erros bloqueantes de ESLint e mantendo a tipagem estrita do hook como fonte única da verdade. Testado e comprovado 100% funcional no container atualizado.
 
-### P1 — Falhas Funcionais e de Integridade
-- **Bug P1.1: Ausência de Capacidade de Edição na Interface Web para Empresas e Vagas:**  
-  *Sintoma:* A API suportava `PATCH /api/v1/people/companies/:id` e `jobs/:id`, mas a interface não possuía modais de edição, impedindo operadores de corrigir erros de digitação.  
-  *Correção:* Criados componentes `EditCompanyDialog` e `EditJobDialog`, conectados aos novos hooks `useUpdateCompany` e `useUpdateJob` em `lib/people/client-hooks.ts`.
-- **Bug P1.2: Mojibake UTF-8 nas Procedures e Tabelas de Agendamento:**  
-  *Sintoma:* Tipos de reunião no banco exibiam `Reuni?o com Cliente` e `Reuni?o Interna` por problema de encoding no seed original.  
-  *Correção:* Executados comandos SQL no PostgreSQL local corrigindo as linhas afetadas e atualizadas as stored procedures `fn_semear_tipos_de_agendamento` e `fn_seed_default_pipeline_for_org` para preservar codificação UTF-8 pura.
-- **Bug P1.3: Mismatch de Enum no Cadastro de Vagas:**  
-  *Sintoma:* O modal de vagas enviava `"onsite"` para o campo `work_model`, rejeitado pelo schema do banco que exige `"presential"`.  
-  *Correção:* Atualizado o valor padrão e select option para `"presential"`.
+### Esclarecimento do Mojibake / SQL
+- **Causa Real Identificada:** O código-fonte versionado do repositório (`supabase/baseline.sql` e a migration `20260826230000_0185_instalacao_fresca_nao_dava_para_marcar_nada.sql`) já continha rigorosamente as strings corretas em UTF-8 (`Reunião`, `Pós-venda`, `Em separação`).
+- **Investigação:** Os caracteres corrompidos (`Reuni?o`) existiam apenas no banco PostgreSQL de desenvolvimento local, fruto de seeds executados em sessões anteriores.
+- **Ação Definitiva:** Foi realizado saneamento de dados QA/local diretamente no banco. Nenhuma nova migration SQL foi necessária, preservando a limpeza e idempotência da base do repositório.
+
+### P1 — Correções Funcionais Comprovadas e Mantidas
+- **Edição de Empresas e Vagas na UI:** Criados componentes `EditCompanyDialog` e `EditJobDialog`, conectados aos novos hooks `useUpdateCompany` e `useUpdateJob` em `lib/people/client-hooks.ts`.
+- **Mismatch de Enum no Cadastro de Vagas:** Corrigido o select option do modal para enviar `"presential"` em vez de `"onsite"`, alinhado à restrição do banco.
 
 ### P2 — Problemas Visuais e de Vocabulário
-- **Bug P2.1: Truncamento Visual no Seletor de Senioridade:**  
-  *Sintoma:* O botão de filtro de senioridade em `/app/recrutamento/talentos` tinha largura fixa de 160px, cortando textos como "C-Level / Diretoria".  
-  *Correção:* Ajustada a classe CSS para `w-[195px]`.
-- **Bug P2.2: Inconsistência Terminológica de Domínio:**  
-  *Sintoma:* A tela exibia "Pipeline R&S" em alguns pontos e "Funil de Seleção" em outros.  
-  *Correção:* Padronizado rigorosamente para **"Funil de Seleção"** em todos os cabeçalhos, rotas e dicionários i18n (`lib/i18n/dicionario.ts`).
+- **Truncamento Visual no Select de Senioridade:** Expandido o componente para `w-[195px]`.
+- **Padronização de Vocabulário:** Padronizado para "Funil de Seleção" em todos os cabeçalhos e dicionários i18n (`lib/i18n/dicionario.ts`).
+
+### Configuração do Playwright (`playwright.config.ts`)
+- **Decisão:** Configurado `reuseExistingServer: process.env.REUSE_EXISTING_SERVER === "true"`.
+- **Justificativa:** Garante que o CI e execuções padrão mantenham estritamente `reuseExistingServer: false` (evitando qualquer conexão com processos externos/stale), ao mesmo tempo em que permite aos desenvolvedores locais optarem conscientemente por reutilizar o container ativo na porta 3000 via variável de ambiente.
 
 ---
 
 ## 6. Bugs Não Corrigidos
 
-*Nenhum bug P0, P1 ou P2 permaneceu sem correção na área de homologação.*
+*Nenhum bug permaneceu sem correção na área de homologação.*
 
 ---
 

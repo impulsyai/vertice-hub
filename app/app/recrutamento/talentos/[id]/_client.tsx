@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
 import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
 import {
-  User,
   ArrowLeft,
   FileText,
   DownloadSimple,
@@ -16,7 +15,6 @@ import {
   Phone,
   LinkedinLogo,
   UploadSimple,
-  CheckCircle,
   PencilSimple,
 } from "@/lib/ui/icons";
 import { Button } from "@/components/ui/button";
@@ -79,10 +77,7 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
     );
   }
 
-  const rawCandidate = (data as any)?.candidate ?? data;
-  const candidate: VerticeCandidate = rawCandidate;
-  const resumes = ((data as any)?.resumes ?? rawCandidate?.resumes ?? []) as any[];
-  const applications = ((data as any)?.applications ?? rawCandidate?.applications ?? []) as any[];
+  const { candidate, resumes, applications } = data;
 
   async function handleDownloadResume(resumeId: string) {
     try {

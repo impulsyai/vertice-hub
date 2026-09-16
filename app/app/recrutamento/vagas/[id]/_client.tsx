@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
 import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
 import {
-  Briefcase,
   ArrowLeft,
   Kanban,
   User,
@@ -79,9 +78,7 @@ export function VagaDetalheClient({ id }: { id: string }) {
     );
   }
 
-  const rawJob = (data as any)?.job ?? data;
-  const job: JobOpening = rawJob;
-  const applications = ((data as any)?.applications ?? rawJob?.applications ?? []) as any[];
+  const { job, applications } = data;
 
   return (
     <div className="space-y-6 p-6">
