@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from("vertice_candidates")
-    .select("*, current_resume:vertice_candidate_resumes(*)", { count: "exact" })
+    .select("*, current_resume:vertice_candidate_resumes!vertice_candidate_resumes_org_cand_fk(*)", { count: "exact" })
     .eq("organization_id", authz.org.orgId)
     .order("updated_at", { ascending: false })
     .range(offset, offset + limit - 1);

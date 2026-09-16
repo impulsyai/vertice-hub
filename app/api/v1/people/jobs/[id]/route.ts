@@ -20,7 +20,9 @@ export async function GET(
 
   const { data: job, error } = await supabase
     .from("vertice_job_openings")
-    .select("*, company:client_companies(*), applications:vertice_job_applications(*, candidate:vertice_candidates(*), resume:vertice_candidate_resumes(*))")
+    .select(
+      "*, company:client_companies!vertice_job_openings_org_company_fk(*), applications:vertice_job_applications!vertice_applications_org_job_fk(*, candidate:vertice_candidates!vertice_applications_org_cand_fk(*), resume:vertice_candidate_resumes!vertice_applications_org_cand_resume_fk(*))",
+    )
     .eq("id", id)
     .eq("organization_id", authz.org.orgId)
     .single();

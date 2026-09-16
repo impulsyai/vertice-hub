@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from("vertice_job_applications")
     .select(
-      "*, candidate:vertice_candidates(*), job:vertice_job_openings(*, company:client_companies(*)), resume:vertice_candidate_resumes(*)",
+        "*, candidate:vertice_candidates!vertice_applications_org_cand_fk(*), job:vertice_job_openings!vertice_applications_org_job_fk(*, company:client_companies!vertice_job_openings_org_company_fk(*)), resume:vertice_candidate_resumes!vertice_applications_org_cand_resume_fk(*)",
       { count: "exact" },
     )
     .eq("organization_id", authz.org.orgId)
@@ -177,7 +177,9 @@ export async function POST(req: NextRequest) {
       notes: parsed.data.notes || null,
       stage_changed_at: new Date().toISOString(),
     })
-    .select("*, candidate:vertice_candidates(*), job:vertice_job_openings(*)")
+    .select(
+      "*, candidate:vertice_candidates!vertice_applications_org_cand_fk(*), job:vertice_job_openings!vertice_applications_org_job_fk(*)",
+    )
     .single();
 
   if (insertError || !created) {

@@ -20,8 +20,10 @@ export function CurriculosClient() {
 
   async function handleDownloadResume(resumeId: string) {
     try {
-      const res = await apiClient.get<{ download_url: string }>(`/api/v1/people/resumes/${resumeId}/download`);
-      window.open(res.download_url, "_blank");
+      const response = await apiClient.get<{ data: { url: string } }>(
+        `/api/v1/people/resumes/${resumeId}/download`,
+      );
+      window.open(response.data.url, "_blank");
     } catch {
       toast.error(t("Erro ao obter link para download do currículo."));
     }

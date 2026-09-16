@@ -22,6 +22,14 @@ interface PaginatedResponse<T> {
   };
 }
 
+interface ApiEnvelope<T> {
+  data: T;
+}
+
+function unwrap<T>(response: ApiEnvelope<T>): T {
+  return response.data;
+}
+
 // ---------------------------------------------------------------------------
 // Client Companies
 // ---------------------------------------------------------------------------
@@ -37,7 +45,10 @@ export function useCompanyList(params?: { search?: string; status?: string; page
     queryKey: ["people-companies", params],
     queryFn: async () => {
       try {
-        return await apiClient.get<PaginatedResponse<ClientCompany>>(`/api/v1/people/companies?${qs.toString()}`);
+        const response = await apiClient.get<ApiEnvelope<PaginatedResponse<ClientCompany>>>(
+          `/api/v1/people/companies?${qs.toString()}`,
+        );
+        return unwrap(response);
       } catch (err) {
         showApiError(err);
         throw err;
@@ -50,7 +61,8 @@ export function useCreateCompany() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      return await apiClient.post<ClientCompany>("/api/v1/people/companies", body);
+      const response = await apiClient.post<ApiEnvelope<ClientCompany>>("/api/v1/people/companies", body);
+      return unwrap(response);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["people-companies"] });
@@ -83,7 +95,10 @@ export function useCandidateList(params?: {
     queryKey: ["people-candidates", params],
     queryFn: async () => {
       try {
-        return await apiClient.get<PaginatedResponse<VerticeCandidate>>(`/api/v1/people/candidates?${qs.toString()}`);
+        const response = await apiClient.get<ApiEnvelope<PaginatedResponse<VerticeCandidate>>>(
+          `/api/v1/people/candidates?${qs.toString()}`,
+        );
+        return unwrap(response);
       } catch (err) {
         showApiError(err);
         throw err;
@@ -98,9 +113,10 @@ export function useCandidateDetail(candidateId?: string | null) {
     enabled: !!candidateId,
     queryFn: async () => {
       try {
-        return await apiClient.get<{ candidate: VerticeCandidate; resumes: VerticeCandidateResume[]; applications: VerticeJobApplication[] }>(
+        const response = await apiClient.get<ApiEnvelope<{ candidate: VerticeCandidate; resumes: VerticeCandidateResume[]; applications: VerticeJobApplication[] }>>(
           `/api/v1/people/candidates/${candidateId}`,
         );
+        return unwrap(response);
       } catch (err) {
         showApiError(err);
         throw err;
@@ -113,7 +129,8 @@ export function useCreateCandidate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      return await apiClient.post<VerticeCandidate>("/api/v1/people/candidates", body);
+      const response = await apiClient.post<ApiEnvelope<VerticeCandidate>>("/api/v1/people/candidates", body);
+      return unwrap(response);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["people-candidates"] });
@@ -134,7 +151,10 @@ export function useResumeList(candidateId?: string) {
     queryKey: ["people-resumes", candidateId],
     queryFn: async () => {
       try {
-        return await apiClient.get<PaginatedResponse<VerticeCandidateResume>>(`/api/v1/people/resumes?${qs.toString()}`);
+        const response = await apiClient.get<ApiEnvelope<PaginatedResponse<VerticeCandidateResume>>>(
+          `/api/v1/people/resumes?${qs.toString()}`,
+        );
+        return unwrap(response);
       } catch (err) {
         showApiError(err);
         throw err;
@@ -165,7 +185,10 @@ export function useJobList(params?: {
     queryKey: ["people-jobs", params],
     queryFn: async () => {
       try {
-        return await apiClient.get<PaginatedResponse<VerticeJobOpening>>(`/api/v1/people/jobs?${qs.toString()}`);
+        const response = await apiClient.get<ApiEnvelope<PaginatedResponse<VerticeJobOpening>>>(
+          `/api/v1/people/jobs?${qs.toString()}`,
+        );
+        return unwrap(response);
       } catch (err) {
         showApiError(err);
         throw err;
@@ -180,9 +203,10 @@ export function useJobDetail(jobId?: string | null) {
     enabled: !!jobId,
     queryFn: async () => {
       try {
-        return await apiClient.get<{ job: VerticeJobOpening; applications: VerticeJobApplication[] }>(
+        const response = await apiClient.get<ApiEnvelope<{ job: VerticeJobOpening; applications: VerticeJobApplication[] }>>(
           `/api/v1/people/jobs/${jobId}`,
         );
+        return unwrap(response);
       } catch (err) {
         showApiError(err);
         throw err;
@@ -195,7 +219,8 @@ export function useCreateJob() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      return await apiClient.post<VerticeJobOpening>("/api/v1/people/jobs", body);
+      const response = await apiClient.post<ApiEnvelope<VerticeJobOpening>>("/api/v1/people/jobs", body);
+      return unwrap(response);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["people-jobs"] });
@@ -226,7 +251,10 @@ export function useApplicationList(params?: {
     queryKey: ["people-applications", params],
     queryFn: async () => {
       try {
-        return await apiClient.get<PaginatedResponse<VerticeJobApplication>>(`/api/v1/people/applications?${qs.toString()}`);
+        const response = await apiClient.get<ApiEnvelope<PaginatedResponse<VerticeJobApplication>>>(
+          `/api/v1/people/applications?${qs.toString()}`,
+        );
+        return unwrap(response);
       } catch (err) {
         showApiError(err);
         throw err;
@@ -239,7 +267,11 @@ export function useCreateApplication() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      return await apiClient.post<VerticeJobApplication>("/api/v1/people/applications", body);
+      const response = await apiClient.post<ApiEnvelope<VerticeJobApplication>>(
+        "/api/v1/people/applications",
+        body,
+      );
+      return unwrap(response);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["people-applications"] });
@@ -253,7 +285,11 @@ export function useUpdateApplicationStage() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, stage, notes }: { id: string; stage: RecruitmentStage; notes?: string }) => {
-      return await apiClient.patch<VerticeJobApplication>(`/api/v1/people/applications/${id}/stage`, { stage, notes });
+      const response = await apiClient.patch<ApiEnvelope<VerticeJobApplication>>(
+        `/api/v1/people/applications/${id}/stage`,
+        { stage, notes },
+      );
+      return unwrap(response);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["people-applications"] });

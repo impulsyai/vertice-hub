@@ -20,7 +20,9 @@ export async function GET(
 
   const { data: company, error } = await supabase
     .from("client_companies")
-    .select("*, contacts:client_company_contacts(*, contact:contacts(*)), jobs:vertice_job_openings(*)")
+    .select(
+      "*, contacts:client_company_contacts!client_company_contacts_org_company_fk(*, contact:contacts(*)), jobs:vertice_job_openings!vertice_job_openings_org_company_fk(*)",
+    )
     .eq("id", id)
     .eq("organization_id", authz.org.orgId)
     .single();

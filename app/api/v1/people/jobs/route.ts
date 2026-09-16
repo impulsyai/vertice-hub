@@ -30,7 +30,10 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from("vertice_job_openings")
-    .select("*, company:client_companies(*), applications:vertice_job_applications(id, stage)", { count: "exact" })
+    .select(
+      "*, company:client_companies!vertice_job_openings_org_company_fk(*), applications:vertice_job_applications!vertice_applications_org_job_fk(id, stage)",
+      { count: "exact" },
+    )
     .eq("organization_id", authz.org.orgId)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
