@@ -41,7 +41,15 @@ import {
 import { apiClient } from "@/lib/api/client";
 import { useCandidateDetail, useUpdateCandidate } from "@/lib/people/client-hooks";
 import { useQueryClient } from "@tanstack/react-query";
-import type { VerticeCandidate } from "@/lib/people/types";
+import { RECRUITMENT_STAGES, type VerticeCandidate } from "@/lib/people/types";
+
+const STATUS_LABELS: Record<string, string> = {
+  active: "Ativo",
+  in_process: "Em Processo",
+  hired: "Contratado",
+  inactive: "Inativo",
+  do_not_contact: "Não Contatar",
+};
 
 export function CandidatoDetalheClient({ id }: { id: string }) {
   const t = useT();
@@ -131,16 +139,23 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
             </Button>
           </Link>
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">{candidate.full_name}</h1>
-              <Badge variant="outline" className="capitalize">{candidate.status.replace("_", " ")}</Badge>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                {t("Dossiê Profissional")}
+              </span>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">{candidate.full_name}</h1>
+              <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary font-medium">
+                {t(STATUS_LABELS[candidate.status] ?? candidate.status)}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground mt-0.5">
               {candidate.current_job_title ?? candidate.current_role ?? t("Sem cargo informado")} {candidate.current_company ? `• ${candidate.current_company}` : ""}
             </p>
           </div>
         </div>
-        <Button variant="outline" onClick={() => setIsEditOpen(true)} className="gap-2 shrink-0">
+        <Button variant="outline" onClick={() => setIsEditOpen(true)} className="gap-2 shrink-0 border-border hover:bg-accent/10">
           <PencilSimple className="h-4 w-4" />
           {t("Editar Candidato")}
         </Button>
@@ -301,12 +316,15 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Badge variant="secondary" className="capitalize">
-                          {app.stage.replace("_", " ")}
+                        <Badge variant="secondary" className="font-normal text-xs">
+                          {(() => {
+                            const stageObj = RECRUITMENT_STAGES.find((s) => s.id === app.stage);
+                            return stageObj ? stageObj.label.replace(/^\d+\s*/, '') : app.stage;
+                          })()}
                         </Badge>
                         <Link href="/app/recrutamento/pipeline">
-                          <Button variant="ghost" size="sm" className="h-7 text-xs">
-                            {t("Ver no Pipeline")}
+                          <Button variant="ghost" size="sm" className="h-7 text-xs hover:bg-accent/10 hover:text-primary">
+                            {t("Ver no Funil de Seleção")}
                           </Button>
                         </Link>
                       </div>

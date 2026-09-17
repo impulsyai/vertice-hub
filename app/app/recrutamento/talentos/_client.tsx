@@ -151,9 +151,9 @@ export function TalentosClient() {
           </Button>
         </Card>
       ) : (
-        <div className="rounded-md border bg-card overflow-hidden">
+        <div className="rounded-md border bg-card overflow-hidden shadow-xs">
           <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40 text-left font-medium text-muted-foreground">
+            <thead className="border-b bg-muted/60 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="p-3.5">{t("Nome")}</th>
                 <th className="p-3.5">{t("Cargo / Empresa")}</th>
@@ -164,9 +164,9 @@ export function TalentosClient() {
                 <th className="p-3.5 text-right">{t("Ações")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-border/60">
               {candidates.map((c) => (
-                <tr key={c.id} className="hover:bg-muted/20 transition-colors">
+                <tr key={c.id} className="hover:bg-accent/5 transition-colors">
                   <td className="p-3.5">
                     <Link
                       href={`/app/recrutamento/talentos/${c.id}`}
@@ -177,7 +177,7 @@ export function TalentosClient() {
                     <span className="text-xs text-muted-foreground">{c.email ?? c.phone_e164 ?? "—"}</span>
                   </td>
                   <td className="p-3.5">
-                    <div className="text-foreground">{c.current_job_title ?? c.current_role ?? "—"}</div>
+                    <div className="text-foreground font-medium">{c.current_job_title ?? c.current_role ?? "—"}</div>
                     {c.current_company && (
                       <div className="text-xs text-muted-foreground">{c.current_company}</div>
                     )}
@@ -192,8 +192,8 @@ export function TalentosClient() {
                   </td>
                   <td className="p-3.5 text-right">
                     <Link href={`/app/recrutamento/talentos/${c.id}`}>
-                      <Button variant="ghost" size="sm" className="h-8 gap-1">
-                        <span>{t("Ver")}</span>
+                      <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs hover:bg-accent/10 hover:text-primary">
+                        <span>{t("Ver dossiê")}</span>
                         <ArrowSquareOut className="h-3.5 w-3.5" />
                       </Button>
                     </Link>
@@ -241,16 +241,16 @@ function CandidateStatusBadge({ status }: { status: CandidateStatus }) {
 
   switch (status) {
     case "active":
-      return <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">{t(label)}</Badge>;
+      return <Badge variant="outline" className="border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium">{t(label)}</Badge>;
     case "in_process":
-      return <Badge variant="default" className="bg-blue-600 hover:bg-blue-600">{t(label)}</Badge>;
+      return <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary dark:text-primary-foreground font-semibold">{t(label)}</Badge>;
     case "hired":
-      return <Badge variant="secondary" className="bg-purple-500/20 text-purple-700 dark:text-purple-300">{t(label)}</Badge>;
+      return <Badge variant="secondary" className="border-amber-600/30 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium">{t(label)}</Badge>;
     case "do_not_contact":
-      return <Badge variant="destructive">{t(label)}</Badge>;
+      return <Badge variant="destructive" className="font-medium">{t(label)}</Badge>;
     case "inactive":
     default:
-      return <Badge variant="secondary">{t(label)}</Badge>;
+      return <Badge variant="secondary" className="font-normal text-muted-foreground">{t(label)}</Badge>;
   }
 }
 

@@ -63,9 +63,9 @@ export function CurriculosClient() {
           </Link>
         </Card>
       ) : (
-        <div className="rounded-md border bg-card overflow-hidden">
+        <div className="rounded-md border bg-card overflow-hidden shadow-xs">
           <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40 text-left font-medium text-muted-foreground">
+            <thead className="border-b bg-muted/60 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="p-4">{t("Arquivo")}</th>
                 <th className="p-4">{t("Candidato")}</th>
@@ -76,19 +76,19 @@ export function CurriculosClient() {
                 <th className="p-4 text-right">{t("Ação")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-border/60">
               {resumes.map((r) => (
-                <tr key={r.id} className="hover:bg-muted/20 transition-colors">
+                <tr key={r.id} className="hover:bg-accent/5 transition-colors">
                   <td className="p-4">
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-primary shrink-0" />
-                      <span className="font-medium">{r.original_filename}</span>
+                      <span className="font-medium text-foreground">{r.original_filename}</span>
                     </div>
                   </td>
                   <td className="p-4">
                     <Link
                       href={`/app/recrutamento/talentos/${r.candidate_id}`}
-                      className="text-primary hover:underline inline-flex items-center gap-1"
+                      className="text-primary hover:underline inline-flex items-center gap-1 font-medium"
                     >
                       <span>{t("Ver Dossiê")}</span>
                       <ArrowSquareOut className="h-3 w-3" />
@@ -99,18 +99,18 @@ export function CurriculosClient() {
                   <td className="p-4 text-muted-foreground">{new Date(r.created_at).toLocaleDateString(tagDoIdioma)}</td>
                   <td className="p-4">
                     {r.is_current ? (
-                      <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">
+                      <Badge variant="outline" className="border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium">
                         {t("Atual")}
                       </Badge>
                     ) : (
-                      <Badge variant="secondary">{t("Histórico")}</Badge>
+                      <Badge variant="secondary" className="font-normal text-muted-foreground">{t("Histórico")}</Badge>
                     )}
                   </td>
                   <td className="p-4 text-right">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="gap-1.5 h-8 text-xs"
+                      className="gap-1.5 h-8 text-xs hover:bg-accent/10 hover:text-primary"
                       onClick={() => handleDownloadResume(r.id)}
                     >
                       <DownloadSimple className="h-3.5 w-3.5" />
