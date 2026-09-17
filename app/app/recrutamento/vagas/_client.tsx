@@ -128,7 +128,7 @@ export function VagasClient() {
       ) : (
         <div className="rounded-md border bg-card overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40 text-left font-medium text-muted-foreground">
+            <thead className="border-b bg-muted/60 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="p-4">{t("Título da Vaga")}</th>
                 <th className="p-4">{t("Empresa Cliente")}</th>
@@ -138,9 +138,9 @@ export function VagasClient() {
                 <th className="p-4 text-right">{t("Ações")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-border/60">
               {jobs.map((job) => (
-                <tr key={job.id} className="hover:bg-muted/20 transition-colors">
+                <tr key={job.id} className="hover:bg-accent/5 transition-colors">
                   <td className="p-4">
                     <Link
                       href={`/app/recrutamento/vagas/${job.id}`}
@@ -160,20 +160,29 @@ export function VagasClient() {
                     {job.city && job.state ? `${job.city}, ${job.state}` : job.location ?? "—"}
                   </td>
                   <td className="p-4">
-                    <Badge variant={job.status === "open" ? "default" : "secondary"}>
+                    <Badge
+                      variant="outline"
+                      className={
+                        job.status === "open"
+                          ? "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium"
+                          : job.status === "paused"
+                          ? "border-amber-600/30 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium"
+                          : "border-stone-300 bg-stone-100 text-stone-700 font-normal"
+                      }
+                    >
                       {t(STATUS_LABELS[job.status] ?? job.status)}
                     </Badge>
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Link href={`/app/recrutamento/pipeline?job_id=${job.id}`}>
-                        <Button variant="outline" size="sm" className="h-8 text-xs">
-                          {t("Pipeline")}
+                        <Button variant="outline" size="sm" className="h-8 text-xs hover:bg-accent/10 hover:text-primary">
+                          {t("Funil")}
                         </Button>
                       </Link>
                       <Link href={`/app/recrutamento/vagas/${job.id}`}>
-                        <Button variant="ghost" size="sm" className="h-8 gap-1">
-                          <span>{t("Ver")}</span>
+                        <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs hover:bg-accent/10 hover:text-primary">
+                          <span>{t("Detalhes")}</span>
                           <ArrowSquareOut className="h-3.5 w-3.5" />
                         </Button>
                       </Link>

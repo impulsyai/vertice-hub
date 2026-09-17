@@ -119,9 +119,9 @@ export function CandidaturasClient() {
           </Link>
         </Card>
       ) : (
-        <div className="rounded-md border bg-card overflow-hidden">
+        <div className="rounded-md border bg-card overflow-hidden shadow-xs">
           <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40 text-left font-medium text-muted-foreground">
+            <thead className="border-b bg-muted/60 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="p-4">{t("Candidato")}</th>
                 <th className="p-4">{t("Vaga")}</th>
@@ -131,11 +131,11 @@ export function CandidaturasClient() {
                 <th className="p-4 text-right">{t("Ações")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-border/60">
               {applications.map((app) => {
                 const stageDef = RECRUITMENT_STAGES.find((s) => s.id === app.stage);
                 return (
-                  <tr key={app.id} className="hover:bg-muted/20 transition-colors">
+                  <tr key={app.id} className="hover:bg-accent/5 transition-colors">
                     <td className="p-4">
                       <Link
                         href={`/app/recrutamento/talentos/${app.candidate_id}`}
@@ -157,7 +157,7 @@ export function CandidaturasClient() {
                       {app.job_opening?.client_company?.trade_name ?? "—"}
                     </td>
                     <td className="p-4">
-                      <Badge variant="outline" className="font-normal text-xs">
+                      <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary font-medium text-xs">
                         {stageDef?.label ?? app.stage}
                       </Badge>
                     </td>

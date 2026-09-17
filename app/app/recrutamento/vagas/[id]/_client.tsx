@@ -90,17 +90,29 @@ export function VagaDetalheClient({ id }: { id: string }) {
             </Button>
           </Link>
           <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                {t("Posição Corporativa")}
+              </span>
+            </div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">{job.title}</h1>
-              <Badge variant={job.status === "open" ? "default" : "secondary"}>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">{job.title}</h1>
+              <Badge
+                variant="outline"
+                className={
+                  job.status === "open"
+                    ? "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium"
+                    : "border-stone-300 bg-stone-100 text-stone-700 font-normal"
+                }
+              >
                 {job.status === "open" ? t("Aberta") : job.status}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <Buildings className="h-4 w-4" />
-              <span>{job.client_company?.trade_name ?? t("Empresa Cliente")}</span>
+            <p className="text-sm text-muted-foreground flex items-center gap-2 mt-0.5">
+              <Buildings className="h-4 w-4 text-primary" />
+              <span className="font-medium text-foreground">{job.client_company?.trade_name ?? t("Empresa Cliente")}</span>
               <span>•</span>
-              <span className="capitalize">{job.work_model}</span>
+              <span className="capitalize">{job.work_model === "presential" ? t("Presencial") : job.work_model}</span>
               {job.city && <span>• {job.city}/{job.state}</span>}
             </p>
           </div>
