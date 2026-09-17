@@ -46,6 +46,7 @@ import { ehPedidoDeOptOut } from "@/lib/opt-out/deteccao";
 import { acelerarPipelineDeEventos } from "@/lib/dev/kick-local-pipeline";
 import { autorizarContatoParaIA } from "@/lib/ai/elegibilidade/autorizacao";
 import { casarCampanha, lerCampanhas } from "@/lib/ai/elegibilidade/campanha";
+import { resolverContextoDoContato } from "./candidate-routing";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -115,7 +116,35 @@ export async function aplicarEfeitosPosEntrada(
   admin: Admin,
   entrada: EntradaDeMensagem,
 ): Promise<void> {
+  // 1. Opt-out incondicional: respeita quem pediu para sair antes de qualquer outra ação
   await aplicarOptOut(admin, entrada);
+
+  // 2. Classificação semântica: Candidate vs Company Contact vs Unknown
+  const contexto = await resolverContextoDoContato(admin, {
+    organizationId: entrada.organizationId,
+    contactId: entrada.contactId,
+  });
+
+  // 3. CANDIDATE: a mensagem e conversa permanecem salvas na Inbox, mas todos os
+  // efeitos de CRM comercial (nascimento de lead, campanhas de vendas, cadências de
+  // follow-up e agente de IA de vendas) são estritamente SUPRIMIDOS.
+  if (contexto.kind === "candidate") {
+    logger.info("pos-entrada: candidate identificado", {
+      organization_id: entrada.organizationId,
+      contact_id: entrada.contactId,
+      candidate_id: contexto.candidateId,
+      conversation_id: entrada.conversationId,
+    });
+    logger.info("pos-entrada: lead comercial suprimido para candidate", {
+      organization_id: entrada.organizationId,
+      contact_id: entrada.contactId,
+      candidate_id: contexto.candidateId,
+      conversation_id: entrada.conversationId,
+    });
+    return;
+  }
+
+  // 4. Fluxo comercial padrão para Company Contact e Unknown
   await abrirDemanda(admin, entrada);
   await avaliarCampanha(admin, entrada);
   // A resposta do lead avança o follow-up AQUI. O despacho do agente (LLM)
