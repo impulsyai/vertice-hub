@@ -140,7 +140,7 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
           </Link>
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
                 {t("Dossiê Profissional")}
               </span>
             </div>

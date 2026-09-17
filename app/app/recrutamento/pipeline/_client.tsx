@@ -153,7 +153,7 @@ export function PipelineClient() {
                 >
                   <div className="flex items-center justify-between pb-2 px-1 border-b border-border/60 shrink-0">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-[10px] font-mono font-semibold text-primary/70 bg-primary/10 px-1 py-0.2 rounded">
+                      <span className="text-[10px] font-mono font-semibold text-primary bg-primary/10 px-1 py-0.2 rounded-md">
                         {stepNumber}
                       </span>
                       <span className="text-xs font-semibold tracking-tight text-foreground truncate">
@@ -207,7 +207,7 @@ export function PipelineClient() {
 
                                   <div className="pt-1.5 border-t border-border/40 flex flex-col gap-1 text-[11px] text-muted-foreground">
                                     <div className="flex items-center gap-1 truncate">
-                                      <Briefcase className="h-3 w-3 shrink-0 text-primary/80" />
+                                      <Briefcase className="h-3 w-3 shrink-0 text-primary" />
                                       <span className="truncate font-medium text-foreground/90">{app.job_opening?.title ?? t("Vaga")}</span>
                                     </div>
                                     <div className="flex items-center gap-1 truncate">

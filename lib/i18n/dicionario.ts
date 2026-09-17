@@ -46,6 +46,9 @@ export const DICIONARIO: Traducoes = {
   "Currículos": { es: "Currículos" },
   "Empresas": { es: "Empresas" },
   // ─── Vértice People ───
+  "Ver dossiê": { es: "Ver expediente" },
+  "Posição Corporativa": { es: "Posición corporativa" },
+  "Dossiê Profissional": { es: "Expediente profesional" },
   "Empresas Clientes": { es: "Empresas clientes" },
   "Gestão das contas corporativas e clientes B2B contratantes.": { es: "Gestión de las cuentas corporativas y clientes B2B contratantes." },
   "Nova Empresa": { es: "Nueva empresa" },
