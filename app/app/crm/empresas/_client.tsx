@@ -92,9 +92,9 @@ export function EmpresasClient() {
           </Button>
         </Card>
       ) : (
-        <div className="rounded-md border bg-card overflow-hidden">
+        <div className="rounded-md border bg-card overflow-hidden shadow-xs">
           <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40 text-left font-medium text-muted-foreground">
+            <thead className="border-b bg-muted/60 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="p-4">{t("Empresa")}</th>
                 <th className="p-4">{t("Setor")}</th>
@@ -104,9 +104,9 @@ export function EmpresasClient() {
                 <th className="p-4 text-right">{t("Ações")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-border/60">
               {companies.map((company) => (
-                <tr key={company.id} className="hover:bg-muted/20 transition-colors">
+                <tr key={company.id} className="hover:bg-accent/5 transition-colors">
                   <td className="p-4">
                     <div className="font-medium text-foreground">{company.trade_name}</div>
                     {company.legal_name && (
@@ -132,7 +132,16 @@ export function EmpresasClient() {
                     )}
                   </td>
                   <td className="p-4">
-                    <Badge variant={company.status === "active" ? "default" : "secondary"}>
+                    <Badge
+                      variant="outline"
+                      className={
+                        company.status === "active"
+                          ? "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium"
+                          : company.status === "prospect"
+                          ? "border-amber-600/30 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium"
+                          : "border-stone-300 bg-stone-100 text-stone-700 font-normal"
+                      }
+                    >
                       {company.status === "active" ? t("Ativa") : company.status === "prospect" ? t("Prospect") : t("Inativa")}
                     </Badge>
                   </td>
@@ -140,7 +149,7 @@ export function EmpresasClient() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="gap-1.5 h-8 text-xs"
+                      className="gap-1.5 h-8 text-xs hover:bg-accent/10 hover:text-primary"
                       onClick={() => setEditingCompany(company)}
                     >
                       <PencilSimple className="h-3.5 w-3.5" />
