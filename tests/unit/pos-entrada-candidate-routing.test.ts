@@ -46,28 +46,42 @@ interface CompanyContactRow {
   contact_id: string;
 }
 
+interface MockAdminConfig {
+  errorOnCandidateByContact?: boolean;
+  errorOnContactPhone?: boolean;
+  errorOnCandidateByPhone?: boolean;
+  throwUnexpectedOnResolver?: boolean;
+}
+
 let contactsDb: ContactRow[] = [];
 let candidatesDb: CandidateRow[] = [];
 let companyContactsDb: CompanyContactRow[] = [];
 let emittedRpcs: Record<string, unknown>[] = [];
 
-/** Cria um mock do Supabase Admin Client fiel às queries de candidate-routing e pos-entrada */
-function createMockAdmin() {
+/** Cria um mock do Supabase Admin Client com injeção configurável de erros técnicos */
+function createMockAdmin(config?: MockAdminConfig) {
   return {
     from(table: string) {
+      if (config?.throwUnexpectedOnResolver) {
+        throw new Error("Simulated unexpected database failure");
+      }
       const currentTable = table;
       const filters: ((row: Record<string, unknown>) => boolean)[] = [];
       let limitVal: number | null = null;
+      let hasContactIdEq = false;
+      let hasPhoneIn = false;
 
       const builder = {
         select(_cols?: string) {
           return builder;
         },
         eq(col: string, val: unknown) {
+          if (col === "contact_id") hasContactIdEq = true;
           filters.push((r) => r[col] === val);
           return builder;
         },
         in(col: string, vals: unknown[]) {
+          if (col === "phone_e164") hasPhoneIn = true;
           filters.push((r) => vals.includes(r[col]));
           return builder;
         },
@@ -82,6 +96,13 @@ function createMockAdmin() {
           return builder;
         },
         async maybeSingle() {
+          if (currentTable === "vertice_candidates" && hasContactIdEq && config?.errorOnCandidateByContact) {
+            return { data: null, error: { message: "Database error on candidate by contact_id" } };
+          }
+          if (currentTable === "contacts" && config?.errorOnContactPhone) {
+            return { data: null, error: { message: "Database error on contact phone" } };
+          }
+
           let pool: Record<string, unknown>[] = [];
           if (currentTable === "vertice_candidates") pool = candidatesDb as unknown as Record<string, unknown>[];
           else if (currentTable === "contacts") pool = contactsDb as unknown as Record<string, unknown>[];
@@ -97,6 +118,10 @@ function createMockAdmin() {
         },
         // Invocado quando aguarda array diretamente (ex: await admin.from(...).select(...))
         then(resolve: (val: unknown) => void) {
+          if (currentTable === "vertice_candidates" && hasPhoneIn && config?.errorOnCandidateByPhone) {
+            return Promise.resolve({ data: null, error: { message: "Database error on candidate by phone" } }).then(resolve);
+          }
+
           let pool: Record<string, unknown>[] = [];
           if (currentTable === "vertice_candidates") pool = candidatesDb as unknown as Record<string, unknown>[];
           else if (currentTable === "contacts") pool = contactsDb as unknown as Record<string, unknown>[];
@@ -499,5 +524,202 @@ describe("Roteamento Semântico de WhatsApp: Candidate ≠ CRM Lead (Fase 4.4A)"
 
     // E como é candidato, lead comercial é suprimido
     expect(garantirLeadDaConversa).not.toHaveBeenCalled();
+  });
+
+  // ─── TESTE 9 ─────────────────────────────────────────────────────────────
+  it("TESTE 9: Consulta Candidate por contact_id retorna erro e não é possível provar ausência -> indeterminate -> nenhum efeito comercial", async () => {
+    const contactId = "contact-err-1";
+
+    contactsDb.push({
+      id: contactId,
+      organization_id: ORG_A,
+      phone_number: "+5531998966398",
+    });
+
+    const admin = createMockAdmin({ errorOnCandidateByContact: true });
+    const entrada: EntradaDeMensagem = {
+      organizationId: ORG_A,
+      contactId,
+      conversationId: "conv-err-1",
+      messageId: "msg-err-1",
+      channelSessionId: "sess-waha",
+      texto: "Olá",
+      nomeDoContato: "Contato Dúvida",
+      origem: "waha",
+    };
+
+    await aplicarEfeitosPosEntrada(admin as never, entrada);
+
+    // Fail-Closed: nenhum efeito comercial deve ser executado
+    expect(garantirLeadDaConversa).not.toHaveBeenCalled();
+    expect(acelerarPipelineDeEventos).not.toHaveBeenCalled();
+    expect(emittedRpcs).toHaveLength(0);
+  });
+
+  // ─── TESTE 10 ────────────────────────────────────────────────────────────
+  it("TESTE 10: Leitura de contacts.phone_number falha -> indeterminate -> nenhum efeito comercial", async () => {
+    const contactId = "contact-err-phone";
+
+    contactsDb.push({
+      id: contactId,
+      organization_id: ORG_A,
+      phone_number: "+5531998966398",
+    });
+
+    const admin = createMockAdmin({ errorOnContactPhone: true });
+    const entrada: EntradaDeMensagem = {
+      organizationId: ORG_A,
+      contactId,
+      conversationId: "conv-err-phone",
+      messageId: "msg-err-phone",
+      channelSessionId: "sess-waha",
+      texto: "Contato com erro na leitura do telefone",
+      nomeDoContato: "Erro Telefone",
+      origem: "waha",
+    };
+
+    await aplicarEfeitosPosEntrada(admin as never, entrada);
+
+    // Fail-Closed
+    expect(garantirLeadDaConversa).not.toHaveBeenCalled();
+    expect(acelerarPipelineDeEventos).not.toHaveBeenCalled();
+    expect(emittedRpcs).toHaveLength(0);
+  });
+
+  // ─── TESTE 11 ────────────────────────────────────────────────────────────
+  it("TESTE 11: Consulta vertice_candidates por phone_e164 falha -> indeterminate -> nenhum efeito comercial", async () => {
+    const contactId = "contact-err-cand-phone";
+
+    contactsDb.push({
+      id: contactId,
+      organization_id: ORG_A,
+      phone_number: "+5531998966398",
+    });
+
+    const admin = createMockAdmin({ errorOnCandidateByPhone: true });
+    const entrada: EntradaDeMensagem = {
+      organizationId: ORG_A,
+      contactId,
+      conversationId: "conv-err-cand-phone",
+      messageId: "msg-err-cand-phone",
+      channelSessionId: "sess-waha",
+      texto: "Contato com falha na busca por telefone de candidatos",
+      nomeDoContato: "Erro Busca Candidato",
+      origem: "waha",
+    };
+
+    await aplicarEfeitosPosEntrada(admin as never, entrada);
+
+    // Fail-Closed
+    expect(garantirLeadDaConversa).not.toHaveBeenCalled();
+    expect(acelerarPipelineDeEventos).not.toHaveBeenCalled();
+    expect(emittedRpcs).toHaveLength(0);
+  });
+
+  // ─── TESTE 12 ────────────────────────────────────────────────────────────
+  it("TESTE 12: Exceção inesperada no resolver -> indeterminate -> nenhum efeito comercial e não lança 500", async () => {
+    const contactId = "contact-catastrophic";
+
+    contactsDb.push({
+      id: contactId,
+      organization_id: ORG_A,
+      phone_number: "+5531998966398",
+    });
+
+    const admin = createMockAdmin({ throwUnexpectedOnResolver: true });
+    const entrada: EntradaDeMensagem = {
+      organizationId: ORG_A,
+      contactId,
+      conversationId: "conv-catastrophic",
+      messageId: "msg-catastrophic",
+      channelSessionId: "sess-waha",
+      texto: "Queda inesperada de conexão no banco",
+      nomeDoContato: "Erro Geral",
+      origem: "waha",
+    };
+
+    // A função NÃO deve explodir (sem 500 no webhook)
+    await expect(aplicarEfeitosPosEntrada(admin as never, entrada)).resolves.not.toThrow();
+
+    // Fail-Closed
+    expect(garantirLeadDaConversa).not.toHaveBeenCalled();
+    expect(acelerarPipelineDeEventos).not.toHaveBeenCalled();
+    expect(emittedRpcs).toHaveLength(0);
+  });
+
+  // ─── TESTE 13 ────────────────────────────────────────────────────────────
+  it("TESTE 13: Candidate encontrado por contact_id retorna imediatamente Candidate sem ser afetado por problemas subsequentes", async () => {
+    const contactId = "contact-cand-direct";
+    const candidateId = "cand-direct";
+
+    contactsDb.push({
+      id: contactId,
+      organization_id: ORG_A,
+      phone_number: "+5531998966398",
+    });
+    candidatesDb.push({
+      id: candidateId,
+      organization_id: ORG_A,
+      contact_id: contactId,
+      full_name: "Candidato Vínculo Direto",
+      phone_e164: "+5531998966398",
+    });
+
+    // Mesmo se as consultas de telefone subsequentes falhassem:
+    const admin = createMockAdmin({ errorOnContactPhone: true, errorOnCandidateByPhone: true });
+    const entrada: EntradaDeMensagem = {
+      organizationId: ORG_A,
+      contactId,
+      conversationId: "conv-direct",
+      messageId: "msg-direct",
+      channelSessionId: "sess-waha",
+      texto: "Mensagem do candidato direto",
+      nomeDoContato: "Candidato Direto",
+      origem: "waha",
+    };
+
+    await aplicarEfeitosPosEntrada(admin as never, entrada);
+
+    // Evidência positiva prevalece imediatamente
+    expect(garantirLeadDaConversa).not.toHaveBeenCalled();
+    expect(acelerarPipelineDeEventos).not.toHaveBeenCalled();
+    expect(emittedRpcs).toHaveLength(0);
+  });
+
+  // ─── TESTE 14 ────────────────────────────────────────────────────────────
+  it("TESTE 14: Classificação completa executa sem erro e nenhum Candidate existe -> unknown -> fluxo comercial continua normalmente", async () => {
+    const contactId = "contact-legit-unknown";
+
+    contactsDb.push({
+      id: contactId,
+      organization_id: ORG_A,
+      phone_number: "+5511999991111",
+    });
+    // Sem candidatos no banco
+
+    const admin = createMockAdmin();
+    const entrada: EntradaDeMensagem = {
+      organizationId: ORG_A,
+      contactId,
+      conversationId: "conv-legit-unknown",
+      messageId: "msg-legit-unknown",
+      channelSessionId: "sess-waha",
+      texto: "Quero saber sobre os serviços da Vértice",
+      nomeDoContato: "Lead Comercial",
+      origem: "waha",
+    };
+
+    await aplicarEfeitosPosEntrada(admin as never, entrada);
+
+    // Candidate descartado com sucesso sem erro técnico: fluxo comercial ativado
+    expect(garantirLeadDaConversa).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        organizationId: ORG_A,
+        contactId,
+        conversationId: "conv-legit-unknown",
+      }),
+    );
+    expect(acelerarPipelineDeEventos).toHaveBeenCalled();
   });
 });
