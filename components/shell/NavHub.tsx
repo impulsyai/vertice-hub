@@ -83,16 +83,16 @@ export function NavHub({
             {items.map((item) => {
               const Icon = item.icon;
               return (
-                <Link key={item.href} href={item.href} className="block">
-                  <Card className="flex h-full gap-3 p-4 transition-colors hover:border-border-strong">
+                <Link key={item.href} href={item.href} className="block group">
+                  <Card className="flex h-full gap-3 p-4 transition-all hover:border-primary/40 hover:shadow-xs">
                     <Icon
                       size={20}
                       weight="regular"
                       aria-hidden
-                      className="mt-0.5 shrink-0 text-muted-foreground"
+                      className="mt-0.5 shrink-0 text-muted-foreground group-hover:text-primary transition-colors"
                     />
                     <div>
-                      <h3 className="text-sm font-semibold">{traduzir(item.label, locale)}</h3>
+                      <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{traduzir(item.label, locale)}</h3>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {traduzir(item.description, locale)}
                       </p>

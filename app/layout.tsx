@@ -82,20 +82,20 @@ export async function generateMetadata(): Promise<Metadata> {
   const { name } = marca;
   return {
     title: {
-      default: `${name} — atendimento e vendas por WhatsApp com agentes de IA`,
+      default: `${name} — Pessoas & Estratégia`,
       template: `%s · ${name}`,
     },
     description:
-      "Centralize o atendimento por WhatsApp num funil só. Agentes de IA resolvem o que dá pra resolver e passam para o time humano o que importa — com tudo registrado. Multi-tenant, LGPD-nativo, feito para operações brasileiras.",
+      "Vértice Hub — Plataforma corporativa de gestão de talentos, recrutamento & seleção executivo e consultoria de pessoas & estratégia.",
     applicationName: name,
-    authors: [{ name }],
+    authors: [{ name: "Vértice — Pessoas & Estratégia" }],
     keywords: [
-      "CRM",
-      "atendimento",
-      "WhatsApp",
-      "IA conversacional",
-      "LGPD",
-      "multi-tenant",
+      "Vértice",
+      "Pessoas e Estratégia",
+      "Recrutamento e Seleção",
+      "Banco de Talentos",
+      "Dossiê Executivo",
+      "Consultoria",
     ],
     robots: { index: false, follow: false },
     // Sem esta linha o navegador pede `/favicon.ico`, que não existe: medido em

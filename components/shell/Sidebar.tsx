@@ -146,7 +146,16 @@ export function SidebarContent({
               Altura fixa e largura livre porque a arte enviada tem proporção
               desconhecida; forçar as duas distorceria o logo de quem configurou. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logo} alt={nome} className="h-7 w-auto max-w-[10rem] object-contain" />
+            <img src={logo} alt={nome} className="h-9 w-auto max-w-[14rem] object-contain" />
+          </div>
+        ) : logo && collapsed ? (
+          <div className="flex items-center justify-center rounded-md dark:bg-white dark:p-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/vertice-symbol.png"
+              alt={nome}
+              className="h-8 w-8 object-contain"
+            />
           </div>
         ) : marcaDoProduto ? (
           // O desenho do produto, inline (ver `components/branding/MarcaDoProduto.tsx`):
@@ -159,7 +168,7 @@ export function SidebarContent({
         ) : (
           <span className={cn("font-semibold tracking-tight", collapsed && "sr-only")}>{nome}</span>
         )}
-        {collapsed && !marcaDoProduto && (
+        {collapsed && !marcaDoProduto && !logo && (
           <span aria-hidden className="text-lg font-bold text-primary">
             {/* Spread e não `[0]`: nome começando com emoji ou acento composto
                 quebraria no meio do code point. Mesma regra de `resolveBranding`
@@ -231,6 +240,9 @@ export function SidebarContent({
             !collapsed && group.id === "recrutamento" && items.length === 0
               ? group.hub
               : undefined;
+          const isHubActive = hubDireto
+            ? pathname === hubDireto.href || pathname.startsWith(hubDireto.href + "/")
+            : false;
           // Recolhido o sidebar inteiro (rail de 64px), o grupo sempre mostra
           // seus itens — não há onde desenhar cabeçalho nem seta para fechá-lo.
           const aberto = collapsed || !gruposFechados.has(group.id);
@@ -242,16 +254,16 @@ export function SidebarContent({
                 <h2 id={tituloId}>
                   <Link
                     href={hubDireto.href}
-                    aria-current={pathname === hubDireto.href ? "page" : undefined}
+                    aria-current={isHubActive ? "page" : undefined}
                     onClick={onNavigate}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-md px-3 py-1 text-xs font-medium transition-colors",
-                      pathname === hubDireto.href
-                        ? "bg-accent text-accent-foreground"
-                        : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+                      "flex w-full items-center justify-between rounded-md px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors",
+                      isHubActive
+                        ? "bg-accent text-accent-foreground shadow-xs"
+                        : "text-muted-foreground hover:bg-accent/10 hover:text-foreground",
                     )}
                   >
-                    {t(group.label)}
+                    <span>{t(group.label)}</span>
                     <ArrowRight size={12} weight="bold" aria-hidden />
                   </Link>
                 </h2>
@@ -263,7 +275,7 @@ export function SidebarContent({
                     type="button"
                     onClick={() => toggleGrupo(group.id)}
                     aria-expanded={aberto}
-                    className="flex w-full items-center justify-between rounded-md px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+                    className="flex w-full items-center justify-between rounded-md px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
                   >
                     {t(group.label)}
                     <CaretDown
@@ -295,10 +307,10 @@ export function SidebarContent({
                           aria-current={isActive ? "page" : undefined}
                           onClick={onNavigate}
                           className={cn(
-                            "relative flex items-center gap-3 rounded-md px-3 py-1 text-sm transition-colors",
+                            "relative flex items-center gap-3 rounded-md px-3 py-1 text-sm font-medium transition-colors",
                             isActive
-                              ? "bg-accent text-accent-foreground"
-                              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                              ? "bg-accent text-accent-foreground shadow-xs"
+                              : "text-muted-foreground hover:bg-accent/10 hover:text-foreground",
                             collapsed && "justify-center px-2",
                           )}
                         >
@@ -321,10 +333,10 @@ export function SidebarContent({
                         aria-current={pathname === group.hub.href ? "page" : undefined}
                         onClick={onNavigate}
                         className={cn(
-                          "flex items-center gap-3 rounded-md px-3 py-1 text-sm transition-colors",
+                          "flex items-center gap-3 rounded-md px-3 py-1 text-sm font-medium transition-colors",
                           pathname === group.hub.href
-                            ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                            ? "bg-accent text-accent-foreground shadow-xs"
+                            : "text-muted-foreground hover:bg-accent/10 hover:text-foreground",
                           collapsed && "justify-center px-2",
                         )}
                       >
@@ -347,10 +359,10 @@ export function SidebarContent({
             aria-current={pathname.startsWith(rodape.href) ? "page" : undefined}
             onClick={onNavigate}
             className={cn(
-              "mb-1 flex items-center gap-3 rounded-md px-3 py-1 text-sm transition-colors",
+              "mb-1 flex items-center gap-3 rounded-md px-3 py-1 text-sm font-medium transition-colors",
               pathname.startsWith(rodape.href)
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                ? "bg-accent text-accent-foreground shadow-xs"
+                : "text-muted-foreground hover:bg-accent/10 hover:text-foreground",
               collapsed && "justify-center px-2",
             )}
           >
@@ -365,7 +377,7 @@ export function SidebarContent({
             onClick={() => startTransition(() => toggleSidebar(collapsed))}
             disabled={isPending}
             className={cn(
-              "flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+              "flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-accent/10 hover:text-foreground",
               collapsed && "justify-center px-2",
             )}
             aria-label={collapsed ? t("Expandir sidebar") : t("Recolher sidebar")}
