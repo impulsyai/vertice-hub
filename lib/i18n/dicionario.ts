@@ -49,6 +49,10 @@ export const DICIONARIO: Traducoes = {
   "Ver dossiê": { es: "Ver expediente" },
   "Posição Corporativa": { es: "Posición corporativa" },
   "Dossiê Profissional": { es: "Expediente profesional" },
+  "Banco de talentos, vagas abertas, candidaturas e Funil de Seleção executivo.": {
+    es: "Banco de talentos, vacantes abiertas, postulaciones y embudo de selección ejecutivo.",
+  },
+  "Ver no Funil de Seleção": { es: "Ver en el embudo de selección" },
   "Empresas Clientes": { es: "Empresas clientes" },
   "Gestão das contas corporativas e clientes B2B contratantes.": { es: "Gestión de las cuentas corporativas y clientes B2B contratantes." },
   "Nova Empresa": { es: "Nueva empresa" },
