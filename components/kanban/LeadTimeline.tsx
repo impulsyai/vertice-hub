@@ -7,7 +7,6 @@ import { useT } from "@/hooks/i18n/useT";
 import { cn } from "@/lib/utils";
 import {
   activityLabel,
-  actorLabel,
   actorName,
   actorShape,
 } from "@/lib/leads/activity-vocabulary";
@@ -62,11 +61,31 @@ function Linha({ item, aoVivo }: { item: TimelineItemView; aoVivo?: boolean }) {
     },
     t,
   );
+
+  const isTask = item.type === "task_created" || item.type === "task_completed";
+  const dueDate = item.payload?.due_date as string | undefined;
+  const priority = item.payload?.priority as string | undefined;
+  const status = item.payload?.status as string | undefined;
+
+  const rotuloDaPrioridade: Record<string, string> = {
+    low: t("Baixa"),
+    medium: t("Média"),
+    high: t("Alta"),
+    urgent: t("Urgente"),
+  };
+
+  const rotuloDoStatus: Record<string, string> = {
+    pending: t("Pendente"),
+    in_progress: t("Em andamento"),
+    done: t("Concluída"),
+    cancelled: t("Cancelada"),
+  };
+
   return (
     <li className="flex gap-2 py-1.5">
       <Marcador item={item} />
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-text">
+        <p className="text-xs font-medium text-text">
           {t(activityLabel(item.type))}
           {aoVivo && (
             // O que chegou AGORA fica marcado: sem isto ele entraria na lista
@@ -76,7 +95,28 @@ function Linha({ item, aoVivo }: { item: TimelineItemView; aoVivo?: boolean }) {
             </span>
           )}
         </p>
-        {item.reason && <p className="mt-0.5 text-xs text-text-muted">{t(item.reason)}</p>}
+        {item.reason && <p className="mt-0.5 text-xs text-text">{item.reason}</p>}
+
+        {isTask && (dueDate || priority || status) && (
+          <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-text-muted">
+            {dueDate && (
+              <span>
+                {t("Prazo")}: {quando(dueDate, tagDoIdioma)}
+              </span>
+            )}
+            {priority && (
+              <span>
+                {t("Prioridade")}: {rotuloDaPrioridade[priority] ?? priority}
+              </span>
+            )}
+            {status && (
+              <span>
+                {t("Status")}: {rotuloDoStatus[status] ?? status}
+              </span>
+            )}
+          </div>
+        )}
+
         <p className="mt-0.5 text-[11px] text-text-muted">
           {nome} · {quando(item.performed_at, tagDoIdioma)}
         </p>
