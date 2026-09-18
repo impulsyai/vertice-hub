@@ -362,9 +362,12 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                           </div>
                           <div className="space-y-0.5 flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-medium text-foreground text-sm truncate">
+                              <Link
+                                href={`/app/contacts/${c.contact_id}`}
+                                className="font-medium text-foreground hover:text-primary hover:underline text-sm truncate"
+                              >
                                 {contactName}
-                              </span>
+                              </Link>
                               {c.is_primary && (
                                 <Badge
                                   variant="outline"

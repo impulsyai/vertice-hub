@@ -165,7 +165,7 @@ describe("Vértice People — Company Detail & CRM Invariants", () => {
       };
 
       expect(dossier.jobs).toHaveLength(1);
-      const job = dossier.jobs![0];
+      const job = dossier.jobs![0]!;
       expect(job.title).toBe("Engenheiro de Software Sênior");
       expect(job.status).toBe("open");
       expect(job.openings_count).toBe(2);
