@@ -3,6 +3,8 @@
 import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
 import { useRef } from "react";
 
+import Link from "next/link";
+import { Buildings, User, Calendar } from "@/lib/ui/icons";
 import { useT } from "@/hooks/i18n/useT";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useLeadTimeline } from "@/hooks/leads/useLeadTimeline";
@@ -128,6 +130,65 @@ export function LeadDossier({
             {t("Probabilidade recalculada automaticamente")} ·{" "}
             {new Date(score.at).toLocaleString(tagDoIdioma)}
           </p>
+        )}
+
+        {/* Vínculos Corporativos B2B */}
+        {(lead.client_company_id || lead.contact_id || lead.expected_close_date) && (
+          <div className="my-3 space-y-2 rounded-lg border border-border/60 bg-accent/5 p-3 text-xs">
+            {lead.client_company_id && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-text-muted">
+                  <Buildings size={13} className="shrink-0 text-primary" />
+                  {t("Empresa vinculada")}:
+                </span>
+                <Link
+                  href={`/app/crm/empresas/${lead.client_company_id}`}
+                  className="font-medium text-primary hover:underline truncate max-w-[200px]"
+                >
+                  {lead.company?.trade_name || lead.company?.legal_name || t("Ver empresa")}
+                </Link>
+              </div>
+            )}
+
+            {lead.contact_id && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-text-muted">
+                  <User size={13} className="shrink-0 text-primary" />
+                  {t("Decisor / Contato")}:
+                </span>
+                <div className="flex items-center gap-1.5 truncate max-w-[200px]">
+                  <Link
+                    href={`/app/contacts/${lead.contact_id}`}
+                    className="font-medium text-primary hover:underline truncate"
+                  >
+                    {lead.contact?.name || t("Ver contato")}
+                  </Link>
+                  {lead.contact?.role_in_company && (
+                    <span className="text-[10px] text-text-muted truncate">
+                      ({lead.contact.role_in_company})
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {lead.expected_close_date && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-text-muted">
+                  <Calendar size={13} className="shrink-0 text-primary" />
+                  {t("Fechamento previsto")}:
+                </span>
+                <span className="font-medium text-foreground">{lead.expected_close_date}</span>
+              </div>
+            )}
+
+            {lead.source && (
+              <div className="flex items-center justify-between gap-2 text-[11px] text-text-muted">
+                <span>{t("Origem")}:</span>
+                <span className="capitalize">{lead.source}</span>
+              </div>
+            )}
+          </div>
         )}
 
         <ConversaNoDossie conversa={lead.conversa} />

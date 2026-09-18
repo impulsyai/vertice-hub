@@ -85,7 +85,7 @@ export function PipelinePageClient({
           {data?.pipeline.name ?? initialName}
         </h1>
         <Button onClick={() => setNewOpen(true)} disabled={!data} className="shrink-0">
-          <Plus size={16} className="mr-2" /> {t("Novo Lead")}
+          <Plus size={16} className="mr-2" /> {t("Nova Oportunidade")}
         </Button>
       </header>
       {data && (

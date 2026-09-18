@@ -36,7 +36,22 @@ export interface Lead {
   organization_id: string;
   pipeline_id: string;
   stage_id: string;
+  client_company_id?: string | null;
   contact_id: string | null;
+  /** Derivado (não é coluna): Empresa vinculada B2B */
+  company?: {
+    id: string;
+    trade_name: string | null;
+    legal_name: string | null;
+  } | null;
+  /** Derivado (não é coluna): Contato/Decisor vinculado com cargo */
+  contact?: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    role_in_company?: string | null;
+  } | null;
   title: string;
   description: string | null;
   status: LeadStatus;

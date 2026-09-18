@@ -288,6 +288,95 @@ async function withConversas(
   };
 }
 
+async function withCompaniesAndContacts(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  leads: Lead[],
+): Promise<{ leads: Lead[]; error: string | null }> {
+  const companyIds = [
+    ...new Set(leads.map((l) => l.client_company_id).filter((c): c is string => !!c)),
+  ];
+  const contactIds = [
+    ...new Set(leads.map((l) => l.contact_id).filter((c): c is string => !!c)),
+  ];
+
+  if (companyIds.length === 0 && contactIds.length === 0) {
+    return { leads, error: null };
+  }
+
+  const [companiesRes, contactsRes, linksRes] = await Promise.all([
+    companyIds.length > 0
+      ? supabase
+          .from("client_companies")
+          .select("id, trade_name, legal_name")
+          .eq("organization_id", organizationId)
+          .in("id", companyIds)
+      : Promise.resolve({ data: [] }),
+    contactIds.length > 0
+      ? supabase
+          .from("contacts")
+          .select("id, name, email, phone_number")
+          .eq("organization_id", organizationId)
+          .in("id", contactIds)
+      : Promise.resolve({ data: [] }),
+    companyIds.length > 0 && contactIds.length > 0
+      ? supabase
+          .from("client_company_contacts")
+          .select("client_company_id, contact_id, role_in_company")
+          .eq("organization_id", organizationId)
+          .in("client_company_id", companyIds)
+          .in("contact_id", contactIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const companyMap = new Map(
+    ((companiesRes.data ?? []) as Array<{ id: string; trade_name: string | null; legal_name: string | null }>).map(
+      (c) => [c.id, c],
+    ),
+  );
+
+  const roleMap = new Map<string, string>();
+  for (const link of (linksRes.data ?? []) as Array<{ client_company_id: string; contact_id: string; role_in_company: string | null }>) {
+    if (link.role_in_company) {
+      roleMap.set(`${link.client_company_id}:${link.contact_id}`, link.role_in_company);
+    }
+  }
+
+  const contactMap = new Map(
+    ((contactsRes.data ?? []) as Array<{ id: string; name: string; email: string | null; phone_number: string | null }>).map(
+      (c) => [c.id, c],
+    ),
+  );
+
+  return {
+    leads: leads.map((lead) => {
+      const company = lead.client_company_id ? companyMap.get(lead.client_company_id) ?? null : null;
+      const c = lead.contact_id ? contactMap.get(lead.contact_id) : null;
+      const role =
+        lead.client_company_id && lead.contact_id
+          ? roleMap.get(`${lead.client_company_id}:${lead.contact_id}`) ?? null
+          : null;
+
+      const contact = c
+        ? {
+            id: c.id,
+            name: c.name,
+            email: c.email ?? null,
+            phone: c.phone_number ?? null,
+            role_in_company: role,
+          }
+        : null;
+
+      return {
+        ...lead,
+        company,
+        contact,
+      };
+    }),
+    error: null,
+  };
+}
+
 async function withNextActions(
   supabase: Awaited<ReturnType<typeof createClient>>,
   organizationId: string,
@@ -429,10 +518,19 @@ export async function GET(_req: NextRequest, ctx: RouteCtx): Promise<Response> {
     return fail("internal_error", leadsComConversa.error, 500, { requestId });
   }
 
+  const leadsComContexto = await withCompaniesAndContacts(
+    supabase,
+    (pipeline as Pipeline).organization_id,
+    leadsComConversa.leads,
+  );
+  if (leadsComContexto.error) {
+    return fail("internal_error", leadsComContexto.error, 500, { requestId });
+  }
+
   const board: BoardData = {
     pipeline: pipeline as Pipeline,
     stages: (stages ?? []) as Stage[],
-    leads: leadsComConversa.leads,
+    leads: leadsComContexto.leads,
   };
 
   return ok(board, { requestId });

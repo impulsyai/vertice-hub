@@ -20,7 +20,7 @@ import {
   Note,
 } from "@/lib/ui/icons";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCompanyDetail } from "@/lib/people/client-hooks";
@@ -64,7 +64,7 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
     );
   }
 
-  const { company, contacts = [], jobs = [] } = data;
+  const { company, contacts = [], jobs = [], leads = [] } = data;
 
   const statusLabel =
     company.status === "active"
@@ -220,6 +220,80 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                 <p className="text-sm text-muted-foreground italic">
                   {t("Nenhuma observação cadastrada para esta empresa.")}
                 </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Oportunidades Comerciais (CRM B2B) */}
+          <Card>
+            <CardHeader className="pb-3 border-b flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Kanban className="h-4 w-4 text-primary" />
+                  {t("Oportunidades Comerciais")}
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                  {t("Negócios e projetos comerciais vinculados a esta conta")}
+                </CardDescription>
+              </div>
+              <Badge variant="secondary" className="font-normal text-xs">
+                {leads.length} {leads.length === 1 ? t("oportunidade") : t("oportunidades")}
+              </Badge>
+            </CardHeader>
+            <CardContent className="pt-4">
+              {leads.length === 0 ? (
+                <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground flex flex-col items-center justify-center">
+                  <Kanban className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                  <p className="font-medium text-foreground">{t("Nenhuma oportunidade comercial vinculada")}</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                    {t("Crie uma oportunidade no Funil Comercial associando esta empresa cliente.")}
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border/60 rounded-md border bg-card overflow-hidden">
+                  {leads.map((l) => (
+                    <div
+                      key={l.id}
+                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-accent/5 transition-colors"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Link
+                            href={`/app/pipelines/${l.pipeline_id}?lead=${l.id}`}
+                            className="font-medium text-foreground hover:text-primary hover:underline text-sm"
+                          >
+                            {l.title}
+                          </Link>
+                          {l.stage?.name && (
+                            <Badge variant="outline" className="text-[11px] bg-primary/5 text-primary border-primary/30">
+                              {l.stage.name}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground tabular-nums">
+                          {l.value_cents != null && (
+                            <span className="font-medium text-foreground">
+                              {new Intl.NumberFormat("pt-BR", {
+                                style: "currency",
+                                currency: l.currency ?? "BRL",
+                                maximumFractionDigits: 0,
+                              }).format(l.value_cents / 100)}
+                            </span>
+                          )}
+                          <span>• {new Date(l.created_at).toLocaleDateString(tagDoIdioma)}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Link href={`/app/pipelines/${l.pipeline_id}?lead=${l.id}`}>
+                          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+                            <ArrowSquareOut className="h-3.5 w-3.5" />
+                            {t("Ver no Funil")}
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>

@@ -10,6 +10,7 @@ import { NextActionSlot } from "./NextActionSlot";
 import { ReactivationSlot } from "./ReactivationSlot";
 import { ConversaSlot } from "./ConversaSlot";
 import { ScoreSlot } from "./ScoreSlot";
+import { Buildings, User, Calendar } from "@/lib/ui/icons";
 import { OwnerBadge } from "./OwnerBadge";
 
 /** Os dois gestos de seleção que o card sabe relatar. */
@@ -136,7 +137,7 @@ export function KanbanCard({
           // teclado do dnd (tabIndex e handlers continuam vindo do spread) sem
           // aninhar dois controles — nada de aria-hidden nem de suprimir regra.
           role="group"
-          aria-label={`${t("Lead")}: ${card.title}`}
+          aria-label={`${t("Oportunidade")}: ${card.title}`}
           onClick={handleClick}
           // Tags saem do card (Lei A): ficam a um hover, sem ocupar altura.
           title={card.tags.length > 0 ? `Tags: ${card.tags.join(", ")}` : undefined}
@@ -221,7 +222,7 @@ export function KanbanCard({
                   acessibilidade; deixar só onKeyDown daria uma ação que existe
                   e NÃO É DESCOBERTA por leitor de tela. O título como button
                   atende mouse, teclado e leitor sem desfazer a decisão antiga. */}
-              <h3 className="line-clamp-2 h-10 text-sm font-medium leading-5 text-text">
+              <h3 className="line-clamp-2 text-sm font-medium leading-5 text-text">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -237,19 +238,39 @@ export function KanbanCard({
                   {card.title}
                 </button>
               </h3>
+
+              {card.companyName && (
+                <div className="mt-1 flex items-center gap-1.5 text-xs text-text-muted truncate">
+                  <Buildings size={13} className="shrink-0 text-primary" />
+                  <span className="truncate font-medium text-text">{card.companyName}</span>
+                </div>
+              )}
+
+              {card.contactName && (
+                <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-text-muted truncate">
+                  <User size={12} className="shrink-0" />
+                  <span className="truncate">{card.contactName}</span>
+                  {card.contactRole && (
+                    <span className="text-[10px] text-text-muted truncate">
+                      ({card.contactRole})
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             <KanbanCardActions lead={lead} pipelineId={pipelineId} />
           </div>
 
-          {/* ② valor — altura reservada mesmo sem valor, senão o card encolhe. */}
-          <p
-            className={cn(
-              "mt-1 h-5 text-xs font-medium leading-5 tabular-nums",
-              value ? "text-text" : "text-text-muted",
+          {/* ② valor e fechamento previsto */}
+          <div className="mt-1.5 flex items-center justify-between text-xs font-medium tabular-nums">
+            <span className={value ? "text-text" : "text-text-muted"}>{value ?? "—"}</span>
+            {card.expectedCloseDate && (
+              <span className="flex items-center gap-1 text-[11px] font-normal text-text-muted">
+                <Calendar size={11} className="shrink-0" />
+                {card.expectedCloseDate}
+              </span>
             )}
-          >
-            {value ?? "—"}
-          </p>
+          </div>
 
           {/* ③ a linha do agente — um slot, três estados, nunca três blocos. */}
           <div className="mt-1.5 flex h-6 items-center gap-2 text-xs">

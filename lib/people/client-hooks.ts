@@ -37,9 +37,22 @@ export type CompanyContactRow = ClientCompanyContact & {
   } | null;
 };
 
+export interface CompanyOpportunityRow {
+  id: string;
+  title: string;
+  status: string;
+  value_cents: number | null;
+  currency: string | null;
+  stage_id: string;
+  pipeline_id: string;
+  stage?: { name: string } | null;
+  created_at: string;
+}
+
 export type CompanyDetailRow = ClientCompany & {
   contacts?: CompanyContactRow[];
   jobs?: VerticeJobOpening[];
+  leads?: CompanyOpportunityRow[];
 };
 
 type CandidateDetailRow = VerticeCandidate & {
@@ -121,8 +134,8 @@ export function useCompanyDetail(companyId?: string | null) {
           `/api/v1/people/companies/${companyId}`,
         );
         const row = unwrap(response);
-        const { contacts = [], jobs = [], ...company } = row;
-        return { company: company as ClientCompany, contacts, jobs };
+        const { contacts = [], jobs = [], leads = [], ...company } = row;
+        return { company: company as ClientCompany, contacts, jobs, leads };
       } catch (err) {
         showApiError(err);
         throw err;
