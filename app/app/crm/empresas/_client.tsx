@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
-import { Buildings, Plus, MagnifyingGlass, PencilSimple } from "@/lib/ui/icons";
+import { Buildings, Plus, MagnifyingGlass, PencilSimple, Eye } from "@/lib/ui/icons";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -108,7 +109,12 @@ export function EmpresasClient() {
               {companies.map((company) => (
                 <tr key={company.id} className="hover:bg-accent/5 transition-colors">
                   <td className="p-4">
-                    <div className="font-medium text-foreground">{company.trade_name}</div>
+                    <Link
+                      href={`/app/crm/empresas/${company.id}`}
+                      className="font-medium text-foreground hover:text-primary hover:underline transition-colors block"
+                    >
+                      {company.trade_name}
+                    </Link>
                     {company.legal_name && (
                       <div className="text-xs text-muted-foreground">{company.legal_name}</div>
                     )}
@@ -146,15 +152,27 @@ export function EmpresasClient() {
                     </Badge>
                   </td>
                   <td className="p-4 text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1.5 h-8 text-xs hover:bg-accent/10 hover:text-primary"
-                      onClick={() => setEditingCompany(company)}
-                    >
-                      <PencilSimple className="h-3.5 w-3.5" />
-                      {t("Editar")}
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Link href={`/app/crm/empresas/${company.id}`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1.5 h-8 text-xs hover:bg-accent/10 hover:text-primary"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          {t("Ver empresa")}
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1.5 h-8 text-xs hover:bg-accent/10 hover:text-primary"
+                        onClick={() => setEditingCompany(company)}
+                      >
+                        <PencilSimple className="h-3.5 w-3.5" />
+                        {t("Editar")}
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -302,7 +320,7 @@ function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   );
 }
 
-function EditCompanyDialog({
+export function EditCompanyDialog({
   company,
   open,
   onOpenChange,

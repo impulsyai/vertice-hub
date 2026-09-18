@@ -13,7 +13,7 @@ import {
   type PrioridadeDaTarefa,
   type Tarefa,
 } from "@/lib/tarefas/tipos";
-import { Check, PencilSimple, Trash } from "@/lib/ui/icons";
+import { Check, PencilSimple, Trash, Buildings, User, Kanban, UserCircle } from "@/lib/ui/icons";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -126,6 +126,36 @@ function Linha({
               : t("Sem prazo")}
           </span>
         </div>
+
+        {/* Vínculos B2B da Tarefa */}
+        {(tarefa.company || tarefa.lead || tarefa.contact || tarefa.assignee) && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            {tarefa.company && (
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                <Buildings size={12} className="text-primary shrink-0" />
+                {tarefa.company.trade_name || tarefa.company.legal_name}
+              </span>
+            )}
+            {tarefa.lead && (
+              <span className="flex items-center gap-1">
+                <Kanban size={12} className="text-primary shrink-0" />
+                {tarefa.lead.title}
+              </span>
+            )}
+            {tarefa.contact && (
+              <span className="flex items-center gap-1">
+                <User size={12} className="text-primary shrink-0" />
+                {tarefa.contact.name}
+              </span>
+            )}
+            {tarefa.assignee && (
+              <span className="flex items-center gap-1 text-[10px] bg-accent/10 text-accent-foreground px-1.5 py-0.5 rounded">
+                <UserCircle size={12} className="text-primary shrink-0" />
+                {tarefa.assignee.name || tarefa.assignee.email}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {podeEditar ? (

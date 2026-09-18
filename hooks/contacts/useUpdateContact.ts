@@ -14,6 +14,8 @@ export function useUpdateContact(id: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["contact", id] });
       qc.invalidateQueries({ queryKey: ["contacts"] });
+      qc.invalidateQueries({ queryKey: ["people-company-detail"] });
+      qc.invalidateQueries({ queryKey: ["people-companies"] });
       // O Inbox (CRMSidePanel) lê o contato via conversation.contacts, não via
       // ["contact", id] — sem isto, editar tags/nome do contato por aqui não
       // refletia na tela até trocar de conversa (parecia "não fez nada").

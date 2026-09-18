@@ -39,7 +39,7 @@ export const dynamic = "force-dynamic";
 
 /** As colunas que a tela lê. Explícitas para o `select *` não vazar coluna nova. */
 const COLUNAS =
-  "id, organization_id, title, description, due_date, priority, status, lead_id, contact_id, assigned_to, created_by, created_at, updated_at";
+  "id, organization_id, title, description, due_date, priority, status, lead_id, contact_id, client_company_id, assigned_to, created_by, created_at, updated_at";
 
 const criacaoSchema = z.object({
   title: z.string().trim().min(1).max(255),
@@ -49,6 +49,7 @@ const criacaoSchema = z.object({
   status: z.enum(SITUACOES_DA_TAREFA).default("pending"),
   lead_id: z.string().uuid().nullable().optional(),
   contact_id: z.string().uuid().nullable().optional(),
+  client_company_id: z.string().uuid().nullable().optional(),
   assigned_to: z.string().uuid().nullable().optional(),
 });
 
@@ -57,6 +58,7 @@ const listaSchema = z.object({
   priority: z.enum(PRIORIDADES_DA_TAREFA).optional(),
   lead_id: z.string().uuid().optional(),
   contact_id: z.string().uuid().optional(),
+  client_company_id: z.string().uuid().optional(),
   due_from: z.string().datetime({ offset: true }).optional(),
   due_to: z.string().datetime({ offset: true }).optional(),
   /** "abertas" = o que ainda pede ação. É o default da tela. */
@@ -95,6 +97,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   if (filtros.priority) query = query.eq("priority", filtros.priority);
   if (filtros.lead_id) query = query.eq("lead_id", filtros.lead_id);
   if (filtros.contact_id) query = query.eq("contact_id", filtros.contact_id);
+  if (filtros.client_company_id) query = query.eq("client_company_id", filtros.client_company_id);
   if (filtros.due_from) query = query.gte("due_date", filtros.due_from);
   if (filtros.due_to) query = query.lte("due_date", filtros.due_to);
   if (filtros.aberto === "true") query = query.in("status", ["pending", "in_progress"]);
@@ -104,7 +107,97 @@ export async function GET(req: NextRequest): Promise<Response> {
     return fail("internal_error", t("Erro ao listar as tarefas."), 500, { requestId });
   }
 
-  return ok({ tasks: (data ?? []) as unknown as Tarefa[] }, { requestId });
+  const tasks = (data ?? []) as Tarefa[];
+
+  if (tasks.length > 0) {
+    const leadIds = [...new Set(tasks.map((t) => t.lead_id).filter(Boolean))] as string[];
+    const contactIds = [...new Set(tasks.map((t) => t.contact_id).filter(Boolean))] as string[];
+    const companyIds = [...new Set(tasks.map((t) => t.client_company_id).filter(Boolean))] as string[];
+    const userIds = [...new Set(tasks.map((t) => t.assigned_to).filter(Boolean))] as string[];
+
+    const leadsMap = new Map<string, { id: string; title: string; client_company_id: string | null }>();
+    if (leadIds.length > 0) {
+      const { data: leadsData } = await supabase
+        .from("crm_leads")
+        .select("id, title, client_company_id")
+        .eq("organization_id", authz.org.orgId)
+        .in("id", leadIds);
+      (leadsData ?? []).forEach((l) => {
+        leadsMap.set(l.id, l);
+        if (l.client_company_id && !companyIds.includes(l.client_company_id)) {
+          companyIds.push(l.client_company_id);
+        }
+      });
+    }
+
+    const companiesMap = new Map<string, { id: string; trade_name: string | null; legal_name: string | null }>();
+    if (companyIds.length > 0) {
+      const { data: companiesData } = await supabase
+        .from("client_companies")
+        .select("id, trade_name, legal_name")
+        .eq("organization_id", authz.org.orgId)
+        .in("id", companyIds);
+      (companiesData ?? []).forEach((c) => companiesMap.set(c.id, c));
+    }
+
+    const contactsMap = new Map<string, { id: string; name: string | null }>();
+    if (contactIds.length > 0) {
+      const { data: contactsData } = await supabase
+        .from("contacts")
+        .select("id, name")
+        .eq("organization_id", authz.org.orgId)
+        .in("id", contactIds);
+      (contactsData ?? []).forEach((c) => contactsMap.set(c.id, c));
+    }
+
+    const usersMap = new Map<string, { id: string; name: string | null; email?: string | null }>();
+    if (userIds.length > 0) {
+      const { data: usersData } = await supabase
+        .from("user_organizations")
+        .select("user_id, users:user_id(id, email, raw_user_meta_data)")
+        .eq("organization_id", authz.org.orgId)
+        .in("user_id", userIds);
+      (usersData ?? []).forEach((row: unknown) => {
+        const u = row as {
+          user_id: string;
+          users?:
+            | { id: string; email?: string | null; raw_user_meta_data?: { full_name?: string; name?: string } | null }
+            | Array<{ id: string; email?: string | null; raw_user_meta_data?: { full_name?: string; name?: string } | null }>
+            | null;
+        };
+        const userData = Array.isArray(u.users) ? u.users[0] : u.users;
+        if (userData) {
+          const name =
+            userData.raw_user_meta_data?.full_name ||
+            userData.raw_user_meta_data?.name ||
+            userData.email ||
+            null;
+          usersMap.set(u.user_id, { id: userData.id, name, email: userData.email });
+        }
+      });
+    }
+
+    for (const t of tasks) {
+      if (t.lead_id && leadsMap.has(t.lead_id)) {
+        const l = leadsMap.get(t.lead_id)!;
+        t.lead = { id: l.id, title: l.title };
+        if (!t.client_company_id && l.client_company_id) {
+          t.company = companiesMap.get(l.client_company_id) ?? null;
+        }
+      }
+      if (t.client_company_id && companiesMap.has(t.client_company_id)) {
+        t.company = companiesMap.get(t.client_company_id)!;
+      }
+      if (t.contact_id && contactsMap.has(t.contact_id)) {
+        t.contact = contactsMap.get(t.contact_id)!;
+      }
+      if (t.assigned_to && usersMap.has(t.assigned_to)) {
+        t.assignee = usersMap.get(t.assigned_to)!;
+      }
+    }
+  }
+
+  return ok({ tasks }, { requestId });
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -127,10 +220,26 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   const supabase = await createClient();
+  const payload = { ...parsed.data };
+
+  // Se tem lead_id mas não tem client_company_id, herda do lead se existir
+  if (payload.lead_id && !payload.client_company_id) {
+    const { data: lead } = await supabase
+      .from("crm_leads")
+      .select("client_company_id, contact_id")
+      .eq("id", payload.lead_id)
+      .eq("organization_id", authz.org.orgId)
+      .maybeSingle();
+    if (lead) {
+      if (lead.client_company_id) payload.client_company_id = lead.client_company_id;
+      if (!payload.contact_id && lead.contact_id) payload.contact_id = lead.contact_id;
+    }
+  }
+
   const { data, error } = await supabase
     .from("crm_tasks")
     .insert({
-      ...parsed.data,
+      ...payload,
       organization_id: authz.org.orgId,
       created_by: authz.user.id,
     })
@@ -141,7 +250,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     // 23503 = lead ou contato de outra organização (ou apagado no meio). A
     // recusa nomeia o campo porque quem lê é quem escolheu na tela.
     if (error.code === "23503") {
-      return fail("validation_failed", t("O negócio ou contato vinculado não existe."), 422, {
+      return fail("validation_failed", t("O negócio, empresa ou contato vinculado não existe."), 422, {
         requestId,
       });
     }

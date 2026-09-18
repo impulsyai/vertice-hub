@@ -29,6 +29,8 @@ export function useCreateContact() {
     onError: showApiError,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
+      qc.invalidateQueries({ queryKey: ["people-company-detail"] });
+      qc.invalidateQueries({ queryKey: ["people-companies"] });
     },
   });
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +22,9 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/hooks/i18n/useT";
+import { useCompanyList, useCompanyDetail } from "@/lib/people/client-hooks";
+import { useAssignableMembers } from "@/hooks/inbox/useAssignableMembers";
+import { Buildings, User, Kanban, UserCircle } from "@/lib/ui/icons";
 import type {
   NovaTarefa,
   PrioridadeDaTarefa,
@@ -37,15 +41,22 @@ interface Props {
   prazoSugerido?: string;
   aoSalvar: (entrada: NovaTarefa) => Promise<unknown>;
   leadId?: string | null;
+  leadTitle?: string | null;
+  clientCompanyId?: string | null;
   contactId?: string | null;
+  assignedTo?: string | null;
+}
+
+interface LeadOption {
+  id: string;
+  title: string;
+  client_company_id: string | null;
+  contact_id: string | null;
+  owner_user_id: string | null;
 }
 
 /**
  * ISO → os dois campos que a pessoa preenche, no fuso DELA.
- *
- * ⚠️ `toISOString().slice(0,10)` para a data era o do original, e ele lê o dia
- * em UTC: 31/12 às 21h em Brasília voltava como 01/01. A pessoa abriria para
- * editar e veria outro dia.
  */
 function separaPrazo(iso: string | null | undefined): { dia: string; hora: string } {
   if (!iso) return { dia: "", hora: "09:00" };
@@ -64,17 +75,14 @@ export function FormularioDeTarefa({
   prazoSugerido,
   aoSalvar,
   leadId,
+  leadTitle,
+  clientCompanyId,
   contactId,
+  assignedTo,
 }: Props) {
   const t = useT();
   const editando = Boolean(tarefa);
 
-  // ⚠️ O ESTADO NASCE DAS PROPS, e não de um `useEffect` que dá setState no
-  // corpo — que era o do original e o que o `react-hooks/set-state-in-effect`
-  // acusa. Quem garante que o formulário reflete a tarefa certa é a `key` que o
-  // pai passa: ela muda a cada abertura, então o componente REMONTA e o
-  // inicializador roda de novo. Efeito para sincronizar props com estado é
-  // render em cascata e uma janela em que a tela mostra a tarefa anterior.
   const prazo = separaPrazo(tarefa?.due_date);
   const [titulo, setTitulo] = useState(tarefa?.title ?? "");
   const [descricao, setDescricao] = useState(tarefa?.description ?? "");
@@ -82,8 +90,83 @@ export function FormularioDeTarefa({
   const [hora, setHora] = useState(tarefa?.due_date ? prazo.hora : "09:00");
   const [prioridade, setPrioridade] = useState<PrioridadeDaTarefa>(tarefa?.priority ?? "medium");
   const [situacao, setSituacao] = useState<SituacaoDaTarefa>(tarefa?.status ?? "pending");
+
+  // Vínculos B2B
+  const [selectedLeadId, setSelectedLeadId] = useState<string>(
+    tarefa?.lead_id ?? leadId ?? "none",
+  );
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(
+    tarefa?.client_company_id ?? clientCompanyId ?? "none",
+  );
+  const [selectedContactId, setSelectedContactId] = useState<string>(
+    tarefa?.contact_id ?? contactId ?? "none",
+  );
+  const [selectedAssignedTo, setSelectedAssignedTo] = useState<string>(
+    tarefa?.assigned_to ?? assignedTo ?? "none",
+  );
+
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+
+  // Lista de Empresas
+  const { data: companiesData, isLoading: loadingCompanies } = useCompanyList({ limit: 100 });
+  const companies = companiesData?.data ?? [];
+
+  // Detalhe da Empresa para filtrar contatos
+  const activeCompanyId = selectedCompanyId && selectedCompanyId !== "none" ? selectedCompanyId : null;
+  const { data: companyDetail } = useCompanyDetail(activeCompanyId);
+  const companyContacts = useMemo(() => companyDetail?.contacts ?? [], [companyDetail?.contacts]);
+
+  // Lista de Membros Atribuíveis
+  const { data: members = [], isLoading: loadingMembers } = useAssignableMembers(true);
+
+  // Lista de Oportunidades
+  const { data: leadsData } = useQuery<{ leads: LeadOption[] }>({
+    queryKey: ["crm_leads_for_task_form"],
+    queryFn: async () => {
+      const res = await fetch("/api/v1/leads?status=open");
+      if (!res.ok) return { leads: [] };
+      const json = await res.json();
+      return json.data ?? { leads: [] };
+    },
+    staleTime: 30_000,
+  });
+  const leads = leadsData?.leads ?? [];
+
+  // Se o usuário seleciona uma oportunidade da lista, auto-preenche empresa, contato e responsável
+  function handleLeadChange(newLeadId: string) {
+    setSelectedLeadId(newLeadId);
+    if (newLeadId !== "none") {
+      const found = leads.find((l) => l.id === newLeadId);
+      if (found) {
+        if (found.client_company_id) {
+          setSelectedCompanyId(found.client_company_id);
+        }
+        if (found.contact_id) {
+          setSelectedContactId(found.contact_id);
+        }
+        if (found.owner_user_id && selectedAssignedTo === "none") {
+          setSelectedAssignedTo(found.owner_user_id);
+        }
+      }
+    }
+  }
+
+  function handleCompanyChange(newCompanyId: string) {
+    setSelectedCompanyId(newCompanyId);
+    if (newCompanyId === "none") {
+      setSelectedContactId("none");
+    } else {
+      // Se o contato atual não for da nova empresa, reseta
+      if (
+        selectedContactId !== "none" &&
+        companyContacts.length > 0 &&
+        !companyContacts.some((c) => c.contact_id === selectedContactId)
+      ) {
+        setSelectedContactId("none");
+      }
+    }
+  }
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
@@ -91,10 +174,7 @@ export function FormularioDeTarefa({
       setErro(t("Escreva um título para a tarefa."));
       return;
     }
-    // Prazo é OPCIONAL — a coluna é nullable de propósito (migration 0210).
-    // Sem dia não há hora que valha, e uma hora solta viraria "hoje às 9h" sem
-    // ninguém ter pedido.
-    const prazo = dia ? new Date(`${dia}T${hora || "00:00"}:00`).toISOString() : null;
+    const prazoCalculado = dia ? new Date(`${dia}T${hora || "00:00"}:00`).toISOString() : null;
 
     setSalvando(true);
     setErro(null);
@@ -102,36 +182,162 @@ export function FormularioDeTarefa({
       await aoSalvar({
         title: titulo.trim(),
         description: descricao.trim() || null,
-        due_date: prazo,
+        due_date: prazoCalculado,
         priority: prioridade,
         status: situacao,
-        lead_id: tarefa?.lead_id ?? leadId ?? null,
-        contact_id: tarefa?.contact_id ?? contactId ?? null,
+        lead_id: selectedLeadId && selectedLeadId !== "none" ? selectedLeadId : null,
+        client_company_id: selectedCompanyId && selectedCompanyId !== "none" ? selectedCompanyId : null,
+        contact_id: selectedContactId && selectedContactId !== "none" ? selectedContactId : null,
+        assigned_to: selectedAssignedTo && selectedAssignedTo !== "none" ? selectedAssignedTo : null,
       });
       aoMudarAbertura(false);
     } catch (falha) {
-      // A mensagem do servidor quando ela existe: ela nomeia o campo recusado.
       setErro(falha instanceof Error ? falha.message : t("Não foi possível salvar a tarefa."));
     } finally {
       setSalvando(false);
     }
   }
 
+  // Pre-fixado a partir do dossiê de um lead
+  const travadoNoLead = Boolean(leadId);
+
   return (
     <Dialog open={aberto} onOpenChange={aoMudarAbertura}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editando ? t("Editar tarefa") : t("Nova tarefa")}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={enviar} className="space-y-4">
+        <form onSubmit={enviar} className="space-y-4 pt-1">
+          {/* Vínculo de Contexto B2B */}
+          {travadoNoLead ? (
+            <div className="rounded-lg border border-border/70 bg-accent/5 p-3 text-xs space-y-1.5">
+              <div className="flex items-center gap-1.5 font-medium text-foreground">
+                <Kanban size={14} className="text-primary shrink-0" />
+                <span>{t("Oportunidade")}:</span>
+                <span className="text-primary">{leadTitle || t("Negócio ativo")}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {t("Contexto B2B")}
+              </p>
+
+              {/* Oportunidade */}
+              <div className="space-y-1.5">
+                <Label htmlFor="tarefa-oportunidade" className="text-xs flex items-center gap-1.5">
+                  <Kanban size={13} className="text-primary shrink-0" />
+                  {t("Oportunidade comercial (opcional)")}
+                </Label>
+                <Select value={selectedLeadId} onValueChange={handleLeadChange}>
+                  <SelectTrigger id="tarefa-oportunidade" className="text-xs h-9">
+                    <SelectValue placeholder={t("Selecione uma oportunidade...")} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-56">
+                    <SelectItem value="none">{t("Nenhuma oportunidade")}</SelectItem>
+                    {leads.map((l) => (
+                      <SelectItem key={l.id} value={l.id}>
+                        {l.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Empresa */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="tarefa-empresa" className="text-xs flex items-center gap-1.5">
+                    <Buildings size={13} className="text-primary shrink-0" />
+                    {t("Empresa cliente")}
+                  </Label>
+                  <Select
+                    value={selectedCompanyId}
+                    onValueChange={handleCompanyChange}
+                    disabled={loadingCompanies}
+                  >
+                    <SelectTrigger id="tarefa-empresa" className="text-xs h-9">
+                      <SelectValue placeholder={t("Selecione a empresa...")} />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-56">
+                      <SelectItem value="none">{t("Nenhuma empresa")}</SelectItem>
+                      {companies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.trade_name || c.legal_name || t("Empresa sem nome")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Contato / Decisor */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="tarefa-contato" className="text-xs flex items-center gap-1.5">
+                    <User size={13} className="text-primary shrink-0" />
+                    {t("Decisor / Contato")}
+                  </Label>
+                  <Select
+                    value={selectedContactId}
+                    onValueChange={setSelectedContactId}
+                    disabled={activeCompanyId ? companyContacts.length === 0 : false}
+                  >
+                    <SelectTrigger id="tarefa-contato" className="text-xs h-9">
+                      <SelectValue
+                        placeholder={
+                          activeCompanyId && companyContacts.length === 0
+                            ? t("Empresa sem contatos")
+                            : t("Selecione o decisor...")
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-56">
+                      <SelectItem value="none">{t("Nenhum contato")}</SelectItem>
+                      {companyContacts.map((ct) => (
+                        <SelectItem key={ct.contact_id} value={ct.contact_id}>
+                          {ct.contact?.name || ct.contact?.display_name || t("Sem nome")}
+                          {ct.role_in_company ? ` (${ct.role_in_company})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Responsável */}
           <div className="space-y-1.5">
-            <Label htmlFor="tarefa-titulo">{t("O que precisa ser feito")}</Label>
+            <Label htmlFor="tarefa-responsavel" className="text-xs flex items-center gap-1.5">
+              <UserCircle size={13} className="text-primary shrink-0" />
+              {t("Responsável pela tarefa")}
+            </Label>
+            <Select
+              value={selectedAssignedTo}
+              onValueChange={setSelectedAssignedTo}
+              disabled={loadingMembers}
+            >
+              <SelectTrigger id="tarefa-responsavel" className="text-xs h-9">
+                <SelectValue placeholder={t("Atribuir a um membro...")} />
+              </SelectTrigger>
+              <SelectContent className="max-h-56">
+                <SelectItem value="none">{t("Sem responsável atribuído")}</SelectItem>
+                {members.map((m) => (
+                  <SelectItem key={m.user_id} value={m.user_id}>
+                    {m.full_name || m.user_id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="tarefa-titulo">{t("O que precisa ser feito *")}</Label>
             <Input
               id="tarefa-titulo"
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
-              placeholder={t("Ex.: ligar de volta para fechar a proposta")}
+              placeholder={t("Ex.: Fazer follow-up com Empresa Teste Vértice")}
               autoFocus
             />
           </div>

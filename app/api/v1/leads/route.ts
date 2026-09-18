@@ -12,8 +12,42 @@ import { createLeadSchema, validateRequest, type CreateLeadInput } from "@/lib/s
 import { createClient } from "@/lib/supabase/server";
 
 import { createLeadHandler } from "./_handler";
+import { traduzir } from "@/lib/i18n/dicionario";
 
 export const dynamic = "force-dynamic";
+
+export async function GET(req: NextRequest): Promise<Response> {
+  const requestId = randomUUID();
+  const authz = await requireRole("viewer", { requestId, resource: "crm_leads" });
+  if (!authz.ok) return authz.response;
+  const t = (texto: string) => traduzir(texto, authz.user.idioma);
+
+  const supabase = await createClient();
+  const url = new URL(req.url);
+  const companyId = url.searchParams.get("company_id");
+  const status = url.searchParams.get("status") || "open";
+
+  let query = supabase
+    .from("crm_leads")
+    .select("id, title, client_company_id, contact_id, owner_user_id, status, created_at")
+    .eq("organization_id", authz.org.orgId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (status !== "all") {
+    query = query.eq("status", status);
+  }
+  if (companyId) {
+    query = query.eq("client_company_id", companyId);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    return fail("internal_error", t("Erro ao listar oportunidades."), 500, { requestId });
+  }
+
+  return ok({ leads: data ?? [] }, { requestId });
+}
 
 export async function POST(req: NextRequest): Promise<Response> {
   const supportDenied = await requireSupportWrite();
