@@ -200,15 +200,24 @@ export function ContactDetailClient({ contactId }: Props) {
               </div>
               <div>
                 <dt className="text-xs uppercase text-muted-foreground">{t("Cargo / Função")}</dt>
-                <dd className="mt-1 flex items-center gap-2">
-                  <span>{contact.company_link?.role_in_company || "—"}</span>
-                  {contact.company_link?.is_primary && (
+                <dd className="mt-1">
+                  {contact.company_link?.role_in_company || "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase text-muted-foreground">{t("Contato Principal")}</dt>
+                <dd className="mt-1">
+                  {contact.company_link?.is_primary ? (
                     <Badge
                       variant="outline"
                       className="text-[11px] py-0 px-1.5 border-primary/40 bg-primary/10 text-primary font-medium"
                     >
-                      {t("Principal")}
+                      {t("Sim")}
                     </Badge>
+                  ) : contact.company_link ? (
+                    <span className="text-muted-foreground">{t("Não")}</span>
+                  ) : (
+                    "—"
                   )}
                 </dd>
               </div>

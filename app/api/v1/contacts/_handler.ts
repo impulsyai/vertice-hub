@@ -259,6 +259,53 @@ async function withConversas(
   };
 }
 
+/**
+ * Busca o vínculo corporativo do contato em `client_company_contacts`.
+ * Usa `!client_company_contacts_org_company_fk` para desambiguar as FKs do PostgREST.
+ */
+async function getCompanyLinkForContact(
+  supabase: SB,
+  organizationId: string,
+  contactId: string,
+): Promise<Contact["company_link"] | null> {
+  const { data, error } = await supabase
+    .from("client_company_contacts")
+    .select(
+      "id, client_company_id, role_in_company, is_primary, company:client_companies!client_company_contacts_org_company_fk(id, trade_name, legal_name)",
+    )
+    .eq("contact_id", contactId)
+    .eq("organization_id", organizationId)
+    .order("is_primary", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("[contacts.company_link] Falha ao carregar vínculo de empresa:", error.message);
+    return null;
+  }
+
+  if (!data) return null;
+
+  const rawCompany = data.company as unknown;
+  const companyObj = Array.isArray(rawCompany)
+    ? (rawCompany[0] as { id: string; trade_name: string | null; legal_name: string | null } | undefined)
+    : (rawCompany as { id: string; trade_name: string | null; legal_name: string | null } | null);
+
+  return {
+    id: data.id,
+    client_company_id: data.client_company_id,
+    role_in_company: data.role_in_company ?? null,
+    is_primary: Boolean(data.is_primary),
+    company: companyObj
+      ? {
+          id: companyObj.id,
+          trade_name: companyObj.trade_name ?? null,
+          legal_name: companyObj.legal_name ?? null,
+        }
+      : null,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // get
 // ---------------------------------------------------------------------------
@@ -349,40 +396,18 @@ export async function getContactHandler(
   }
   const contactWithConversa = enriched[0] ?? contact;
 
-  const { data: companyLink } = await supabase
-    .from("client_company_contacts")
-    .select(
-      "id, client_company_id, role_in_company, is_primary, company:client_companies(id, trade_name, legal_name)",
-    )
-    .eq("contact_id", input.contactId)
-    .eq("organization_id", ctx.organization_id)
-    .maybeSingle();
-
-  const rawCompany = companyLink?.company as unknown;
-  const companyObj = Array.isArray(rawCompany)
-    ? (rawCompany[0] as { id: string; trade_name: string | null; legal_name: string | null } | undefined)
-    : (rawCompany as { id: string; trade_name: string | null; legal_name: string | null } | null);
+  const companyLink = await getCompanyLinkForContact(
+    supabase,
+    ctx.organization_id,
+    input.contactId,
+  );
 
   return {
     ...contactWithConversa,
     cpf_available: !!contact.cpf_hash,
     cpf_decrypted: cpfDecrypted,
     cpf_decrypt_denied: cpfDecryptDenied || undefined,
-    company_link: companyLink
-      ? {
-          id: companyLink.id,
-          client_company_id: companyLink.client_company_id,
-          role_in_company: companyLink.role_in_company,
-          is_primary: companyLink.is_primary,
-          company: companyObj
-            ? {
-                id: companyObj.id,
-                trade_name: companyObj.trade_name ?? null,
-                legal_name: companyObj.legal_name ?? null,
-              }
-            : null,
-        }
-      : null,
+    company_link: companyLink,
   };
 }
 
@@ -512,13 +537,11 @@ export async function createContactHandler(
       .single();
 
     if (createdLink) {
-      contact.company_link = {
-        id: createdLink.id,
-        client_company_id: createdLink.client_company_id,
-        role_in_company: createdLink.role_in_company,
-        is_primary: createdLink.is_primary,
-        company: targetCompany,
-      };
+      contact.company_link = await getCompanyLinkForContact(
+        supabase,
+        ctx.organization_id,
+        contact.id,
+      );
     }
   }
 
@@ -836,35 +859,11 @@ export async function patchContactHandler(
     metadata: { ...a.metadataActor, fields, ...sensiveis },
   });
 
-  const { data: finalCompanyLink } = await supabase
-    .from("client_company_contacts")
-    .select(
-      "id, client_company_id, role_in_company, is_primary, company:client_companies(id, trade_name, legal_name)",
-    )
-    .eq("contact_id", contactId)
-    .eq("organization_id", ctx.organization_id)
-    .maybeSingle();
-
-  const rawFinalCompany = finalCompanyLink?.company as unknown;
-  const finalCompanyObj = Array.isArray(rawFinalCompany)
-    ? (rawFinalCompany[0] as { id: string; trade_name: string | null; legal_name: string | null } | undefined)
-    : (rawFinalCompany as { id: string; trade_name: string | null; legal_name: string | null } | null);
-
-  contact.company_link = finalCompanyLink
-    ? {
-        id: finalCompanyLink.id,
-        client_company_id: finalCompanyLink.client_company_id,
-        role_in_company: finalCompanyLink.role_in_company,
-        is_primary: finalCompanyLink.is_primary,
-        company: finalCompanyObj
-          ? {
-              id: finalCompanyObj.id,
-              trade_name: finalCompanyObj.trade_name ?? null,
-              legal_name: finalCompanyObj.legal_name ?? null,
-            }
-          : null,
-      }
-    : null;
+  contact.company_link = await getCompanyLinkForContact(
+    supabase,
+    ctx.organization_id,
+    contactId,
+  );
 
   return contact;
 }

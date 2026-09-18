@@ -162,6 +162,14 @@ export function EditContactDialog({ contact, open, onOpenChange, customFieldDefs
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">{t("Nenhuma empresa (desvincular)")}</SelectItem>
+                {contact.company_link?.client_company_id &&
+                  !companies.some((c) => c.id === contact.company_link?.client_company_id) && (
+                    <SelectItem value={contact.company_link.client_company_id}>
+                      {contact.company_link.company?.trade_name ||
+                        contact.company_link.company?.legal_name ||
+                        contact.company_link.client_company_id}
+                    </SelectItem>
+                  )}
                 {companies.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.trade_name || c.legal_name || c.id}
