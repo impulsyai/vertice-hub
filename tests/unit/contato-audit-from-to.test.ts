@@ -52,8 +52,23 @@ let estadoAtual: Record<string, unknown>;
 function clienteFalso(): unknown {
   return {
     from: () => ({
-      select: () => { const chain = { eq: () => chain, maybeSingle: async () => ({ data: estadoAtual, error: null }) }; return chain; },
-      update: (patch: Record<string, unknown>) => { const chain = { eq: () => chain, select: () => chain, maybeSingle: async () => ({ data: { ...estadoAtual, ...patch }, error: null }) }; return chain; },
+      select: () => {
+        const chain = {
+          eq: () => chain,
+          order: () => chain,
+          limit: () => chain,
+          maybeSingle: async () => ({ data: estadoAtual, error: null }),
+        };
+        return chain;
+      },
+      update: (patch: Record<string, unknown>) => {
+        const chain = {
+          eq: () => chain,
+          select: () => chain,
+          maybeSingle: async () => ({ data: { ...estadoAtual, ...patch }, error: null }),
+        };
+        return chain;
+      },
     }),
     rpc: () => ({ then: (r: (v: unknown) => unknown) => r({ error: null }) }),
   };
@@ -96,7 +111,9 @@ describe("o handler MANDA auditar o par antes/depois", () => {
 
   it("troca de e-mail leva o valor ANTERIOR e o NOVO", async () => {
     const m = await patch({ email: "novo@exemplo.com" });
-    expect(m.old_email, "sem o `from`, ninguém sabe o que foi substituído").toBe("velho@exemplo.com");
+    expect(m.old_email, "sem o `from`, ninguém sabe o que foi substituído").toBe(
+      "velho@exemplo.com",
+    );
     expect(m.new_email).toBe("novo@exemplo.com");
   });
 

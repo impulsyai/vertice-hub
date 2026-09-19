@@ -39,10 +39,16 @@ export interface Tarefa {
   status: SituacaoDaTarefa;
   lead_id: string | null;
   contact_id: string | null;
+  client_company_id?: string | null;
   assigned_to: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** Vínculos relacionais hidratados */
+  lead?: { id: string; title: string } | null;
+  company?: { id: string; trade_name: string | null; legal_name: string | null } | null;
+  contact?: { id: string; name: string | null } | null;
+  assignee?: { id: string; name: string | null; email?: string | null } | null;
 }
 
 export interface NovaTarefa {
@@ -53,6 +59,7 @@ export interface NovaTarefa {
   status?: SituacaoDaTarefa;
   lead_id?: string | null;
   contact_id?: string | null;
+  client_company_id?: string | null;
   assigned_to?: string | null;
 }
 

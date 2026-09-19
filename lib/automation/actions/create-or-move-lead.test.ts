@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-const originRpc = vi.hoisted(() => vi.fn(async (_fn: string, _args: unknown) => ({ data: null, error: null })));
+const originRpc = vi.hoisted(() =>
+  vi.fn(async (_fn: string, _args: unknown) => ({ data: null, error: null })),
+);
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc: originRpc }) }));
 vi.mock("@/lib/audit", () => ({ audit: vi.fn(async () => undefined) }));
 // `tests/helpers/stages-db-double.ts` importa `createClient`/`requireRole` de
@@ -74,15 +76,27 @@ describe("create_or_move_lead — pontuação/classificação nunca bloqueia o E
     ["classe A", { classificacao_inicial_classe: "A", classificacao_inicial_percentual: 92 }],
     ["classe B", { classificacao_inicial_classe: "B", classificacao_inicial_percentual: 55 }],
     ["classe C", { classificacao_inicial_classe: "C", classificacao_inicial_percentual: 20 }],
-    ["classe D (piso do score)", { classificacao_inicial_classe: "D", classificacao_inicial_percentual: 0 }],
-    ["nao_avaliado (sem respondi_score)", { classificacao_inicial_classe: "nao_avaliado", classificacao_inicial_percentual: null }],
+    [
+      "classe D (piso do score)",
+      { classificacao_inicial_classe: "D", classificacao_inicial_percentual: 0 },
+    ],
+    [
+      "nao_avaliado (sem respondi_score)",
+      { classificacao_inicial_classe: "nao_avaliado", classificacao_inicial_percentual: null },
+    ],
     [
       "revisao_humana / incoerencia_investimento",
-      { classificacao_inicial_status: "revisao_humana", classificacao_inicial_motivo: "incoerencia_investimento" },
+      {
+        classificacao_inicial_status: "revisao_humana",
+        classificacao_inicial_motivo: "incoerencia_investimento",
+      },
     ],
     [
       "revisao_humana / spam_suspeito",
-      { classificacao_inicial_status: "revisao_humana", classificacao_inicial_motivo: "spam_suspeito" },
+      {
+        classificacao_inicial_status: "revisao_humana",
+        classificacao_inicial_motivo: "spam_suspeito",
+      },
     ],
     ["sem classificação nenhuma (custom_fields vazio)", {}],
   ];
@@ -101,7 +115,11 @@ describe("create_or_move_lead — pontuação/classificação nunca bloqueia o E
       { pipeline_id: PIPE, stage_id: "triagem" },
     );
 
-    expect(resultado).toEqual({ type: "create_or_move_lead", status: "success", detail: { moved: "lead-1" } });
+    expect(resultado).toEqual({
+      type: "create_or_move_lead",
+      status: "success",
+      detail: { moved: "lead-1" },
+    });
     expect(db.tabelas.crm_leads.find((l) => l.id === "lead-1")?.stage_id).toBe("triagem");
   });
 });
@@ -112,6 +130,7 @@ describe("create_or_move_lead — pontuação/classificação nunca bloqueia a C
       pipelines: [funilRow({ id: PIPE, name: "funil comercial imobiliário" })],
       stages: [ETAPA_ORIGEM, ETAPA_DESTINO],
       leads: [],
+      contacts: [{ id: "contato-1", organization_id: ORG_ID, name: "Fulano" }],
     });
     const action = getAction("create_or_move_lead");
 
@@ -150,14 +169,36 @@ describe("create_or_move_lead — não lê nenhuma chave classificacao_inicial_*
   });
 });
 
-
 it("CRM derivado propaga referência original sem observar ou abrir atendimento", async () => {
   originRpc.mockClear();
-  const db = makeDb({ pipelines: [funilRow({ id: PIPE, name: "Funil" })], stages: [ETAPA_ORIGEM, ETAPA_DESTINO], leads: [negocio("lead-1", "novo")] });
+  const db = makeDb({
+    pipelines: [funilRow({ id: PIPE, name: "Funil" })],
+    stages: [ETAPA_ORIGEM, ETAPA_DESTINO],
+    leads: [negocio("lead-1", "novo")],
+  });
   const ctx = ctxComLead({}, db.client as unknown as ActionCtx["admin"]);
   ctx.event = { id: "evento-original", event_type: "message.received" } as ActionCtx["event"];
   ctx.context.contact = { id: "contato-1" };
-  expect((await getAction("create_or_move_lead")!.execute(ctx, { pipeline_id: PIPE, stage_id: "triagem" })).status).toBe("success");
-  expect(originRpc).toHaveBeenCalledWith("emit_event", expect.objectContaining({ p_payload: expect.objectContaining({ service_origin: {kind:"event",event_id:"evento-original",organization_id:ORG_ID,contact_id:"contato-1"} }) }));
-  expect(originRpc.mock.calls.every(call => call[0] === "emit_event")).toBe(true);
+  expect(
+    (
+      await getAction("create_or_move_lead")!.execute(ctx, {
+        pipeline_id: PIPE,
+        stage_id: "triagem",
+      })
+    ).status,
+  ).toBe("success");
+  expect(originRpc).toHaveBeenCalledWith(
+    "emit_event",
+    expect.objectContaining({
+      p_payload: expect.objectContaining({
+        service_origin: {
+          kind: "event",
+          event_id: "evento-original",
+          organization_id: ORG_ID,
+          contact_id: "contato-1",
+        },
+      }),
+    }),
+  );
+  expect(originRpc.mock.calls.every((call) => call[0] === "emit_event")).toBe(true);
 });

@@ -14,11 +14,21 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { contactPatchSchema, type ContactPatch } from "@/lib/schemas/contacts";
 import { useUpdateContact } from "@/hooks/contacts/useUpdateContact";
 import { CustomFieldsEditor, type CustomFieldDef } from "@/components/contacts/CustomFieldsEditor";
 import type { Contact } from "@/lib/types/contacts";
 import { phoneForDisplay } from "@/lib/channels/phone-variants";
+import { useCompanyList } from "@/lib/people/client-hooks";
+import { maskPhoneBR } from "@/lib/ui/form-masks";
 
 interface FormShape {
   name?: string;
@@ -26,6 +36,9 @@ interface FormShape {
   phone_number?: string;
   tagsRaw?: string;
   custom_fields?: Record<string, unknown>;
+  client_company_id?: string;
+  role_in_company?: string;
+  is_primary?: boolean;
 }
 
 interface Props {
@@ -39,6 +52,8 @@ interface Props {
 export function EditContactDialog({ contact, open, onOpenChange, customFieldDefs = [] }: Props) {
   const t = useT();
   const update = useUpdateContact(contact.id);
+  const { data: companiesData } = useCompanyList({ limit: 100 });
+  const companies = companiesData?.data ?? [];
   const [serverError, setServerError] = useState<string | null>(null);
 
   const form = useForm<FormShape>({
@@ -48,10 +63,15 @@ export function EditContactDialog({ contact, open, onOpenChange, customFieldDefs
       phone_number: contact.phone_number ? phoneForDisplay(contact.phone_number) : "",
       tagsRaw: contact.tags.join(", "),
       custom_fields: contact.custom_fields ?? {},
+      client_company_id: contact.company_link?.client_company_id ?? "none",
+      role_in_company: contact.company_link?.role_in_company ?? "",
+      is_primary: contact.company_link?.is_primary ?? false,
     },
   });
 
   const customFields = useWatch({ control: form.control, name: "custom_fields" });
+  const selectedCompanyId = useWatch({ control: form.control, name: "client_company_id" }) ?? "none";
+  const isPrimary = useWatch({ control: form.control, name: "is_primary" }) ?? false;
 
   useEffect(() => {
     if (open) {
@@ -61,6 +81,9 @@ export function EditContactDialog({ contact, open, onOpenChange, customFieldDefs
         phone_number: contact.phone_number ? phoneForDisplay(contact.phone_number) : "",
         tagsRaw: contact.tags.join(", "),
         custom_fields: contact.custom_fields ?? {},
+        client_company_id: contact.company_link?.client_company_id ?? "none",
+        role_in_company: contact.company_link?.role_in_company ?? "",
+        is_primary: contact.company_link?.is_primary ?? false,
       });
     }
   }, [open, contact, form]);
@@ -80,6 +103,19 @@ export function EditContactDialog({ contact, open, onOpenChange, customFieldDefs
     // Sempre no payload, mesmo vazio: o PATCH SUBSTITUI, e é assim que apagar um
     // campo pela tela chega ao banco.
     payload.custom_fields = values.custom_fields ?? {};
+
+    const compId = values.client_company_id;
+    if (compId && compId !== "none") {
+      payload.client_company_id = compId;
+      payload.role_in_company = values.role_in_company?.trim() ? values.role_in_company.trim() : null;
+      payload.is_primary = !!values.is_primary;
+    } else {
+      if (contact.company_link?.client_company_id) {
+        payload.client_company_id = null;
+        payload.role_in_company = null;
+        payload.is_primary = false;
+      }
+    }
 
     const parsed = contactPatchSchema.safeParse(payload);
     if (!parsed.success) {
@@ -112,9 +148,74 @@ export function EditContactDialog({ contact, open, onOpenChange, customFieldDefs
             <Input id="ec-email" type="email" {...form.register("email")} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="ec-phone">{t("Telefone (E.164)")}</Label>
-            <Input id="ec-phone" {...form.register("phone_number")} />
+            <Label htmlFor="ec-phone">{t("Telefone / WhatsApp")}</Label>
+            <Input
+              id="ec-phone"
+              placeholder="(81) 99584-8588"
+              {...form.register("phone_number", {
+                onChange: (e) => {
+                  e.target.value = maskPhoneBR(e.target.value);
+                },
+              })}
+            />
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ec-company">{t("Empresa vinculada")}</Label>
+            <Select
+              value={selectedCompanyId}
+              onValueChange={(val) => form.setValue("client_company_id", val, { shouldDirty: true })}
+            >
+              <SelectTrigger id="ec-company">
+                <SelectValue placeholder={t("Selecione uma empresa")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t("Nenhuma empresa (desvincular)")}</SelectItem>
+                {contact.company_link?.client_company_id &&
+                  !companies.some((c) => c.id === contact.company_link?.client_company_id) && (
+                    <SelectItem value={contact.company_link.client_company_id}>
+                      {contact.company_link.company?.trade_name ||
+                        contact.company_link.company?.legal_name ||
+                        contact.company_link.client_company_id}
+                    </SelectItem>
+                  )}
+                {companies.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.trade_name || c.legal_name || c.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedCompanyId !== "none" && (
+            <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
+              <div className="space-y-2">
+                <Label htmlFor="ec-role">{t("Cargo / Função")}</Label>
+                <Input
+                  id="ec-role"
+                  placeholder={t("ex: Diretor de RH, Gerente de Pessoas, CEO")}
+                  {...form.register("role_in_company")}
+                />
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <div className="space-y-0.5">
+                  <Label htmlFor="ec-is-primary" className="text-sm font-medium cursor-pointer">
+                    {t("Contato Principal")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t("Marcar como decisor principal desta empresa")}
+                  </p>
+                </div>
+                <Switch
+                  id="ec-is-primary"
+                  checked={isPrimary}
+                  onCheckedChange={(val) => form.setValue("is_primary", val, { shouldDirty: true })}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="ec-tags">Tags</Label>
             <Input id="ec-tags" {...form.register("tagsRaw")} />

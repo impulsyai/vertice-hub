@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
@@ -40,6 +41,7 @@ const STATUS_LABELS: Record<JobStatus, string> = {
 
 export function VagasClient() {
   const t = useT();
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [page, setPage] = useState(1);
@@ -70,8 +72,8 @@ export function VagasClient() {
         </Button>
       </header>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[240px] max-w-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="relative flex-1 w-full sm:max-w-sm">
           <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={t("Buscar por título ou departamento...")}
@@ -80,7 +82,7 @@ export function VagasClient() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="pl-9"
+            className="pl-9 w-full"
           />
         </div>
 
@@ -91,7 +93,7 @@ export function VagasClient() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-full sm:w-[160px]">
             <SelectValue placeholder={t("Status")} />
           </SelectTrigger>
           <SelectContent>
@@ -126,65 +128,149 @@ export function VagasClient() {
           </Button>
         </Card>
       ) : (
-        <div className="rounded-md border bg-card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40 text-left font-medium text-muted-foreground">
-              <tr>
-                <th className="p-4">{t("Título da Vaga")}</th>
-                <th className="p-4">{t("Empresa Cliente")}</th>
-                <th className="p-4">{t("Modelo")}</th>
-                <th className="p-4">{t("Local")}</th>
-                <th className="p-4">{t("Status")}</th>
-                <th className="p-4 text-right">{t("Ações")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {jobs.map((job) => (
-                <tr key={job.id} className="hover:bg-muted/20 transition-colors">
-                  <td className="p-4">
-                    <Link
-                      href={`/app/recrutamento/vagas/${job.id}`}
-                      className="font-medium text-foreground hover:text-primary transition-colors block"
-                    >
-                      {job.title}
-                    </Link>
-                    <span className="text-xs text-muted-foreground">{job.department ?? "Geral"}</span>
-                  </td>
-                  <td className="p-4 font-medium text-foreground">
-                    {job.client_company?.trade_name ?? "—"}
-                  </td>
-                  <td className="p-4 text-muted-foreground capitalize">
-                    {job.work_model === "remote" ? t("Remoto") : job.work_model === "hybrid" ? t("Híbrido") : t("Presencial")}
-                  </td>
-                  <td className="p-4 text-muted-foreground">
-                    {job.city && job.state ? `${job.city}, ${job.state}` : job.location ?? "—"}
-                  </td>
-                  <td className="p-4">
-                    <Badge variant={job.status === "open" ? "default" : "secondary"}>
-                      {t(STATUS_LABELS[job.status] ?? job.status)}
-                    </Badge>
-                  </td>
-                  <td className="p-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Link href={`/app/recrutamento/pipeline?job_id=${job.id}`}>
-                        <Button variant="outline" size="sm" className="h-8 text-xs">
-                          {t("Pipeline")}
-                        </Button>
-                      </Link>
-                      <Link href={`/app/recrutamento/vagas/${job.id}`}>
-                        <Button variant="ghost" size="sm" className="h-8 gap-1">
-                          <span>{t("Ver")}</span>
-                          <ArrowSquareOut className="h-3.5 w-3.5" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </td>
+        <div className="space-y-4">
+          {/* Visualização Mobile: Cards */}
+          <div className="block md:hidden space-y-3">
+            {jobs.map((job) => (
+              <div
+                key={job.id}
+                onClick={() => router.push(`/app/recrutamento/vagas/${job.id}`)}
+                className="rounded-lg border bg-card p-4 shadow-xs hover:border-primary/50 transition-colors cursor-pointer space-y-2.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-base text-foreground truncate">{job.title}</h3>
+                    <p className="text-xs text-muted-foreground truncate">{job.department ?? "Geral"}</p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={
+                      job.status === "open"
+                        ? "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium"
+                        : job.status === "paused"
+                        ? "border-amber-600/30 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium"
+                        : "border-stone-300 bg-stone-100 text-stone-700 font-normal"
+                    }
+                  >
+                    {t(STATUS_LABELS[job.status] ?? job.status)}
+                  </Badge>
+                </div>
+
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <div>
+                    <span className="font-medium text-foreground">{t("Empresa")}:</span> {job.client_company?.trade_name ?? "—"}
+                  </div>
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60">
+                    <span>
+                      <span className="font-medium text-foreground">{t("Modelo")}:</span>{" "}
+                      {job.work_model === "remote" ? t("Remoto") : job.work_model === "hybrid" ? t("Híbrido") : t("Presencial")}
+                    </span>
+                    <span>
+                      <span className="font-medium text-foreground">{t("Local")}:</span>{" "}
+                      {job.city && job.state ? `${job.city}, ${job.state}` : job.location ?? "—"}
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  className="pt-2 border-t border-border/60 flex items-center justify-between"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Link href={`/app/recrutamento/pipeline?job_id=${job.id}`}>
+                    <Button variant="outline" size="sm" className="h-8 text-xs hover:bg-accent/10 hover:text-primary">
+                      {t("Funil")}
+                    </Button>
+                  </Link>
+                  <Link href={`/app/recrutamento/vagas/${job.id}`}>
+                    <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs hover:bg-accent/10 hover:text-primary">
+                      <span>{t("Detalhes")}</span>
+                      <ArrowSquareOut className="h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Visualização Desktop: Tabela */}
+          <div className="hidden md:block rounded-md border bg-card overflow-hidden shadow-xs">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/60 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="p-4">{t("Título da Vaga")}</th>
+                  <th className="p-4">{t("Empresa Cliente")}</th>
+                  <th className="p-4">{t("Modelo")}</th>
+                  <th className="p-4">{t("Local")}</th>
+                  <th className="p-4">{t("Status")}</th>
+                  <th className="p-4 text-right">{t("Ações")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {jobs.map((job) => (
+                  <tr
+                    key={job.id}
+                    onClick={() => router.push(`/app/recrutamento/vagas/${job.id}`)}
+                    className="hover:bg-accent/5 transition-colors cursor-pointer"
+                  >
+                    <td className="p-4">
+                      <Link
+                        href={`/app/recrutamento/vagas/${job.id}`}
+                        className="font-medium text-foreground hover:text-primary transition-colors block"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {job.title}
+                      </Link>
+                      <span className="text-xs text-muted-foreground">{job.department ?? "Geral"}</span>
+                    </td>
+                    <td className="p-4 font-medium text-foreground">
+                      {job.client_company?.trade_name ?? "—"}
+                    </td>
+                    <td className="p-4 text-muted-foreground capitalize">
+                      {job.work_model === "remote" ? t("Remoto") : job.work_model === "hybrid" ? t("Híbrido") : t("Presencial")}
+                    </td>
+                    <td className="p-4 text-muted-foreground">
+                      {job.city && job.state ? `${job.city}, ${job.state}` : job.location ?? "—"}
+                    </td>
+                    <td className="p-4">
+                      <Badge
+                        variant="outline"
+                        className={
+                          job.status === "open"
+                            ? "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium"
+                            : job.status === "paused"
+                            ? "border-amber-600/30 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium"
+                            : "border-stone-300 bg-stone-100 text-stone-700 font-normal"
+                        }
+                      >
+                        {t(STATUS_LABELS[job.status] ?? job.status)}
+                      </Badge>
+                    </td>
+                    <td className="p-4 text-right">
+                      <div
+                        className="flex items-center justify-end gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Link href={`/app/recrutamento/pipeline?job_id=${job.id}`}>
+                          <Button variant="outline" size="sm" className="h-8 text-xs hover:bg-accent/10 hover:text-primary">
+                            {t("Funil")}
+                          </Button>
+                        </Link>
+                        <Link href={`/app/recrutamento/vagas/${job.id}`}>
+                          <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs hover:bg-accent/10 hover:text-primary">
+                            <span>{t("Detalhes")}</span>
+                            <ArrowSquareOut className="h-3.5 w-3.5" />
+                          </Button>
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
           {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between p-4 border-t text-xs text-muted-foreground">
+            <div className="flex items-center justify-between p-4 border rounded-md bg-card text-xs text-muted-foreground">
               <span>
                 {t("Página")} {pagination.page} {t("de")} {pagination.totalPages} ({pagination.total} {t("vagas")})
               </span>
@@ -210,7 +296,6 @@ export function VagasClient() {
           )}
         </div>
       )}
-
       <NewJobDialog open={isNewOpen} onOpenChange={setIsNewOpen} />
     </div>
   );

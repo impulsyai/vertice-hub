@@ -14,9 +14,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { contactCreateSchema, type ContactCreate } from "@/lib/schemas/contacts";
 import type { Contact } from "@/lib/types/contacts";
 import { useCreateContact } from "@/hooks/contacts/useCreateContact";
+import { useCompanyList } from "@/lib/people/client-hooks";
+import { maskPhoneBR, maskCpf, normalizePhoneBR } from "@/lib/ui/form-masks";
 
 interface FormShape {
   name?: string;
@@ -24,6 +34,7 @@ interface FormShape {
   phone_number?: string;
   cpf?: string;
   tagsRaw?: string;
+  role_in_company?: string;
 }
 
 interface Props {
@@ -48,11 +59,32 @@ interface Props {
 export function NewContactDialog({ open, onOpenChange, nomeInicial, onCriado }: Props) {
   const t = useT();
   const create = useCreateContact();
+  const { data: companiesData } = useCompanyList({ limit: 100 });
+  const companies = companiesData?.data ?? [];
   const [serverError, setServerError] = useState<string | null>(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("none");
+  const [isPrimary, setIsPrimary] = useState<boolean>(false);
 
   const form = useForm<FormShape>({
-    defaultValues: { name: nomeInicial ?? "", email: "", phone_number: "", cpf: "", tagsRaw: "" },
+    defaultValues: {
+      name: nomeInicial ?? "",
+      email: "",
+      phone_number: "",
+      cpf: "",
+      tagsRaw: "",
+      role_in_company: "",
+    },
   });
+
+  const handleOpenChange = (v: boolean) => {
+    if (!v) {
+      form.reset();
+      setSelectedCompanyId("none");
+      setIsPrimary(false);
+      setServerError(null);
+    }
+    onOpenChange(v);
+  };
 
   async function onSubmit(values: FormShape) {
     setServerError(null);
@@ -64,9 +96,18 @@ export function NewContactDialog({ open, onOpenChange, nomeInicial, onCriado }: 
     const payload: Record<string, unknown> = { source: "manual" };
     if (values.name?.trim()) payload.name = values.name.trim();
     if (values.email?.trim()) payload.email = values.email.trim();
-    if (values.phone_number?.trim()) payload.phone_number = values.phone_number.trim();
+    const phone = normalizePhoneBR(values.phone_number);
+    if (phone) payload.phone_number = phone;
     if (values.cpf?.trim()) payload.cpf = values.cpf.trim();
     if (tags.length) payload.tags = tags;
+
+    if (selectedCompanyId && selectedCompanyId !== "none") {
+      payload.client_company_id = selectedCompanyId;
+      if (values.role_in_company?.trim()) {
+        payload.role_in_company = values.role_in_company.trim();
+      }
+      payload.is_primary = isPrimary;
+    }
 
     const parsed = contactCreateSchema.safeParse(payload);
     if (!parsed.success) {
@@ -79,6 +120,8 @@ export function NewContactDialog({ open, onOpenChange, nomeInicial, onCriado }: 
       const resposta = await create.mutateAsync(parsed.data as ContactCreate);
       toast.success(t("Contato criado"));
       form.reset();
+      setSelectedCompanyId("none");
+      setIsPrimary(false);
       onOpenChange(false);
       // `.data` é o envelope do `ok()`, e dentro dele mora `{ contact, action }`.
       // Entregar `resposta.data` aqui devolveria esse envelope como se fosse o
@@ -92,7 +135,7 @@ export function NewContactDialog({ open, onOpenChange, nomeInicial, onCriado }: 
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("Novo contato")}</DialogTitle>
@@ -110,20 +153,78 @@ export function NewContactDialog({ open, onOpenChange, nomeInicial, onCriado }: 
             <Input id="email" type="email" {...form.register("email")} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="phone_number">{t("Telefone (E.164)")}</Label>
+            <Label htmlFor="phone_number">{t("Telefone / WhatsApp")}</Label>
             <Input
               id="phone_number"
-              placeholder="+5511999998888"
-              {...form.register("phone_number")}
+              placeholder="(81) 99584-8588"
+              {...form.register("phone_number", {
+                onChange: (e) => {
+                  e.target.value = maskPhoneBR(e.target.value);
+                },
+              })}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="cpf">{t("CPF (opcional)")}</Label>
-            <Input id="cpf" placeholder="00000000000" {...form.register("cpf")} />
+            <Input
+              id="cpf"
+              placeholder="000.000.000-00"
+              {...form.register("cpf", {
+                onChange: (e) => {
+                  e.target.value = maskCpf(e.target.value);
+                },
+              })}
+            />
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="company">{t("Empresa (opcional)")}</Label>
+            <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
+              <SelectTrigger id="company">
+                <SelectValue placeholder={t("Selecione uma empresa")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t("Nenhuma empresa")}</SelectItem>
+                {companies.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.trade_name || c.legal_name || c.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedCompanyId !== "none" && (
+            <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
+              <div className="space-y-2">
+                <Label htmlFor="role_in_company">{t("Cargo / Função")}</Label>
+                <Input
+                  id="role_in_company"
+                  placeholder={t("ex: Diretor de RH, Gerente de Pessoas, CEO")}
+                  {...form.register("role_in_company")}
+                />
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <div className="space-y-0.5">
+                  <Label htmlFor="is_primary" className="text-sm font-medium cursor-pointer">
+                    {t("Contato Principal")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t("Marcar como decisor principal desta empresa")}
+                  </p>
+                </div>
+                <Switch
+                  id="is_primary"
+                  checked={isPrimary}
+                  onCheckedChange={setIsPrimary}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="tagsRaw">{t("Tags (separadas por vírgula)")}</Label>
-            <Input id="tagsRaw" placeholder="vip, recompra" {...form.register("tagsRaw")} />
+            <Input id="tagsRaw" placeholder="vip, decisor, executivo" {...form.register("tagsRaw")} />
           </div>
           {serverError && (
             <p className="text-sm text-error-fg">{serverError}</p>
@@ -132,7 +233,7 @@ export function NewContactDialog({ open, onOpenChange, nomeInicial, onCriado }: 
             <Button
               type="button"
               variant="ghost"
-              onClick={() => onOpenChange(false)}
+              onClick={() => handleOpenChange(false)}
               disabled={create.isPending}
             >
               {t("Cancelar")}

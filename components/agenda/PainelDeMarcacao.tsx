@@ -342,14 +342,13 @@ export function PainelDeMarcacao({
         // colunas cabem com folga. Abaixo disso o painel EMPILHA — os horários
         // viram uma seção sob o calendário, que é o que o cal.com faz e o que
         // esta base já fazia no celular.
-        // `lg:min-h-0` junto do piso: em janela larga e BAIXA (menos de ~560px
-        // de altura) um `min-h-[450px]` sem teto estoura o Sheet e o
-        // `overflow-hidden` corta em silêncio — o mesmo modo de falha que este
-        // painel já teve na horizontal.
-        "flex min-h-[450px] flex-col overflow-hidden rounded-lg border border-border bg-surface lg:min-h-0 lg:w-fit lg:flex-row",
+        // A altura disponível é controlada pela área rolável do modal. O painel
+        // não deve criar um segundo scroll vertical nem cortar a confirmação.
+        "flex min-h-[450px] flex-col overflow-visible rounded-lg border border-border bg-surface lg:min-h-0 lg:w-fit",
         className,
       )}
     >
+      <div className="flex min-w-0 flex-col lg:flex-row">
       {/* CONTEXTO — o que se está marcando. Sem esta coluna o painel vira
           formulário cego: a pessoa escolhe um horário sem lembrar de quê. */}
       <aside
@@ -568,64 +567,6 @@ export function PainelDeMarcacao({
           })}
         </div>
 
-        {tempo === "confirmando" && horario && (
-          <div className="mt-4 border-t border-border pt-4" data-testid="confirmacao">
-            <p className="text-sm">
-              <span className="text-text-muted">{t("Confirmar")} </span>
-              <span className="font-semibold">
-                {format(new Date(horario.instante), t("EEEE, d 'de' MMMM 'às' HH:mm"), { locale: localeDaData })}
-              </span>
-            </p>
-
-            {quemSeraAtendido && !quemSeraAtendido.aceitaMensagem && (
-              // Aviso, não bloqueio: o botão de confirmar continua ativo logo
-              // abaixo. E ele diz o que FAZER no lugar ("combine por telefone"),
-              // porque uma tela que só informa a restrição deixa a pessoa parada
-              // decidindo sozinha o que fazer com a informação.
-              <div
-                data-testid="aviso-sem-lembrete"
-                role="status"
-                className="mt-3 flex gap-2 rounded-sm border border-warning/40 bg-warning-bg p-2.5"
-              >
-                <Warning size={16} weight="fill" className="mt-0.5 shrink-0 text-warning" aria-hidden />
-                <p className="text-xs leading-4 text-text">
-                  <span className="font-semibold">{quemSeraAtendido.nome} {t("pediu para não receber mensagens.")}</span>{" "}
-                  {t("O lembrete não será enviado — combine por telefone.")}
-                </p>
-              </div>
-            )}
-            <div className="mt-3 flex items-center justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setHorario(null)}>
-                {t("Voltar")}
-              </Button>
-              <Button
-                size="sm"
-                data-testid="confirmar-marcacao"
-                onClick={async () => {
-                  // ⚠️ ERA `setMarcado(horario); onConfirmar?.(...)` — nesta ordem
-                  // e sem esperar. A vista de sucesso aparecia por estado local do
-                  // React, ANTES de o servidor responder, e continuava aparecendo
-                  // quando o POST falhava. Medido: a rota devolvia 422
-                  // `agenda_disponibilidade_invalida` e a tela dizia "Marcado ✓".
-                  //
-                  // Dizer que marcou é uma AFIRMAÇÃO sobre o mundo, não sobre a
-                  // tela. Ela agora espera o servidor; se der erro, o toast do
-                  // `showApiError` aparece e o painel fica onde estava, com o
-                  // horário ainda escolhido para tentar de novo.
-                  try {
-                    await onConfirmar?.(horario.instante);
-                    setMarcado(horario);
-                  } catch {
-                    // silêncio proposital: quem reporta é o `showApiError` da
-                    // mutação, e engolir aqui não esconde nada que não seja dito.
-                  }
-                }}
-              >
-                {t("Confirmar")}
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* HORÁRIOS — a coluna que não estava lá. */}
@@ -667,8 +608,9 @@ export function PainelDeMarcacao({
             `lg:max-h` resolve sem cadeia: `max-height` + `overflow-y-auto` rola
             por conta própria, sem depender de o pai ter altura definida — que é
             a condição frágil que já falhou nos dois sentidos. Abaixo de `lg` não
-            há teto de propósito: ali quem rola é o diálogo inteiro, e dois
-            roladores aninhados no celular prendem o dedo no de dentro.
+            há teto nesta lista de propósito: ali quem rola é a área de conteúdo
+            do modal, e dois roladores aninhados no celular prenderiam o dedo no
+            de dentro.
 
             O teto tem DUAS partes, e cada uma cobre o que a outra não cobre:
 
@@ -713,6 +655,70 @@ export function PainelDeMarcacao({
           </div>
         </div>
       </div>
+
+      </div>
+
+      {tempo === "confirmando" && horario && (
+        <div
+          className="sticky bottom-0 z-10 mt-4 border-t border-border bg-surface px-4 pb-1 pt-4"
+          data-testid="confirmacao"
+        >
+          <p className="text-sm">
+            <span className="text-text-muted">{t("Confirmar")} </span>
+            <span className="font-semibold">
+              {format(new Date(horario.instante), t("EEEE, d 'de' MMMM 'às' HH:mm"), { locale: localeDaData })}
+            </span>
+          </p>
+
+          {quemSeraAtendido && !quemSeraAtendido.aceitaMensagem && (
+            // Aviso, não bloqueio: o botão de confirmar continua ativo logo
+            // abaixo. E ele diz o que FAZER no lugar ("combine por telefone"),
+            // porque uma tela que só informa a restrição deixa a pessoa parada
+            // decidindo sozinha o que fazer com a informação.
+            <div
+              data-testid="aviso-sem-lembrete"
+              role="status"
+              className="mt-3 flex gap-2 rounded-sm border border-warning/40 bg-warning-bg p-2.5"
+            >
+              <Warning size={16} weight="fill" className="mt-0.5 shrink-0 text-warning" aria-hidden />
+              <p className="text-xs leading-4 text-text">
+                <span className="font-semibold">{quemSeraAtendido.nome} {t("pediu para não receber mensagens.")}</span>{" "}
+                {t("O lembrete não será enviado — combine por telefone.")}
+              </p>
+            </div>
+          )}
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setHorario(null)}>
+              {t("Voltar")}
+            </Button>
+            <Button
+              size="sm"
+              data-testid="confirmar-marcacao"
+              onClick={async () => {
+                // ⚠️ ERA `setMarcado(horario); onConfirmar?.(...)` — nesta ordem
+                // e sem esperar. A vista de sucesso aparecia por estado local do
+                // React, ANTES de o servidor responder, e continuava aparecendo
+                // quando o POST falhava. Medido: a rota devolvia 422
+                // `agenda_disponibilidade_invalida` e a tela dizia "Marcado ✓".
+                //
+                // Dizer que marcou é uma AFIRMAÇÃO sobre o mundo, não sobre a
+                // tela. Ela agora espera o servidor; se der erro, o toast do
+                // `showApiError` aparece e o painel fica onde estava, com o
+                // horário ainda escolhido para tentar de novo.
+                try {
+                  await onConfirmar?.(horario.instante);
+                  setMarcado(horario);
+                } catch {
+                  // silêncio proposital: quem reporta é o `showApiError` da
+                  // mutação, e engolir aqui não esconde nada que não seja dito.
+                }
+              }}
+            >
+              {t("Confirmar")}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

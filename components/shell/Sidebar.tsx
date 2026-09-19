@@ -114,6 +114,7 @@ export function SidebarContent({
   // Só quando NINGUÉM — nem a instalação, nem a organização — pôs marca própria:
   // é a condição de `lib/branding.ts`, avaliada sobre o que a barra vai mostrar.
   const marcaDoProduto = marcaEhADoProduto({ name: nome, logoUrl: logo ?? null });
+  const MARCA_VERTICE = "vértice";
 
   return (
     <>
@@ -124,29 +125,35 @@ export function SidebarContent({
         )}
       >
         {logo && !collapsed ? (
-          // A moldura clara vale SÓ para o logo enviado por quem hospeda. A arte
-          // do produto (ramo `marcaDoProduto`, logo abaixo) já é desenhada para os
-          // dois temas e não precisa dela — pôr a moldura ali seria dar o remédio
-          // a quem não tem a doença.
-          // Chip claro só no tema escuro: a arte enviada é de quem hospeda, sem
-          // garantia de que tenha contraste contra `--color-surface` escuro
-          // (`#1d1c17`). Sem isto, todo logo escuro/colorido — a maioria do que
-          // se sobe pensando em fundo claro — some no tema escuro (issue: logo
-          // da Dra. Mariana Nascimento, azul-marinho sobre quase-preto). O chip
-          // é condicional ao TEMA, não à cor do logo (não dá pra inspecionar
-          // pixel de uma URL externa em server component), então ele aparece
-          // para qualquer logo — inclusive um já pensado pra fundo escuro, que
-          // fica com uma moldura branca de sobra. Troca aceita: pior caso
-          // "moldura desnecessária" é sempre melhor que pior caso "logo
-          // invisível".
-          <div className="rounded-md dark:bg-white dark:px-2 dark:py-1 dark:shadow-sm">
-            {/* <img> em vez de next/image de propósito: a URL vem de quem hospeda
-              (banco ou .env), e next/image exige allowlist de domínios fechada em
-              build — a imagem pré-buildada rejeitaria o domínio do self-hoster.
-              Altura fixa e largura livre porque a arte enviada tem proporção
-              desconhecida; forçar as duas distorceria o logo de quem configurou. */}
+          logo.includes("symbol") || nome.toLowerCase().includes(MARCA_VERTICE) ? (
+            <div className="flex items-center gap-2.5">
+              <div className="flex shrink-0 items-center justify-center rounded-md dark:bg-white dark:p-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/brand/vertice-symbol.png"
+                  alt={nome}
+                  className="h-8 w-8 object-contain"
+                />
+              </div>
+              <div className="flex min-w-0 flex-col">
+                <span className="text-sm leading-tight font-bold tracking-tight text-foreground">
+                  {t("Vértice Hub")}
+                </span>
+                <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+                  {t("Pessoas & Estratégia")}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-md dark:bg-white dark:px-2 dark:py-1 dark:shadow-sm">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logo} alt={nome} className="h-9 w-auto max-w-[14rem] object-contain" />
+            </div>
+          )
+        ) : logo && collapsed ? (
+          <div className="flex items-center justify-center rounded-md dark:bg-white dark:p-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logo} alt={nome} className="h-7 w-auto max-w-[10rem] object-contain" />
+            <img src="/brand/vertice-symbol.png" alt={nome} className="h-8 w-8 object-contain" />
           </div>
         ) : marcaDoProduto ? (
           // O desenho do produto, inline (ver `components/branding/MarcaDoProduto.tsx`):
@@ -159,7 +166,7 @@ export function SidebarContent({
         ) : (
           <span className={cn("font-semibold tracking-tight", collapsed && "sr-only")}>{nome}</span>
         )}
-        {collapsed && !marcaDoProduto && (
+        {collapsed && !marcaDoProduto && !logo && (
           <span aria-hidden className="text-lg font-bold text-primary">
             {/* Spread e não `[0]`: nome começando com emoji ou acento composto
                 quebraria no meio do code point. Mesma regra de `resolveBranding`
@@ -228,9 +235,10 @@ export function SidebarContent({
           // interface pode ocultar temporariamente todos os atalhos de CRM/IA,
           // e nesses grupos o link "Ver tudo" é parte do contrato de navegação.
           const hubDireto =
-            !collapsed && group.id === "recrutamento" && items.length === 0
-              ? group.hub
-              : undefined;
+            !collapsed && group.id === "recrutamento" && items.length === 0 ? group.hub : undefined;
+          const isHubActive = hubDireto
+            ? pathname === hubDireto.href || pathname.startsWith(hubDireto.href + "/")
+            : false;
           // Recolhido o sidebar inteiro (rail de 64px), o grupo sempre mostra
           // seus itens — não há onde desenhar cabeçalho nem seta para fechá-lo.
           const aberto = collapsed || !gruposFechados.has(group.id);
@@ -242,16 +250,16 @@ export function SidebarContent({
                 <h2 id={tituloId}>
                   <Link
                     href={hubDireto.href}
-                    aria-current={pathname === hubDireto.href ? "page" : undefined}
+                    aria-current={isHubActive ? "page" : undefined}
                     onClick={onNavigate}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-md px-3 py-1 text-xs font-medium transition-colors",
-                      pathname === hubDireto.href
-                        ? "bg-accent text-accent-foreground"
-                        : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+                      "flex w-full items-center justify-between rounded-md px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors",
+                      isHubActive
+                        ? "bg-accent text-accent-foreground shadow-xs"
+                        : "text-muted-foreground hover:bg-accent/10 hover:text-foreground",
                     )}
                   >
-                    {t(group.label)}
+                    <span>{t(group.label)}</span>
                     <ArrowRight size={12} weight="bold" aria-hidden />
                   </Link>
                 </h2>
@@ -263,7 +271,7 @@ export function SidebarContent({
                     type="button"
                     onClick={() => toggleGrupo(group.id)}
                     aria-expanded={aberto}
-                    className="flex w-full items-center justify-between rounded-md px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+                    className="flex w-full items-center justify-between rounded-md px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
                   >
                     {t(group.label)}
                     <CaretDown
@@ -295,10 +303,10 @@ export function SidebarContent({
                           aria-current={isActive ? "page" : undefined}
                           onClick={onNavigate}
                           className={cn(
-                            "relative flex items-center gap-3 rounded-md px-3 py-1 text-sm transition-colors",
+                            "relative flex items-center gap-3 rounded-md px-3 py-1 text-sm font-medium transition-colors",
                             isActive
-                              ? "bg-accent text-accent-foreground"
-                              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                              ? "bg-accent text-accent-foreground shadow-xs"
+                              : "text-muted-foreground hover:bg-accent/10 hover:text-foreground",
                             collapsed && "justify-center px-2",
                           )}
                         >
@@ -321,10 +329,10 @@ export function SidebarContent({
                         aria-current={pathname === group.hub.href ? "page" : undefined}
                         onClick={onNavigate}
                         className={cn(
-                          "flex items-center gap-3 rounded-md px-3 py-1 text-sm transition-colors",
+                          "flex items-center gap-3 rounded-md px-3 py-1 text-sm font-medium transition-colors",
                           pathname === group.hub.href
-                            ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                            ? "bg-accent text-accent-foreground shadow-xs"
+                            : "text-muted-foreground hover:bg-accent/10 hover:text-foreground",
                           collapsed && "justify-center px-2",
                         )}
                       >
@@ -347,10 +355,10 @@ export function SidebarContent({
             aria-current={pathname.startsWith(rodape.href) ? "page" : undefined}
             onClick={onNavigate}
             className={cn(
-              "mb-1 flex items-center gap-3 rounded-md px-3 py-1 text-sm transition-colors",
+              "mb-1 flex items-center gap-3 rounded-md px-3 py-1 text-sm font-medium transition-colors",
               pathname.startsWith(rodape.href)
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                ? "bg-accent text-accent-foreground shadow-xs"
+                : "text-muted-foreground hover:bg-accent/10 hover:text-foreground",
               collapsed && "justify-center px-2",
             )}
           >
@@ -365,7 +373,7 @@ export function SidebarContent({
             onClick={() => startTransition(() => toggleSidebar(collapsed))}
             disabled={isPending}
             className={cn(
-              "flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+              "flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-accent/10 hover:text-foreground",
               collapsed && "justify-center px-2",
             )}
             aria-label={collapsed ? t("Expandir sidebar") : t("Recolher sidebar")}

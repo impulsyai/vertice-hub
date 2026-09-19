@@ -1,11 +1,17 @@
 "use client";
 
 import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
+import Link from "next/link";
+import { Buildings, User, Calendar, Plus } from "@/lib/ui/icons";
+import { Button } from "@/components/ui/button";
 import { useT } from "@/hooks/i18n/useT";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useLeadTimeline } from "@/hooks/leads/useLeadTimeline";
+import { useTasks } from "@/hooks/tasks/useTasks";
+import { FormularioDeTarefa } from "@/app/app/tasks/_components/FormularioDeTarefa";
 import type { Lead } from "@/lib/types/leads";
 import { ConversaNoDossie } from "./ConversaNoDossie";
 import { LeadFieldsForm } from "./LeadFieldsForm";
@@ -66,6 +72,11 @@ export function LeadDossier({
   const timeline = useLeadTimeline(open ? lead.id : null, lead.contact_id);
   const owner = resolveLeadOwner(lead, ownerNames);
   const score = lead.score ?? null;
+
+  const queryClient = useQueryClient();
+  const { criarTarefa } = useTasks();
+  const [taskFormOpen, setTaskFormOpen] = useState(false);
+  const [taskKey, setTaskKey] = useState(0);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -130,13 +141,87 @@ export function LeadDossier({
           </p>
         )}
 
+        {/* Vínculos Corporativos B2B */}
+        {(lead.client_company_id || lead.contact_id || lead.expected_close_date) && (
+          <div className="my-3 space-y-2 rounded-lg border border-border/60 bg-accent/5 p-3 text-xs">
+            {lead.client_company_id && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-text-muted">
+                  <Buildings size={13} className="shrink-0 text-primary" />
+                  {t("Empresa vinculada")}:
+                </span>
+                <Link
+                  href={`/app/crm/empresas/${lead.client_company_id}`}
+                  className="font-medium text-primary hover:underline truncate max-w-[200px]"
+                >
+                  {lead.company?.trade_name || lead.company?.legal_name || t("Ver empresa")}
+                </Link>
+              </div>
+            )}
+
+            {lead.contact_id && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-text-muted">
+                  <User size={13} className="shrink-0 text-primary" />
+                  {t("Decisor / Contato")}:
+                </span>
+                <div className="flex items-center gap-1.5 truncate max-w-[200px]">
+                  <Link
+                    href={`/app/contacts/${lead.contact_id}`}
+                    className="font-medium text-primary hover:underline truncate"
+                  >
+                    {lead.contact?.name || t("Ver contato")}
+                  </Link>
+                  {lead.contact?.role_in_company && (
+                    <span className="text-[10px] text-text-muted truncate">
+                      ({lead.contact.role_in_company})
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {lead.expected_close_date && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-text-muted">
+                  <Calendar size={13} className="shrink-0 text-primary" />
+                  {t("Fechamento previsto")}:
+                </span>
+                <span className="font-medium text-foreground">{lead.expected_close_date}</span>
+              </div>
+            )}
+
+            {lead.source && (
+              <div className="flex items-center justify-between gap-2 text-[11px] text-text-muted">
+                <span>{t("Origem")}:</span>
+                <span className="capitalize">{lead.source}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         <ConversaNoDossie conversa={lead.conversa} />
 
         {/* ② timeline */}
         <section className="flex-1 py-3">
-          <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
-            {t("Linha do tempo")}
-          </h3>
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-xs font-medium uppercase tracking-wide text-text-muted">
+              {t("Linha do tempo")}
+            </h3>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-6 gap-1 px-2 text-[11px]"
+              onClick={() => {
+                setTaskKey((n) => n + 1);
+                setTaskFormOpen(true);
+              }}
+            >
+              <Plus size={12} aria-hidden />
+              {t("Nova tarefa")}
+            </Button>
+          </div>
           <LeadTimeline
             itens={timeline.itens}
             chegouAoVivo={timeline.chegouAoVivo}
@@ -152,6 +237,24 @@ export function LeadDossier({
           </h3>
           <LeadFieldsForm lead={lead} pipelineId={pipelineId} fieldDefs={fieldDefs} />
         </div>
+
+        <FormularioDeTarefa
+          key={taskKey}
+          aberto={taskFormOpen}
+          aoMudarAbertura={setTaskFormOpen}
+          leadId={lead.id}
+          leadTitle={lead.title}
+          clientCompanyId={lead.client_company_id}
+          contactId={lead.contact_id}
+          assignedTo={lead.owner_user_id}
+          aoSalvar={async (entrada) => {
+            await criarTarefa(entrada);
+            await queryClient.invalidateQueries({ queryKey: ["lead_timeline", lead.id] });
+            if (lead.contact_id) {
+              await queryClient.invalidateQueries({ queryKey: ["lead_timeline", lead.contact_id] });
+            }
+          }}
+        />
       </SheetContent>
     </Sheet>
   );

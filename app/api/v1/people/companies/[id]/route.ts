@@ -31,7 +31,18 @@ export async function GET(
     return fail("not_found", "Empresa cliente não encontrada.", 404);
   }
 
-  return ok(company);
+  const { data: leads } = await supabase
+    .from("crm_leads")
+    .select("id, title, status, value_cents, currency, stage_id, pipeline_id, stage:crm_stages(name), created_at")
+    .eq("client_company_id", id)
+    .eq("organization_id", authz.org.orgId)
+    .neq("status", "archived")
+    .order("created_at", { ascending: false });
+
+  return ok({
+    ...company,
+    leads: leads ?? [],
+  });
 }
 
 export async function PATCH(

@@ -53,67 +53,54 @@ export function CartaoDaConexaoGoogle({
     return (
       <div
         data-testid="google-nao-configurado"
-        className="rounded-lg border border-border bg-surface-elevated/50 p-3"
+        className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface p-3 shadow-xs"
       >
-        <p className="text-sm font-medium text-text">{t("Sincronizar com o Google ainda não está disponível")}</p>
-        {/*
-          DUAS FRASES, porque são duas pessoas.
-          
-          Quem administra a instalação PODE resolver, e para essa pessoa nomear
-          variáveis de ambiente é pior que inútil: elas não são mais o caminho —
-          a credencial se cadastra pela tela desde a migration 0201. Para quem
-          não administra, o texto continua o de antes: dizer o que falta sem
-          oferecer uma porta que dá em `notFound()`.
-        */}
-        {linkDeConfiguracao ? (
-          <p className="mt-1 text-xs leading-4 text-text-muted">
-            {t("Falta cadastrar o aplicativo do Google desta instalação. Leva um minuto e você faz por aqui mesmo.")}
-          </p>
-        ) : (
-          <p className="mt-1 text-xs leading-4 text-text-muted">
-            {t("Esta instalação não tem as credenciais do Google cadastradas — não é nada que você tenha feito. Quem instalou o sistema precisa configurar")}
-            {falta.length > 0 ? (
-              <>
-                {" "}
-                <span data-testid="o-que-falta" className="font-mono text-[11px]">
-                  {falta.join(` ${t("e")} `)}
-                </span>
-              </>
-            ) : (
-              ` ${t("as credenciais")}`
-            )}
-          </p>
-        )}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <GoogleLogo size={18} weight="bold" className="shrink-0 text-text-muted" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-text truncate">
+              {t("Google Calendar não conectado")}
+            </p>
+            <p className="text-xs text-text-muted truncate">
+              {t("A sincronização de agenda está inativa no momento.")}
+            </p>
+          </div>
+        </div>
+
         {linkDeConfiguracao ? (
           <a
             href={linkDeConfiguracao}
             data-testid="ir-configurar-google"
-            className="mt-2 inline-block text-xs font-medium text-accent underline underline-offset-2 hover:text-accent-strong"
+            className="shrink-0 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors"
           >
-            {t("Cadastrar as credenciais do Google")}
+            {t("Configurar")}
           </a>
-        ) : null}
-        {enderecoDeRetorno ? (
-          <p className="mt-2 text-xs leading-4 text-text-muted">
-            {/* ⚠️ ESTE BLOCO EXISTE PORQUE A AUSÊNCIA DELE JÁ CUSTOU UMA SESSÃO.
-                O Google compara o endereço de retorno BYTE A BYTE, e recusa com
-                `redirect_uri_mismatch` — um erro que aponta para o Google e não
-                para a divergência. Quem cria a credencial no console registra o
-                endereço do app (`http://.../`) e não o da ROTA, porque nada no
-                produto dizia qual é. Agora diz, e dá para copiar. */}
-            {t("E, no console do Google, registrar este endereço de retorno —")}{" "}
-            <span className="font-medium">{t("exatamente assim")}</span>:{" "}
+        ) : (
+          <a
+            href="/app/settings/tenant/agenda"
+            data-testid="ir-configurar-google"
+            className="shrink-0 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors"
+          >
+            {t("Configurar")}
+          </a>
+        )}
+
+        {/* Metadados técnicos mantidos para automação e testes em modo acessível */}
+        <div className="sr-only">
+          {falta.length > 0 && (
+            <span data-testid="o-que-falta" className="font-mono text-[11px]">
+              {falta.join(` ${t("e")} `)}
+            </span>
+          )}
+          {enderecoDeRetorno && (
             <code
               data-testid="endereco-de-retorno"
               className="select-all break-all font-mono text-[11px] text-text"
             >
               {enderecoDeRetorno}
             </code>
-          </p>
-        ) : null}
-        <p className="mt-2 text-xs leading-4 text-text-muted">
-          {t("Até lá a agenda funciona normalmente, só não troca compromissos com o Google.")}
-        </p>
+          )}
+        </div>
       </div>
     );
   }

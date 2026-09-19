@@ -192,9 +192,17 @@ export function ContactsTable({ contacts, orderBy, orderDir, onSort }: Props) {
       </TableHeader>
       <TableBody>
         {contacts.map((c) => (
-          <TableRow key={c.id} className="cursor-pointer">
+          <TableRow
+            key={c.id}
+            className="cursor-pointer hover:bg-accent/5 transition-colors"
+            onClick={() => router.push(`/app/contacts/${c.id}`)}
+          >
             <TableCell className="font-medium">
-              <Link href={`/app/contacts/${c.id}`} className="hover:underline">
+              <Link
+                href={`/app/contacts/${c.id}`}
+                className="hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {displayName(c)}
               </Link>
             </TableCell>
@@ -228,13 +236,16 @@ export function ContactsTable({ contacts, orderBy, orderDir, onSort }: Props) {
               </div>
             </TableCell>
             <TableCell>
-              <div className="flex items-center justify-end gap-0.5">
+              <div
+                className="flex items-center justify-end gap-0.5"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {c.conversa ? (
                   <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
                     <Link
                       href={`/app/inbox?id=${c.conversa.id}`}
-                      title={t("Abrir conversa no Inbox")}
-                      aria-label={`${t("Abrir conversa com")} ${displayName(c, t)} ${t("no Inbox")}`}
+                      title={t("Abrir conversa")}
+                      aria-label={`${t("Abrir conversa com")} ${displayName(c, t)}`}
                     >
                       <ChatCircle size={16} weight="regular" aria-hidden />
                       {c.conversa.unread > 0 && (
@@ -247,8 +258,8 @@ export function ContactsTable({ contacts, orderBy, orderDir, onSort }: Props) {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
-                    title={t("Iniciar conversa no Inbox")}
-                    aria-label={`${t("Iniciar conversa com")} ${displayName(c, t)} ${t("no Inbox")}`}
+                    title={t("Iniciar conversa")}
+                    aria-label={`${t("Iniciar conversa com")} ${displayName(c, t)}`}
                     disabled={abrindo === c.id}
                     onClick={() => void iniciarConversa(c)}
                   >

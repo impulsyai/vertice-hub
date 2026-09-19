@@ -99,6 +99,14 @@ class FakeQB {
     return this;
   }
 
+  order(_column: string, _options?: { ascending?: boolean; nullsFirst?: boolean }): this {
+    return this;
+  }
+
+  limit(_count: number): this {
+    return this;
+  }
+
   private where(): string {
     return this.filters.length ? ` where ${this.filters.join(" and ")}` : "";
   }
@@ -138,7 +146,9 @@ function fakeAdminClient(): SupabaseClient {
     rpc: (name: string, params: Record<string, unknown>): Promise<QResult> => {
       return (async () => {
         if (name === "fn_service_observe_command") {
-          const raw = sql(`select public.fn_service_observe_command(${sqlLiteral(params.p_org)},${sqlLiteral(params.p_contact)})::text`);
+          const raw = sql(
+            `select public.fn_service_observe_command(${sqlLiteral(params.p_org)},${sqlLiteral(params.p_contact)})::text`,
+          );
           return { data: JSON.parse(raw || "null"), error: null };
         }
         if (name !== "emit_event") {
@@ -162,7 +172,11 @@ function fakeAdminClient(): SupabaseClient {
   } as unknown as SupabaseClient;
 }
 
-function eventRows(eventType: string, entityKind: string, entityId: string): Array<{ payload: Record<string, unknown> }> {
+function eventRows(
+  eventType: string,
+  entityKind: string,
+  entityId: string,
+): Array<{ payload: Record<string, unknown> }> {
   const out = sql(`
     select coalesce(json_agg(t), '[]') from (
       select payload from public.event_log

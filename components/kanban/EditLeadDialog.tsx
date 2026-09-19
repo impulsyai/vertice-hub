@@ -104,7 +104,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, pipelineId }: Props) 
         leadId: lead.id,
         patch: parsed.data as UpdateLeadInput,
       });
-      toast.success(t("Lead atualizado"));
+      toast.success(t("Oportunidade atualizada"));
       onOpenChange(false);
     } catch {
       // toast already shown
@@ -115,7 +115,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, pipelineId }: Props) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("Editar lead")}</DialogTitle>
+          <DialogTitle>{t("Editar oportunidade")}</DialogTitle>
           <DialogDescription>
             {t("Atualize os campos. Mover de etapa ou marcar ganho/perdido tem opções próprias.")}
           </DialogDescription>
@@ -162,7 +162,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, pipelineId }: Props) 
 
           <div className="space-y-2">
             <Label htmlFor="tagsRaw">{t("Tags (separadas por vírgula)")}</Label>
-            <Input id="tagsRaw" placeholder="vip, recompra" {...form.register("tagsRaw")} />
+            <Input id="tagsRaw" placeholder="hunting, r&s, diretoria" {...form.register("tagsRaw")} />
           </div>
 
           <DialogFooter>

@@ -49,6 +49,7 @@ export async function registraAtividadeDaTarefa(
     payload: {
       due_date: args.tarefa.due_date,
       priority: args.tarefa.priority,
+      status: args.tipo === "task_completed" ? "done" : "pending",
     },
   });
 }
