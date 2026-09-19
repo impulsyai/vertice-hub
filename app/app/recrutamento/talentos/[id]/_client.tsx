@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
 import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
 import {
-  User,
   ArrowLeft,
   FileText,
   DownloadSimple,
@@ -15,15 +15,33 @@ import {
   Phone,
   LinkedinLogo,
   UploadSimple,
-  CheckCircle,
+  PencilSimple,
 } from "@/lib/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { apiClient } from "@/lib/api/client";
-import { useCandidateDetail } from "@/lib/people/client-hooks";
+import { useCandidateDetail, useUpdateCandidate } from "@/lib/people/client-hooks";
 import { useQueryClient } from "@tanstack/react-query";
+import type { VerticeCandidate } from "@/lib/people/types";
 
 export function CandidatoDetalheClient({ id }: { id: string }) {
   const t = useT();
@@ -31,6 +49,7 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
   const qc = useQueryClient();
   const { data, isLoading, error } = useCandidateDetail(id);
   const [isUploading, setIsUploading] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -104,21 +123,27 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center gap-4">
-        <Link href="/app/recrutamento/talentos">
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">{candidate.full_name}</h1>
-            <Badge variant="outline" className="capitalize">{candidate.status.replace("_", " ")}</Badge>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Link href="/app/recrutamento/talentos">
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight">{candidate.full_name}</h1>
+              <Badge variant="outline" className="capitalize">{candidate.status.replace("_", " ")}</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {candidate.current_job_title ?? candidate.current_role ?? t("Sem cargo informado")} {candidate.current_company ? `• ${candidate.current_company}` : ""}
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {candidate.current_job_title ?? candidate.current_role ?? t("Sem cargo informado")} {candidate.current_company ? `• ${candidate.current_company}` : ""}
-          </p>
         </div>
+        <Button variant="outline" onClick={() => setIsEditOpen(true)} className="gap-2 shrink-0">
+          <PencilSimple className="h-4 w-4" />
+          {t("Editar Candidato")}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -293,6 +318,231 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
           </Card>
         </div>
       </div>
+
+      <EditCandidateDialog
+        key={candidate.id + (candidate.updated_at ?? "")}
+        candidate={candidate}
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+      />
     </div>
+  );
+}
+
+function EditCandidateDialog({
+  candidate,
+  open,
+  onOpenChange,
+}: {
+  candidate: VerticeCandidate;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const t = useT();
+  const update = useUpdateCandidate(candidate.id);
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { isSubmitting },
+  } = useForm<{
+    full_name: string;
+    email?: string;
+    phone_e164?: string;
+    linkedin_url?: string;
+    current_job_title?: string;
+    current_company?: string;
+    area?: string;
+    seniority?: string;
+    city?: string;
+    state?: string;
+    expected_salary?: number;
+    availability?: string;
+    status?: string;
+    notes?: string;
+  }>({
+    defaultValues: {
+      full_name: candidate.full_name,
+      email: candidate.email ?? "",
+      phone_e164: candidate.phone_e164 ?? "",
+      linkedin_url: candidate.linkedin_url ?? "",
+      current_job_title: candidate.current_job_title ?? candidate.current_role ?? "",
+      current_company: candidate.current_company ?? "",
+      area: candidate.area ?? "",
+      seniority: candidate.seniority ?? "pleno",
+      city: candidate.city ?? "",
+      state: candidate.state ?? "",
+      expected_salary: candidate.expected_salary ?? undefined,
+      availability: candidate.availability ?? "",
+      status: candidate.status ?? "active",
+      notes: candidate.notes ?? "",
+    },
+  });
+
+  const currentSeniority = watch("seniority");
+  const currentStatus = watch("status");
+
+  async function onSubmit(data: {
+    full_name: string;
+    email?: string;
+    phone_e164?: string;
+    linkedin_url?: string;
+    current_job_title?: string;
+    current_company?: string;
+    area?: string;
+    seniority?: string;
+    city?: string;
+    state?: string;
+    expected_salary?: number;
+    availability?: string;
+    status?: string;
+    notes?: string;
+  }) {
+    try {
+      await update.mutateAsync({
+        full_name: data.full_name,
+        email: data.email || null,
+        phone_e164: data.phone_e164 || null,
+        linkedin_url: data.linkedin_url || null,
+        current_job_title: data.current_job_title || null,
+        current_company: data.current_company || null,
+        area: data.area || null,
+        seniority: data.seniority || null,
+        city: data.city || null,
+        state: data.state || null,
+        expected_salary: data.expected_salary ? Number(data.expected_salary) : null,
+        availability: data.availability || null,
+        status: data.status,
+        notes: data.notes || null,
+      });
+      toast.success(t("Candidato atualizado com sucesso!"));
+      onOpenChange(false);
+    } catch {
+      // Toast já emitido pelo hook
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{t("Editar Candidato")}</DialogTitle>
+          <DialogDescription>
+            {t("Atualize as informações do profissional.")}
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+          <div className="space-y-1">
+            <Label htmlFor="edit_full_name">{t("Nome Completo")} *</Label>
+            <Input id="edit_full_name" required {...register("full_name", { required: true })} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="edit_status">{t("Status")}</Label>
+              <Select value={currentStatus} onValueChange={(val) => setValue("status", val)}>
+                <SelectTrigger id="edit_status" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">{t("Ativo")}</SelectItem>
+                  <SelectItem value="in_process">{t("Em Processo")}</SelectItem>
+                  <SelectItem value="hired">{t("Contratado")}</SelectItem>
+                  <SelectItem value="inactive">{t("Inativo")}</SelectItem>
+                  <SelectItem value="do_not_contact">{t("Não Contatar")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit_seniority">{t("Senioridade")}</Label>
+              <Select value={currentSeniority} onValueChange={(val) => setValue("seniority", val)}>
+                <SelectTrigger id="edit_seniority" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="junior">{t("Júnior")}</SelectItem>
+                  <SelectItem value="pleno">{t("Pleno")}</SelectItem>
+                  <SelectItem value="senior">{t("Sênior")}</SelectItem>
+                  <SelectItem value="especialista">{t("Especialista")}</SelectItem>
+                  <SelectItem value="lead">{t("Coordenação")}</SelectItem>
+                  <SelectItem value="director">{t("Gerência")}</SelectItem>
+                  <SelectItem value="c_level">{t("Diretoria / C-Level")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="edit_email">{t("E-mail")}</Label>
+              <Input id="edit_email" type="email" {...register("email")} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit_phone">{t("Telefone / WhatsApp")}</Label>
+              <Input id="edit_phone" {...register("phone_e164")} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="edit_current_job_title">{t("Cargo Atual")}</Label>
+              <Input id="edit_current_job_title" {...register("current_job_title")} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit_current_company">{t("Empresa Atual")}</Label>
+              <Input id="edit_current_company" {...register("current_company")} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="edit_area">{t("Área")}</Label>
+              <Input id="edit_area" {...register("area")} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit_availability">{t("Disponibilidade")}</Label>
+              <Input id="edit_availability" placeholder={t("ex: Imediata, 30 dias")} {...register("availability")} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2 space-y-1">
+              <Label htmlFor="edit_city">{t("Cidade")}</Label>
+              <Input id="edit_city" {...register("city")} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit_state">{t("UF")}</Label>
+              <Input id="edit_state" maxLength={2} {...register("state")} />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="edit_expected_salary">{t("Pretensão Salarial")}</Label>
+            <Input id="edit_expected_salary" type="number" step="100" {...register("expected_salary")} />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="edit_linkedin_url">{t("Perfil LinkedIn")}</Label>
+            <Input id="edit_linkedin_url" {...register("linkedin_url")} />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="edit_notes">{t("Observações")}</Label>
+            <Input id="edit_notes" {...register("notes")} />
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {t("Cancelar")}
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? t("Salvando...") : t("Salvar Alterações")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

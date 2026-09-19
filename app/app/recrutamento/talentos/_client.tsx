@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
-import { User, Plus, MagnifyingGlass, FileText, ArrowSquareOut } from "@/lib/ui/icons";
+import { User, Plus, MagnifyingGlass, ArrowSquareOut } from "@/lib/ui/icons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCandidateList, useCreateCandidate } from "@/lib/people/client-hooks";
-import type { CandidateStatus, VerticeCandidate } from "@/lib/people/types";
+import type { CandidateStatus } from "@/lib/people/types";
 
 const STATUS_LABELS: Record<CandidateStatus, string> = {
   active: "Ativo",
@@ -114,7 +114,7 @@ export function TalentosClient() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-[195px]">
             <SelectValue placeholder={t("Senioridade")} />
           </SelectTrigger>
           <SelectContent>

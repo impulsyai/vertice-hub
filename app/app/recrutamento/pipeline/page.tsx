@@ -4,7 +4,7 @@ import { PipelineClient } from "./_client";
 import { PipelineFallback } from "./_fallback";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Pipeline R&S" };
+export const metadata: Metadata = { title: "Funil de Seleção" };
 
 export default function PipelinePage() {
   return (

@@ -107,7 +107,7 @@ export function PipelineClient() {
     <div className="flex flex-col h-[calc(100vh-4rem)] p-6 space-y-4 overflow-hidden">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shrink-0">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t("Pipeline R&S")}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("Funil de Seleção")}</h1>
           <p className="text-sm text-muted-foreground">
             {t("Funil de 10 etapas para triagem, avaliação e aprovação de candidatos.")}
           </p>
