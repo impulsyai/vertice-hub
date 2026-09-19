@@ -8961,6 +8961,9 @@ export const DICIONARIO: Traducoes = {
   "Nenhum compromisso agendado para hoje.": { es: "No hay citas programadas para hoy." },
   "Abrir Agenda": { es: "Abrir agenda" },
   "Tarefas para Hoje / Atrasadas": { es: "Tareas para hoy / atrasadas" },
+  "Nenhuma tarefa pendente com prazo imediato.": {
+    es: "No hay ninguna tarea pendiente con plazo inmediato.",
+  },
   "Ver todas as Tarefas": { es: "Ver todas las tareas" },
   "Comercial B2B & Oportunidades": { es: "Comercial B2B y oportunidades" },
   "Abrir Funil": { es: "Abrir embudo" },

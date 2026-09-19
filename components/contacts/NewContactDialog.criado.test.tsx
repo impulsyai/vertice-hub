@@ -71,6 +71,12 @@ const CORPO_DA_LISTA_DE_EMPRESAS = {
   },
 };
 
+function urlDaRequisicao(input: RequestInfo | URL): string {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.toString();
+  return input.url;
+}
+
 function envolver(ui: ReactNode) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -85,7 +91,7 @@ beforeEach(() => {
       async (input: RequestInfo | URL) =>
         new Response(
           JSON.stringify(
-            String(input).includes("/api/v1/people/companies")
+            urlDaRequisicao(input).includes("/api/v1/people/companies")
               ? CORPO_DA_LISTA_DE_EMPRESAS
               : CORPO_DA_ROTA,
           ),
@@ -138,7 +144,7 @@ describe("NewContactDialog · onCriado", () => {
         async (input: RequestInfo | URL) =>
           new Response(
             JSON.stringify(
-              String(input).includes("/api/v1/people/companies")
+              urlDaRequisicao(input).includes("/api/v1/people/companies")
                 ? CORPO_DA_LISTA_DE_EMPRESAS
                 : { data: { action: "created" } },
             ),
