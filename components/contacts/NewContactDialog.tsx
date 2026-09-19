@@ -26,7 +26,7 @@ import { contactCreateSchema, type ContactCreate } from "@/lib/schemas/contacts"
 import type { Contact } from "@/lib/types/contacts";
 import { useCreateContact } from "@/hooks/contacts/useCreateContact";
 import { useCompanyList } from "@/lib/people/client-hooks";
-import { maskPhoneBR, maskCpf } from "@/lib/ui/form-masks";
+import { maskPhoneBR, maskCpf, normalizePhoneBR } from "@/lib/ui/form-masks";
 
 interface FormShape {
   name?: string;
@@ -96,7 +96,8 @@ export function NewContactDialog({ open, onOpenChange, nomeInicial, onCriado }: 
     const payload: Record<string, unknown> = { source: "manual" };
     if (values.name?.trim()) payload.name = values.name.trim();
     if (values.email?.trim()) payload.email = values.email.trim();
-    if (values.phone_number?.trim()) payload.phone_number = values.phone_number.trim();
+    const phone = normalizePhoneBR(values.phone_number);
+    if (phone) payload.phone_number = phone;
     if (values.cpf?.trim()) payload.cpf = values.cpf.trim();
     if (tags.length) payload.tags = tags;
 
