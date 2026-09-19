@@ -5,11 +5,7 @@ import { useState } from "react";
 
 import { useT } from "@/hooks/i18n/useT";
 import { cn } from "@/lib/utils";
-import {
-  activityLabel,
-  actorName,
-  actorShape,
-} from "@/lib/leads/activity-vocabulary";
+import { activityLabel, actorName, actorShape } from "@/lib/leads/activity-vocabulary";
 import { agrupaTimeline, ehBlocoColapsavel, ehBlocoDeDia } from "@/lib/leads/timeline-grouping";
 import type { TimelineItemView } from "@/lib/types/contacts";
 
@@ -90,12 +86,12 @@ function Linha({ item, aoVivo }: { item: TimelineItemView; aoVivo?: boolean }) {
           {aoVivo && (
             // O que chegou AGORA fica marcado: sem isto ele entraria na lista
             // idêntico ao resto e a chegada seria indistinguível do histórico.
-            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-accent">
+            <span className="ml-1.5 text-[10px] tracking-wide text-accent uppercase">
               {t("agora")}
             </span>
           )}
         </p>
-        {item.reason && <p className="mt-0.5 text-xs text-text">{item.reason}</p>}
+        {item.reason && <p className="mt-0.5 text-xs text-text">{t(item.reason)}</p>}
 
         {isTask && (dueDate || priority || status) && (
           <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-text-muted">
@@ -153,9 +149,7 @@ export function LeadTimeline({ itens, chegouAoVivo, isLoading, isError }: Props)
   }
   if (itens.length === 0) {
     return (
-      <p className="py-4 text-xs text-text-muted">
-        {t("Nada aconteceu com este negócio ainda.")}
-      </p>
+      <p className="py-4 text-xs text-text-muted">{t("Nada aconteceu com este negócio ainda.")}</p>
     );
   }
 
@@ -190,7 +184,9 @@ export function LeadTimeline({ itens, chegouAoVivo, isLoading, isError }: Props)
                     alguém fez aquilo. */}
                 <span aria-hidden className="mt-1 h-2 w-0.5 shrink-0 bg-border" />
                 <span className="first-letter:uppercase">{b.rotulo}</span>
-                <span className="text-text-muted">· {b.itens.length} {t("ações")}</span>
+                <span className="text-text-muted">
+                  · {b.itens.length} {t("ações")}
+                </span>
                 <span aria-hidden className="ml-auto text-[10px]">
                   {aberto ? "−" : "+"}
                 </span>

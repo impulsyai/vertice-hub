@@ -24,6 +24,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCompanyDetail } from "@/lib/people/client-hooks";
+import { rotuloDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { EditCompanyDialog } from "../_client";
 
 export function EmpresaDetalheClient({ id }: { id: string }) {
@@ -42,9 +43,9 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
             <Skeleton className="h-7 w-64" />
           </div>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Skeleton className="h-72 lg:col-span-2 rounded-md" />
-          <Skeleton className="h-72 lg:col-span-1 rounded-md" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <Skeleton className="h-72 rounded-md lg:col-span-2" />
+          <Skeleton className="h-72 rounded-md lg:col-span-1" />
         </div>
       </div>
     );
@@ -53,7 +54,7 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
   if (error || !data) {
     return (
       <div className="p-6">
-        <div className="text-destructive font-medium">{t("Empresa cliente não encontrada.")}</div>
+        <div className="font-medium text-destructive">{t("Empresa cliente não encontrada.")}</div>
         <Link href="/app/crm/empresas">
           <Button variant="outline" className="mt-4 gap-2">
             <ArrowLeft className="h-4 w-4" />
@@ -70,15 +71,15 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
     company.status === "active"
       ? t("Ativa")
       : company.status === "prospect"
-      ? t("Prospect")
-      : t("Inativa");
+        ? t("Prospect")
+        : t("Inativa");
 
   const statusBadgeStyle =
     company.status === "active"
       ? "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium"
       : company.status === "prospect"
-      ? "border-amber-600/30 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium"
-      : "border-stone-300 bg-stone-100 text-stone-700 font-normal";
+        ? "border-amber-600/30 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium"
+        : "border-stone-300 bg-stone-100 text-stone-700 font-normal";
 
   return (
     <div className="space-y-6 p-6">
@@ -91,12 +92,12 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
             </Button>
           </Link>
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
+            <div className="mb-1 flex items-center gap-2">
+              <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold tracking-wider text-primary uppercase">
                 {t("Conta Corporativa")}
               </span>
             </div>
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
                 {company.trade_name}
               </h1>
@@ -105,12 +106,12 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
               </Badge>
             </div>
             {company.legal_name && (
-              <p className="text-xs text-muted-foreground mt-0.5">{company.legal_name}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{company.legal_name}</p>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           <Link href="/app/crm/empresas">
             <Button variant="outline" className="gap-2">
               <ArrowLeft className="h-4 w-4" />
@@ -125,35 +126,35 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
       </header>
 
       {/* Grid Principal do Dossiê */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Coluna Principal: Dados da Empresa & Observações */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6 lg:col-span-2">
           {/* Dados da Empresa */}
           <Card>
-            <CardHeader className="pb-3 border-b">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <CardHeader className="border-b pb-3">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold">
                 <Buildings className="h-4 w-4 text-primary" />
                 {t("Dados da Empresa")}
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <CardContent className="grid grid-cols-1 gap-4 pt-4 text-sm sm:grid-cols-2">
               <div>
-                <span className="text-xs text-muted-foreground block">{t("Nome Fantasia")}</span>
+                <span className="block text-xs text-muted-foreground">{t("Nome Fantasia")}</span>
                 <span className="font-medium text-foreground">{company.trade_name}</span>
               </div>
 
               <div>
-                <span className="text-xs text-muted-foreground block">{t("Razão Social")}</span>
+                <span className="block text-xs text-muted-foreground">{t("Razão Social")}</span>
                 <span className="text-foreground">{company.legal_name || "—"}</span>
               </div>
 
               <div>
-                <span className="text-xs text-muted-foreground block">{t("Setor de Atuação")}</span>
+                <span className="block text-xs text-muted-foreground">{t("Setor de Atuação")}</span>
                 <span className="text-foreground">{company.industry || "—"}</span>
               </div>
 
               <div>
-                <span className="text-xs text-muted-foreground block">{t("Website")}</span>
+                <span className="block text-xs text-muted-foreground">{t("Website")}</span>
                 {company.website ? (
                   <a
                     href={
@@ -163,7 +164,7 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                     }
                     target="_blank"
                     rel="noreferrer"
-                    className="text-primary hover:underline inline-flex items-center gap-1"
+                    className="inline-flex items-center gap-1 text-primary hover:underline"
                   >
                     <Globe className="h-3.5 w-3.5" />
                     {company.website.replace(/^https?:\/\//, "")}
@@ -174,10 +175,10 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
               </div>
 
               <div>
-                <span className="text-xs text-muted-foreground block">{t("Cidade / UF")}</span>
-                <span className="text-foreground inline-flex items-center gap-1">
+                <span className="block text-xs text-muted-foreground">{t("Cidade / UF")}</span>
+                <span className="inline-flex items-center gap-1 text-foreground">
                   {(company.city || company.state) && (
-                    <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   )}
                   {company.city && company.state
                     ? `${company.city}, ${company.state}`
@@ -186,12 +187,12 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
               </div>
 
               <div>
-                <span className="text-xs text-muted-foreground block">{t("Status Comercial")}</span>
+                <span className="block text-xs text-muted-foreground">{t("Status Comercial")}</span>
                 <span className="font-medium">{statusLabel}</span>
               </div>
 
               {company.created_at && (
-                <div className="sm:col-span-2 pt-2 border-t text-xs text-muted-foreground">
+                <div className="border-t pt-2 text-xs text-muted-foreground sm:col-span-2">
                   {t("Cadastrada em")}:{" "}
                   {new Date(company.created_at).toLocaleDateString(tagDoIdioma, {
                     day: "2-digit",
@@ -205,15 +206,15 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
 
           {/* Observações */}
           <Card>
-            <CardHeader className="pb-3 border-b">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <CardHeader className="border-b pb-3">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold">
                 <Note className="h-4 w-4 text-primary" />
                 {t("Observações Comerciais & Alinhamentos")}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4">
               {company.notes ? (
-                <div className="rounded-md bg-muted/40 p-4 text-sm leading-relaxed whitespace-pre-wrap text-foreground border border-border/50">
+                <div className="rounded-md border border-border/50 bg-muted/40 p-4 text-sm leading-relaxed whitespace-pre-wrap text-foreground">
                   {company.notes}
                 </div>
               ) : (
@@ -226,46 +227,51 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
 
           {/* Oportunidades Comerciais (CRM B2B) */}
           <Card>
-            <CardHeader className="pb-3 border-b flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between border-b pb-3">
               <div>
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-base font-semibold">
                   <Kanban className="h-4 w-4 text-primary" />
                   {t("Oportunidades Comerciais")}
                 </CardTitle>
-                <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                <CardDescription className="mt-0.5 text-xs text-muted-foreground">
                   {t("Negócios e projetos comerciais vinculados a esta conta")}
                 </CardDescription>
               </div>
-              <Badge variant="secondary" className="font-normal text-xs">
+              <Badge variant="secondary" className="text-xs font-normal">
                 {leads.length} {leads.length === 1 ? t("oportunidade") : t("oportunidades")}
               </Badge>
             </CardHeader>
             <CardContent className="pt-4">
               {leads.length === 0 ? (
-                <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground flex flex-col items-center justify-center">
-                  <Kanban className="h-8 w-8 text-muted-foreground mb-2" aria-hidden="true" />
-                  <p className="font-medium text-foreground">{t("Nenhuma oportunidade comercial vinculada")}</p>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                <div className="flex flex-col items-center justify-center rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  <Kanban className="mb-2 h-8 w-8 text-muted-foreground" aria-hidden="true" />
+                  <p className="font-medium text-foreground">
+                    {t("Nenhuma oportunidade comercial vinculada")}
+                  </p>
+                  <p className="mt-1 max-w-sm text-xs text-muted-foreground">
                     {t("Crie uma oportunidade no Funil Comercial associando esta empresa cliente.")}
                   </p>
                 </div>
               ) : (
-                <div className="divide-y divide-border/60 rounded-md border bg-card overflow-hidden">
+                <div className="divide-y divide-border/60 overflow-hidden rounded-md border bg-card">
                   {leads.map((l) => (
                     <div
                       key={l.id}
-                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-accent/5 transition-colors"
+                      className="flex flex-col justify-between gap-3 p-4 transition-colors hover:bg-accent/5 sm:flex-row sm:items-center"
                     >
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Link
                             href={`/app/pipelines/${l.pipeline_id}?lead=${l.id}`}
-                            className="font-medium text-foreground hover:text-primary hover:underline text-sm"
+                            className="text-sm font-medium text-foreground hover:text-primary hover:underline"
                           >
                             {l.title}
                           </Link>
                           {l.stage?.name && (
-                            <Badge variant="outline" className="text-[11px] bg-primary/5 text-primary border-primary/30">
+                            <Badge
+                              variant="outline"
+                              className="border-primary/30 bg-primary/5 text-[11px] text-primary"
+                            >
                               {l.stage.name}
                             </Badge>
                           )}
@@ -283,9 +289,9 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                           <span>• {new Date(l.created_at).toLocaleDateString(tagDoIdioma)}</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex shrink-0 items-center gap-2">
                         <Link href={`/app/pipelines/${l.pipeline_id}?lead=${l.id}`}>
-                          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+                          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
                             <ArrowSquareOut className="h-3.5 w-3.5" />
                             {t("Ver no Funil")}
                           </Button>
@@ -300,38 +306,38 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
 
           {/* Vagas / Processos de R&S */}
           <Card>
-            <CardHeader className="pb-3 border-b flex flex-row items-center justify-between">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <CardHeader className="flex flex-row items-center justify-between border-b pb-3">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold">
                 <Briefcase className="h-4 w-4 text-primary" />
                 {t("Vagas & Processos de R&S")}
               </CardTitle>
-              <Badge variant="secondary" className="font-normal text-xs">
+              <Badge variant="secondary" className="text-xs font-normal">
                 {jobs.length} {jobs.length === 1 ? t("vaga") : t("vagas")}
               </Badge>
             </CardHeader>
             <CardContent className="pt-4">
               {jobs.length === 0 ? (
-                <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground flex flex-col items-center justify-center">
-                  <Briefcase className="h-8 w-8 text-muted-foreground mb-2" aria-hidden="true" />
+                <div className="flex flex-col items-center justify-center rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  <Briefcase className="mb-2 h-8 w-8 text-muted-foreground" aria-hidden="true" />
                   <p className="font-medium text-foreground">{t("Nenhuma vaga vinculada")}</p>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                  <p className="mt-1 max-w-sm text-xs text-muted-foreground">
                     {t(
                       "Esta empresa cliente ainda não possui processos seletivos cadastrados no módulo de Recrutamento & Seleção.",
                     )}
                   </p>
                 </div>
               ) : (
-                <div className="divide-y divide-border/60 rounded-md border bg-card overflow-hidden">
+                <div className="divide-y divide-border/60 overflow-hidden rounded-md border bg-card">
                   {jobs.map((job) => (
                     <div
                       key={job.id}
-                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-accent/5 transition-colors"
+                      className="flex flex-col justify-between gap-3 p-4 transition-colors hover:bg-accent/5 sm:flex-row sm:items-center"
                     >
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Link
                             href={`/app/recrutamento/vagas/${job.id}`}
-                            className="font-medium text-foreground hover:text-primary hover:underline text-sm"
+                            className="text-sm font-medium text-foreground hover:text-primary hover:underline"
                           >
                             {job.title}
                           </Link>
@@ -339,8 +345,8 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                             variant="outline"
                             className={
                               job.status === "open"
-                                ? "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px]"
-                                : "border-stone-300 bg-stone-100 text-stone-700 text-[11px]"
+                                ? "border-emerald-600/30 bg-emerald-500/10 text-[11px] text-emerald-700 dark:text-emerald-300"
+                                : "border-stone-300 bg-stone-100 text-[11px] text-stone-700"
                             }
                           >
                             {job.status === "open" ? t("Aberta") : job.status}
@@ -351,8 +357,8 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                             {job.work_model === "presential"
                               ? t("Presencial")
                               : job.work_model === "hybrid"
-                              ? t("Híbrido")
-                              : t("Remoto")}
+                                ? t("Híbrido")
+                                : t("Remoto")}
                           </span>
                           {job.city && (
                             <span>
@@ -367,9 +373,9 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex shrink-0 items-center gap-2">
                         <Link href={`/app/recrutamento/pipeline?job_id=${job.id}`}>
-                          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+                          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
                             <Kanban className="h-3.5 w-3.5 text-primary" />
                             {t("Funil")}
                           </Button>
@@ -378,7 +384,7 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="gap-1.5 h-8 text-xs hover:text-primary"
+                            className="h-8 gap-1.5 text-xs hover:text-primary"
                           >
                             <ArrowSquareOut className="h-3.5 w-3.5" />
                             {t("Ver Vaga")}
@@ -396,26 +402,26 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
         {/* Coluna Lateral: Contatos / Decisores Corporativos */}
         <div className="space-y-6">
           <Card>
-            <CardHeader className="pb-3 border-b flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between border-b pb-3">
               <div>
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-base font-semibold">
                   <Users className="h-4 w-4 text-primary" />
                   {t("Contatos & Decisores")}
                 </CardTitle>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {t("Decisores vinculados via CRM comercial.")}
                 </p>
               </div>
-              <Badge variant="secondary" className="font-normal text-xs shrink-0">
+              <Badge variant="secondary" className="shrink-0 text-xs font-normal">
                 {contacts.length}
               </Badge>
             </CardHeader>
             <CardContent className="pt-4">
               {contacts.length === 0 ? (
-                <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground flex flex-col items-center justify-center">
-                  <User className="h-8 w-8 text-muted-foreground mb-2" aria-hidden="true" />
+                <div className="flex flex-col items-center justify-center rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  <User className="mb-2 h-8 w-8 text-muted-foreground" aria-hidden="true" />
                   <p className="font-medium text-foreground">{t("Nenhum contato vinculado")}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {t("Não há decisores corporativos associados a esta empresa.")}
                   </p>
                 </div>
@@ -423,36 +429,35 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                 <div className="space-y-3">
                   {contacts.map((c) => {
                     const contact = c.contact;
-                    const contactName =
-                      contact?.display_name || contact?.name || t("Contato sem nome");
+                    const contactName = rotuloDoContato(contact, t);
                     return (
                       <div
                         key={c.id}
-                        className="p-3.5 rounded-lg border bg-card hover:bg-accent/5 transition-colors space-y-2"
+                        className="space-y-2 rounded-lg border bg-card p-3.5 transition-colors hover:bg-accent/5"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 font-semibold text-xs">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                             {contactName.slice(0, 2).toUpperCase()}
                           </div>
-                          <div className="space-y-0.5 flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               <Link
                                 href={`/app/contacts/${c.contact_id}`}
-                                className="font-medium text-foreground hover:text-primary hover:underline text-sm truncate"
+                                className="truncate text-sm font-medium text-foreground hover:text-primary hover:underline"
                               >
                                 {contactName}
                               </Link>
                               {c.is_primary && (
                                 <Badge
                                   variant="outline"
-                                  className="text-[10px] py-0 px-1.5 border-primary/40 bg-primary/10 text-primary font-medium"
+                                  className="border-primary/40 bg-primary/10 px-1.5 py-0 text-[10px] font-medium text-primary"
                                 >
                                   {t("Principal")}
                                 </Badge>
                               )}
                             </div>
                             {c.role_in_company && (
-                              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                 <Briefcase className="h-3 w-3 shrink-0" aria-hidden="true" />
                                 <span className="truncate">{c.role_in_company}</span>
                               </div>
@@ -460,21 +465,27 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                           </div>
                         </div>
 
-                        <div className="space-y-1 text-xs text-muted-foreground pt-1 border-t border-border/40">
+                        <div className="space-y-1 border-t border-border/40 pt-1 text-xs text-muted-foreground">
                           {contact?.phone_number && (
                             <div className="flex items-center gap-1.5">
-                              <Phone className="h-3 w-3 text-muted-foreground shrink-0" aria-hidden="true" />
+                              <Phone
+                                className="h-3 w-3 shrink-0 text-muted-foreground"
+                                aria-hidden="true"
+                              />
                               <span>{contact.phone_number}</span>
                             </div>
                           )}
                           {contact?.email && (
                             <div className="flex items-center gap-1.5">
-                              <EnvelopeSimple className="h-3 w-3 text-muted-foreground shrink-0" aria-hidden="true" />
+                              <EnvelopeSimple
+                                className="h-3 w-3 shrink-0 text-muted-foreground"
+                                aria-hidden="true"
+                              />
                               <span className="truncate">{contact.email}</span>
                             </div>
                           )}
                           {!contact?.phone_number && !contact?.email && (
-                            <span className="italic text-muted-foreground">
+                            <span className="text-muted-foreground italic">
                               {t("Sem dados de contato direto.")}
                             </span>
                           )}

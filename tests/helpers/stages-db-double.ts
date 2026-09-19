@@ -111,6 +111,8 @@ export interface DbOpts {
   webhookSources?: Array<Record<string, unknown>>;
   /** Automações — `actions` é jsonb cru, sem FK para o funil. */
   automationRules?: Array<Record<string, unknown>>;
+  /** Contatos usados pelas rotas que validam o vínculo antes de criar um lead. */
+  contacts?: Array<Record<string, unknown>>;
   /** Erro do banco na n-ésima escrita (1-based), como o PostgREST devolveria. */
   writeError?: (n: number, table: string) => { code: string; message: string } | null;
 }
@@ -127,7 +129,10 @@ export interface Registro {
    * dublê — e dois dublês da mesma tabela divergem no primeiro ajuste, que é
    * exatamente o defeito que a extração da regra existe para evitar.
    */
-  client: { from: (table: string) => unknown; rpc: (nome: string, args: unknown) => Promise<unknown> };
+  client: {
+    from: (table: string) => unknown;
+    rpc: (nome: string, args: unknown) => Promise<unknown>;
+  };
   escritas: Escrita[];
   eventos: string[];
   rpcs: Array<{ nome: string; args: unknown }>;
@@ -139,6 +144,7 @@ export interface Registro {
     crm_lead_activities: Linha[];
     webhook_sources: Linha[];
     automation_rules: Linha[];
+    contacts: Linha[];
   };
 }
 
@@ -158,6 +164,7 @@ export function makeDb(opts: DbOpts = {}): Registro {
       crm_lead_activities: [],
       webhook_sources: (opts.webhookSources ?? []) as Linha[],
       automation_rules: (opts.automationRules ?? []) as Linha[],
+      contacts: (opts.contacts ?? []) as Linha[],
     },
   };
   const tables = registro.tabelas as unknown as Record<string, Linha[] | undefined>;
@@ -198,7 +205,7 @@ export function makeDb(opts: DbOpts = {}): Registro {
       // (`moveLeadHandler`) lia `lead.organization_id === undefined` e
       // respondia 404 "Lead não encontrado" mesmo com o lead presente na
       // tabela — media o dublê, não o handler.
-      if (!colunas || colunas.length === 1 && colunas[0] === "*") return rows;
+      if (!colunas || (colunas.length === 1 && colunas[0] === "*")) return rows;
       const chaves = colunas.map((c) => /^(\w+)\(/.exec(c)?.[1] ?? c);
       return rows.map((r) => Object.fromEntries(chaves.map((c) => [c, r[c]])));
     };

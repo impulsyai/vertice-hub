@@ -26315,6 +26315,60 @@ create policy tenant_insert_candidate_resumes on storage.objects for insert with
   and exists (select 1 from public.vertice_candidates c where c.organization_id::text = split_part(name, '/', 1) and c.id::text = split_part(name, '/', 2))
 );
 
+-- ============================================================================
+-- APÊNDICES 0259/0260 — vínculos B2B de leads e tarefas
+-- Espelho das migrations 20260918180000 e 20260918190000. O baseline precisa
+-- carregar as mesmas colunas da instalação incremental: os handlers da 4.3B
+-- já escrevem `client_company_id` e o install fresco também deve aceitá-lo.
+-- ============================================================================
+
+alter table public.crm_leads
+  add column if not exists client_company_id uuid references public.client_companies(id) on delete set null;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'crm_leads_org_company_fk'
+  ) then
+    alter table public.crm_leads
+      add constraint crm_leads_org_company_fk
+      foreign key (organization_id, client_company_id)
+      references public.client_companies(organization_id, id)
+      on delete set null;
+  end if;
+end $$;
+
+create index if not exists idx_crm_leads_org_client_company
+  on public.crm_leads (organization_id, client_company_id)
+  where client_company_id is not null;
+
+alter table public.crm_tasks
+  add column if not exists client_company_id uuid references public.client_companies(id) on delete set null;
+
+alter table public.crm_tasks
+  drop constraint if exists crm_tasks_org_company_fk;
+
+alter table public.crm_tasks
+  add constraint crm_tasks_org_company_fk
+  foreign key (organization_id, client_company_id)
+  references public.client_companies(organization_id, id)
+  on delete set null;
+
+create index if not exists idx_crm_tasks_org_client_company
+  on public.crm_tasks (organization_id, client_company_id)
+  where client_company_id is not null;
+
+create index if not exists idx_crm_tasks_org_contact
+  on public.crm_tasks (organization_id, contact_id)
+  where contact_id is not null;
+
+create index if not exists idx_crm_tasks_org_assigned
+  on public.crm_tasks (organization_id, assigned_to)
+  where assigned_to is not null;
+
+notify pgrst, 'reload schema';
+
 -- ---- VARREDURA anon: função nova nasce exposta em quem ATUALIZA (migration 0116) ----
 -- Este é, de propósito, o último bloco do baseline. O apêndice 0258 cria
 -- funções SECURITY DEFINER e precisa vir antes desta cura final.

@@ -114,6 +114,7 @@ export function SidebarContent({
   // Só quando NINGUÉM — nem a instalação, nem a organização — pôs marca própria:
   // é a condição de `lib/branding.ts`, avaliada sobre o que a barra vai mostrar.
   const marcaDoProduto = marcaEhADoProduto({ name: nome, logoUrl: logo ?? null });
+  const MARCA_VERTICE = "vértice";
 
   return (
     <>
@@ -124,9 +125,9 @@ export function SidebarContent({
         )}
       >
         {logo && !collapsed ? (
-          logo.includes("symbol") || nome.toLowerCase().includes("vértice") ? (
+          logo.includes("symbol") || nome.toLowerCase().includes(MARCA_VERTICE) ? (
             <div className="flex items-center gap-2.5">
-              <div className="flex items-center justify-center rounded-md dark:bg-white dark:p-1 shrink-0">
+              <div className="flex shrink-0 items-center justify-center rounded-md dark:bg-white dark:p-1">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/brand/vertice-symbol.png"
@@ -134,12 +135,12 @@ export function SidebarContent({
                   className="h-8 w-8 object-contain"
                 />
               </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-bold tracking-tight text-foreground leading-tight">
-                  Vértice Hub
+              <div className="flex min-w-0 flex-col">
+                <span className="text-sm leading-tight font-bold tracking-tight text-foreground">
+                  {t("Vértice Hub")}
                 </span>
                 <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                  Pessoas & Estratégia
+                  {t("Pessoas & Estratégia")}
                 </span>
               </div>
             </div>
@@ -152,11 +153,7 @@ export function SidebarContent({
         ) : logo && collapsed ? (
           <div className="flex items-center justify-center rounded-md dark:bg-white dark:p-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/brand/vertice-symbol.png"
-              alt={nome}
-              className="h-8 w-8 object-contain"
-            />
+            <img src="/brand/vertice-symbol.png" alt={nome} className="h-8 w-8 object-contain" />
           </div>
         ) : marcaDoProduto ? (
           // O desenho do produto, inline (ver `components/branding/MarcaDoProduto.tsx`):
@@ -238,9 +235,7 @@ export function SidebarContent({
           // interface pode ocultar temporariamente todos os atalhos de CRM/IA,
           // e nesses grupos o link "Ver tudo" é parte do contrato de navegação.
           const hubDireto =
-            !collapsed && group.id === "recrutamento" && items.length === 0
-              ? group.hub
-              : undefined;
+            !collapsed && group.id === "recrutamento" && items.length === 0 ? group.hub : undefined;
           const isHubActive = hubDireto
             ? pathname === hubDireto.href || pathname.startsWith(hubDireto.href + "/")
             : false;

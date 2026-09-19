@@ -28,6 +28,7 @@ import type { Stage } from "@/lib/kanban/types";
 import { createLeadSchema, type CreateLeadInput } from "@/lib/schemas/leads";
 import { parseReaisToCents } from "@/lib/money";
 import { useCompanyList, useCompanyDetail } from "@/lib/people/client-hooks";
+import { rotuloDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { useAssignableMembers } from "@/hooks/inbox/useAssignableMembers";
 import { EcoDoValor } from "./EcoDoValor";
 
@@ -101,10 +102,7 @@ export function NewLeadDialog({
   const { data: companyDetail } = useCompanyDetail(
     selectedCompanyId && selectedCompanyId !== "none" ? selectedCompanyId : null,
   );
-  const companyContacts = useMemo(
-    () => companyDetail?.contacts ?? [],
-    [companyDetail?.contacts],
-  );
+  const companyContacts = useMemo(() => companyDetail?.contacts ?? [], [companyDetail?.contacts]);
 
   // Reset stage_id default if stages change while dialog mounted.
   useEffect(() => {
@@ -267,15 +265,15 @@ export function NewLeadDialog({
                     !selectedCompanyId
                       ? t("Selecione a empresa primeiro")
                       : companyContacts.length === 0
-                      ? t("Nenhum decisor cadastrado nesta empresa")
-                      : t("Selecione um decisor (opcional)")
+                        ? t("Nenhum decisor cadastrado nesta empresa")
+                        : t("Selecione um decisor (opcional)")
                   }
                 />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">{t("Sem decisor definido")}</SelectItem>
                 {companyContacts.map((c) => {
-                  const name = c.contact?.display_name || c.contact?.name || t("Contato");
+                  const name = rotuloDoContato(c.contact, t);
                   const role = c.role_in_company ? ` (${c.role_in_company})` : "";
                   const primary = c.is_primary ? ` [${t("Principal")}]` : "";
                   return (
@@ -325,10 +323,7 @@ export function NewLeadDialog({
           {/* Etapa do Funil */}
           <div className="space-y-2">
             <Label>{t("Etapa do Funil")}</Label>
-            <Select
-              value={stageId}
-              onValueChange={(v) => form.setValue("stage_id", v)}
-            >
+            <Select value={stageId} onValueChange={(v) => form.setValue("stage_id", v)}>
               <SelectTrigger>
                 <SelectValue placeholder={t("Selecione a etapa")} />
               </SelectTrigger>
@@ -356,9 +351,7 @@ export function NewLeadDialog({
               />
               <EcoDoValor control={form.control} />
               {form.formState.errors.valueReais && (
-                <p className="text-xs text-error-fg">
-                  {form.formState.errors.valueReais.message}
-                </p>
+                <p className="text-xs text-error-fg">{form.formState.errors.valueReais.message}</p>
               )}
             </div>
             <div className="space-y-2">

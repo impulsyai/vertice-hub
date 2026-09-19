@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { partesNoFuso, instanteDe } from "@/lib/agenda/fuso";
+import { tagDeIdioma } from "@/lib/i18n/datas";
+import { traduzir } from "@/lib/i18n/dicionario";
+import { rotuloDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { APPLICATION_STAGES } from "@/lib/people/types";
 
 import { requireAuth, resolveActiveOrg } from "@/lib/auth/server";
@@ -27,18 +28,29 @@ import {
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Dashboard — Vértice Hub" };
 
-function formatCurrency(cents: number | null | undefined): string {
+function formatCurrency(
+  cents: number | null | undefined,
+  idioma: Parameters<typeof tagDeIdioma>[0],
+): string {
   if (cents == null || isNaN(cents)) return "R$ 0,00";
-  return (cents / 100).toLocaleString("pt-BR", {
+  return (cents / 100).toLocaleString(tagDeIdioma(idioma), {
     style: "currency",
     currency: "BRL",
   });
 }
 
-function formatDate(iso: string | null | undefined): string {
+function formatDate(
+  iso: string | null | undefined,
+  idioma: Parameters<typeof tagDeIdioma>[0],
+): string {
   if (!iso) return "—";
   try {
-    return format(new Date(iso), "dd/MM/yyyy", { locale: ptBR });
+    return new Intl.DateTimeFormat(tagDeIdioma(idioma), {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(new Date(iso));
   } catch {
     return "—";
   }
@@ -47,10 +59,14 @@ function formatDate(iso: string | null | undefined): string {
 // `fuso` é obrigatório: sem ele, Node.js interpreta o instante em UTC e exibe
 // horário errado em servidores com TZ=UTC (o padrão do Docker). Default
 // defensivo — o chamador SEMPRE deve passar o fuso lido da org.
-function formatTime(iso: string | null | undefined, fuso = "America/Sao_Paulo"): string {
+function formatTime(
+  iso: string | null | undefined,
+  fuso: string,
+  idioma: Parameters<typeof tagDeIdioma>[0],
+): string {
   if (!iso) return "";
   try {
-    return new Intl.DateTimeFormat("pt-BR", {
+    return new Intl.DateTimeFormat(tagDeIdioma(idioma), {
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
@@ -71,6 +87,8 @@ const STAGE_LABELS: Record<string, string> = Object.fromEntries(
 
 export default async function DashboardPage() {
   const user = await requireAuth();
+  const idioma = user.idioma;
+  const t = (texto: string) => traduzir(texto, idioma);
   const activeOrg = await resolveActiveOrg(user);
   if (!activeOrg) redirect("/login");
 
@@ -91,7 +109,12 @@ export default async function DashboardPage() {
   const fusoOrg = (() => {
     const tz = orgTimezoneRow?.timezone as string | undefined;
     if (!tz) return FUSO_PADRAO;
-    try { Intl.DateTimeFormat(undefined, { timeZone: tz }); return tz; } catch { return FUSO_PADRAO; }
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: tz });
+      return tz;
+    } catch {
+      return FUSO_PADRAO;
+    }
   })();
 
   const agora = new Date();
@@ -102,7 +125,14 @@ export default async function DashboardPage() {
     fusoOrg,
   );
   const hojeFim = instanteDe(
-    { ano: localHoje.ano, mes: localHoje.mes, dia: localHoje.dia, hora: 23, minuto: 59, segundo: 59 },
+    {
+      ano: localHoje.ano,
+      mes: localHoje.mes,
+      dia: localHoje.dia,
+      hora: 23,
+      minuto: 59,
+      segundo: 59,
+    },
     fusoOrg,
   );
   const dataSeteDias = new Date(hojeInicio);
@@ -143,7 +173,9 @@ export default async function DashboardPage() {
     // Oportunidades comerciais
     supabase
       .from("crm_leads")
-      .select("id, title, value_cents, currency, status, last_activity_at, created_at, client_company_id")
+      .select(
+        "id, title, value_cents, currency, status, last_activity_at, created_at, client_company_id",
+      )
       .eq("organization_id", orgId)
       .order("created_at", { ascending: false })
       .limit(20),
@@ -157,7 +189,7 @@ export default async function DashboardPage() {
     // Contatos para mapeamento
     supabase
       .from("contacts")
-      .select("id, name, display_name")
+      .select("id, name, display_name, phone_number")
       .eq("organization_id", orgId),
 
     // Vagas abertas
@@ -185,18 +217,10 @@ export default async function DashboardPage() {
   ]);
 
   // Mapas em memória para resolução instantânea sem sobrecarga de JOIN
-  const companyMap = new Map(
-    (companies ?? []).map((c) => [c.id, c.trade_name || c.legal_name]),
-  );
-  const contactMap = new Map(
-    (contacts ?? []).map((c) => [c.id, c.display_name || c.name]),
-  );
-  const candidateMap = new Map(
-    (candidates ?? []).map((c) => [c.id, c.full_name]),
-  );
-  const jobMap = new Map(
-    (jobOpenings ?? []).map((j) => [j.id, j.title]),
-  );
+  const companyMap = new Map((companies ?? []).map((c) => [c.id, c.trade_name || c.legal_name]));
+  const contactMap = new Map((contacts ?? []).map((c) => [c.id, rotuloDoContato(c, t)]));
+  const candidateMap = new Map((candidates ?? []).map((c) => [c.id, c.full_name]));
+  const jobMap = new Map((jobOpenings ?? []).map((j) => [j.id, j.title]));
 
   // Métricas Comerciais
   const openLeads = (leads ?? []).filter((l) => l.status !== "won" && l.status !== "lost");
@@ -215,48 +239,49 @@ export default async function DashboardPage() {
   const firstName = user.email?.split("@")[0] || "Gestor";
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 md:p-6 lg:p-8">
       {/* Top Header & Boas-Vindas */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+      <div className="flex flex-col justify-between gap-4 border-b pb-4 md:flex-row md:items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Painel Executivo & Operacional
+            {t("Painel Executivo & Operacional")}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Olá, {firstName}! Visão unificada do seu dia, funil comercial e recrutamento executivo.
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("Olá,")} {firstName}
+            {t("! Visão unificada do seu dia, funil comercial e recrutamento executivo.")}
           </p>
         </div>
 
         {/* Barra de Atalhos Rápidos */}
-        <div className="flex items-center flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href="/app/crm/empresas">
             <Button size="sm" variant="outline" className="gap-1.5 text-xs font-medium">
-              <Plus size={14} /> Nova Empresa
+              <Plus size={14} /> {t("Nova Empresa")}
             </Button>
           </Link>
           <Link href="/app/contacts">
             <Button size="sm" variant="outline" className="gap-1.5 text-xs font-medium">
-              <Plus size={14} /> Novo Contato
+              <Plus size={14} /> {t("Novo Contato")}
             </Button>
           </Link>
           <Link href="/app/kanban">
             <Button size="sm" variant="outline" className="gap-1.5 text-xs font-medium">
-              <Plus size={14} /> Nova Oportunidade
+              <Plus size={14} /> {t("Nova Oportunidade")}
             </Button>
           </Link>
           <Link href="/app/tasks">
             <Button size="sm" variant="outline" className="gap-1.5 text-xs font-medium">
-              <Plus size={14} /> Nova Tarefa
+              <Plus size={14} /> {t("Nova Tarefa")}
             </Button>
           </Link>
           <Link href="/app/recrutamento/vagas">
             <Button size="sm" variant="outline" className="gap-1.5 text-xs font-medium">
-              <Plus size={14} /> Nova Vaga
+              <Plus size={14} /> {t("Nova Vaga")}
             </Button>
           </Link>
           <Link href="/app/recrutamento/talentos">
             <Button size="sm" variant="default" className="gap-1.5 text-xs font-semibold">
-              <Plus size={14} /> Novo Candidato
+              <Plus size={14} /> {t("Novo Candidato")}
             </Button>
           </Link>
         </div>
@@ -265,12 +290,12 @@ export default async function DashboardPage() {
       {/* BLOCO 1: HOJE (Compromissos + Tarefas) */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase flex items-center gap-2">
+          <h2 className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
             <ClockCountdown size={16} className="text-primary" />
-            Hoje na Operação
+            {t("Hoje na Operação")}
           </h2>
           <span className="text-xs text-muted-foreground capitalize">
-            {new Intl.DateTimeFormat("pt-BR", {
+            {new Intl.DateTimeFormat(tagDeIdioma(idioma), {
               weekday: "long",
               day: "2-digit",
               month: "long",
@@ -279,26 +304,27 @@ export default async function DashboardPage() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Compromissos de Hoje */}
           <Card className="flex flex-col border shadow-xs">
-            <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between p-4 pb-2">
               <div className="flex items-center gap-2">
                 <CalendarBlank size={18} className="text-primary" />
-                <CardTitle className="text-sm font-semibold">Compromissos de Hoje</CardTitle>
+                <CardTitle className="text-sm font-semibold">{t("Compromissos de Hoje")}</CardTitle>
               </div>
               <Badge variant="secondary" className="text-xs">
-                {(appointments ?? []).length} agendado{((appointments ?? []).length !== 1 ? "s" : "")}
+                {(appointments ?? []).length}{" "}
+                {t((appointments ?? []).length !== 1 ? "agendados" : "agendado")}
               </Badge>
             </CardHeader>
-            <CardContent className="p-4 pt-2 flex-1">
+            <CardContent className="flex-1 p-4 pt-2">
               {(appointments ?? []).length === 0 ? (
                 <div className="py-6 text-center text-xs text-muted-foreground">
-                  Nenhum compromisso agendado para hoje.
+                  {t("Nenhum compromisso agendado para hoje.")}
                   <div className="mt-2">
                     <Link href="/app/agenda">
                       <Button variant="ghost" size="sm" className="h-7 text-xs text-primary">
-                        Abrir Agenda <ArrowRight size={12} className="ml-1" />
+                        {t("Abrir Agenda")} <ArrowRight size={12} className="ml-1" />
                       </Button>
                     </Link>
                   </div>
@@ -311,22 +337,22 @@ export default async function DashboardPage() {
                       <Link
                         key={app.id}
                         href="/app/agenda"
-                        className="py-2.5 flex items-center justify-between hover:bg-muted/40 px-2 rounded-md transition-colors group"
+                        className="group flex items-center justify-between rounded-md px-2 py-2.5 transition-colors hover:bg-muted/40"
                       >
                         <div className="min-w-0 flex-1 pr-3">
-                          <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                          <p className="truncate text-sm font-medium text-foreground transition-colors group-hover:text-primary">
                             {app.title}
                           </p>
                           {contactName && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                               <User size={12} /> {contactName}
                             </p>
                           )}
                         </div>
-                        <div className="text-right shrink-0">
+                        <div className="shrink-0 text-right">
                           <span className="text-xs font-semibold text-foreground">
-                            {formatTime(app.starts_at, fusoOrg)}
-                            {app.ends_at ? ` - ${formatTime(app.ends_at, fusoOrg)}` : ""}
+                            {formatTime(app.starts_at, fusoOrg, idioma)}
+                            {app.ends_at ? ` - ${formatTime(app.ends_at, fusoOrg, idioma)}` : ""}
                           </span>
                         </div>
                       </Link>
@@ -339,23 +365,25 @@ export default async function DashboardPage() {
 
           {/* Tarefas para Hoje / Atrasadas */}
           <Card className="flex flex-col border shadow-xs">
-            <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between p-4 pb-2">
               <div className="flex items-center gap-2">
                 <ListChecks size={18} className="text-primary" />
-                <CardTitle className="text-sm font-semibold">Tarefas para Hoje / Atrasadas</CardTitle>
+                <CardTitle className="text-sm font-semibold">
+                  {t("Tarefas para Hoje / Atrasadas")}
+                </CardTitle>
               </div>
               <Badge variant="secondary" className="text-xs">
-                {(tasks ?? []).length} pendente{((tasks ?? []).length !== 1 ? "s" : "")}
+                {(tasks ?? []).length} {t((tasks ?? []).length !== 1 ? "pendentes" : "pendente")}
               </Badge>
             </CardHeader>
-            <CardContent className="p-4 pt-2 flex-1">
+            <CardContent className="flex-1 p-4 pt-2">
               {(tasks ?? []).length === 0 ? (
                 <div className="py-6 text-center text-xs text-muted-foreground">
-                  Nenhuma tarefa pendente com prazo imediato.
+                  {t("Nenhuma tarefa pendente com prazo imediato.")}
                   <div className="mt-2">
                     <Link href="/app/tasks">
                       <Button variant="ghost" size="sm" className="h-7 text-xs text-primary">
-                        Ver todas as Tarefas <ArrowRight size={12} className="ml-1" />
+                        {t("Ver todas as Tarefas")} <ArrowRight size={12} className="ml-1" />
                       </Button>
                     </Link>
                   </div>
@@ -363,31 +391,43 @@ export default async function DashboardPage() {
               ) : (
                 <div className="divide-y divide-border">
                   {(tasks ?? []).map((t) => {
-                    const company = t.client_company_id ? companyMap.get(t.client_company_id) : null;
+                    const company = t.client_company_id
+                      ? companyMap.get(t.client_company_id)
+                      : null;
                     const contact = t.contact_id ? contactMap.get(t.contact_id) : null;
                     return (
                       <Link
                         key={t.id}
                         href="/app/tasks"
-                        className="py-2.5 flex items-center justify-between hover:bg-muted/40 px-2 rounded-md transition-colors group"
+                        className="group flex items-center justify-between rounded-md px-2 py-2.5 transition-colors hover:bg-muted/40"
                       >
                         <div className="min-w-0 flex-1 pr-3">
-                          <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                          <p className="truncate text-sm font-medium text-foreground transition-colors group-hover:text-primary">
                             {t.title}
                           </p>
                           {(company || contact) && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
-                              {company && <span className="flex items-center gap-1"><Buildings size={12} /> {company}</span>}
-                              {contact && <span className="flex items-center gap-1"><User size={12} /> {contact}</span>}
+                            <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                              {company && (
+                                <span className="flex items-center gap-1">
+                                  <Buildings size={12} /> {company}
+                                </span>
+                              )}
+                              {contact && (
+                                <span className="flex items-center gap-1">
+                                  <User size={12} /> {contact}
+                                </span>
+                              )}
                             </p>
                           )}
                         </div>
-                        <div className="text-right shrink-0 flex items-center gap-2">
+                        <div className="flex shrink-0 items-center gap-2 text-right">
                           {t.priority === "high" && (
-                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-5">Alta</Badge>
+                            <Badge variant="destructive" className="h-5 px-1.5 py-0 text-[10px]">
+                              {traduzir("Alta", idioma)}
+                            </Badge>
                           )}
                           <span className="text-xs text-muted-foreground">
-                            {formatDate(t.due_date)}
+                            {formatDate(t.due_date, idioma)}
                           </span>
                         </div>
                       </Link>
@@ -403,53 +443,70 @@ export default async function DashboardPage() {
       {/* BLOCO 2: COMERCIAL */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase flex items-center gap-2">
+          <h2 className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
             <Kanban size={16} className="text-primary" />
-            Comercial B2B & Oportunidades
+            {t("Comercial B2B & Oportunidades")}
           </h2>
-          <Link href="/app/kanban" className="text-xs font-medium text-primary hover:underline flex items-center gap-1">
-            Abrir Funil <ArrowRight size={12} />
+          <Link
+            href="/app/kanban"
+            className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
+            {t("Abrir Funil")} <ArrowRight size={12} />
           </Link>
         </div>
 
         {/* Métricas Comerciais */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Card className="p-4 border shadow-xs">
-            <p className="text-xs font-medium text-muted-foreground">Oportunidades Abertas</p>
-            <p className="text-2xl font-bold text-foreground mt-1">{openLeads.length}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Em negociação ativa</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Card className="border p-4 shadow-xs">
+            <p className="text-xs font-medium text-muted-foreground">
+              {t("Oportunidades Abertas")}
+            </p>
+            <p className="mt-1 text-2xl font-bold text-foreground">{openLeads.length}</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">{t("Em negociação ativa")}</p>
           </Card>
 
-          <Card className="p-4 border shadow-xs">
-            <p className="text-xs font-medium text-muted-foreground">Valor Estimado no Funil</p>
-            <p className="text-2xl font-bold text-primary mt-1">{formatCurrency(totalPipelineCents)}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Soma dos valores em aberto</p>
+          <Card className="border p-4 shadow-xs">
+            <p className="text-xs font-medium text-muted-foreground">
+              {t("Valor Estimado no Funil")}
+            </p>
+            <p className="mt-1 text-2xl font-bold text-primary">
+              {formatCurrency(totalPipelineCents, idioma)}
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {t("Soma dos valores em aberto")}
+            </p>
           </Card>
 
-          <Card className="p-4 border shadow-xs">
-            <p className="text-xs font-medium text-muted-foreground">Paradas / Em Risco</p>
-            <div className="flex items-center gap-2 mt-1">
-              <p className={`text-2xl font-bold ${staleLeads.length > 0 ? "text-amber-500" : "text-foreground"}`}>
+          <Card className="border p-4 shadow-xs">
+            <p className="text-xs font-medium text-muted-foreground">{t("Paradas / Em Risco")}</p>
+            <div className="mt-1 flex items-center gap-2">
+              <p
+                className={`text-2xl font-bold ${staleLeads.length > 0 ? "text-amber-500" : "text-foreground"}`}
+              >
                 {staleLeads.length}
               </p>
               {staleLeads.length > 0 && (
-                <Badge variant="outline" className="text-[10px] text-amber-500 border-amber-500/30">
-                  Atenção
+                <Badge variant="outline" className="border-amber-500/30 text-[10px] text-amber-500">
+                  {t("Atenção")}
                 </Badge>
               )}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">&gt; 7 dias sem interação</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {t("> 7 dias sem interação")}
+            </p>
           </Card>
         </div>
 
         {/* Oportunidades Recentes */}
         <Card className="border shadow-xs">
           <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm font-semibold">Oportunidades Recentes</CardTitle>
+            <CardTitle className="text-sm font-semibold">{t("Oportunidades Recentes")}</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-1">
             {openLeads.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-4 text-center">Nenhuma oportunidade comercial aberta.</p>
+              <p className="py-4 text-center text-xs text-muted-foreground">
+                {t("Nenhuma oportunidade comercial aberta.")}
+              </p>
             ) : (
               <div className="divide-y divide-border">
                 {openLeads.slice(0, 5).map((l) => {
@@ -458,24 +515,24 @@ export default async function DashboardPage() {
                     <Link
                       key={l.id}
                       href="/app/kanban"
-                      className="py-2.5 flex items-center justify-between hover:bg-muted/40 px-2 rounded-md transition-colors group"
+                      className="group flex items-center justify-between rounded-md px-2 py-2.5 transition-colors hover:bg-muted/40"
                     >
                       <div className="min-w-0 flex-1 pr-3">
-                        <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                        <p className="truncate text-sm font-medium text-foreground transition-colors group-hover:text-primary">
                           {l.title}
                         </p>
                         {company && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                             <Buildings size={12} /> {company}
                           </p>
                         )}
                       </div>
-                      <div className="text-right shrink-0">
+                      <div className="shrink-0 text-right">
                         <p className="text-sm font-semibold text-foreground">
-                          {formatCurrency(l.value_cents)}
+                          {formatCurrency(l.value_cents, idioma)}
                         </p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {formatDate(l.created_at)}
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          {formatDate(l.created_at, idioma)}
                         </p>
                       </div>
                     </Link>
@@ -490,34 +547,45 @@ export default async function DashboardPage() {
       {/* BLOCO 3: RECRUTAMENTO */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase flex items-center gap-2">
+          <h2 className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
             <UsersThree size={16} className="text-primary" />
-            Recrutamento & Seleção Executiva
+            {t("Recrutamento & Seleção Executiva")}
           </h2>
-          <Link href="/app/recrutamento" className="text-xs font-medium text-primary hover:underline flex items-center gap-1">
-            Ver Hub de Recrutamento <ArrowRight size={12} />
+          <Link
+            href="/app/recrutamento"
+            className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
+            {t("Ver Hub de Recrutamento")} <ArrowRight size={12} />
           </Link>
         </div>
 
         {/* Métricas Recrutamento */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Card className="p-4 border shadow-xs">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Card className="border p-4 shadow-xs">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Vagas Abertas</p>
-                <p className="text-2xl font-bold text-foreground mt-1">{openJobs.length}</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Posições em andamento</p>
+                <p className="text-xs font-medium text-muted-foreground">{t("Vagas Abertas")}</p>
+                <p className="mt-1 text-2xl font-bold text-foreground">{openJobs.length}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  {t("Posições em andamento")}
+                </p>
               </div>
               <ClipboardText size={32} className="text-primary" aria-hidden="true" />
             </div>
           </Card>
 
-          <Card className="p-4 border shadow-xs">
+          <Card className="border p-4 shadow-xs">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Candidatos no Processo</p>
-                <p className="text-2xl font-bold text-foreground mt-1">{candidatesInProcess.length}</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Talentos ativos ou em triagem</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  {t("Candidatos no Processo")}
+                </p>
+                <p className="mt-1 text-2xl font-bold text-foreground">
+                  {candidatesInProcess.length}
+                </p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  {t("Talentos ativos ou em triagem")}
+                </p>
               </div>
               <UsersThree size={32} className="text-primary" aria-hidden="true" />
             </div>
@@ -525,43 +593,53 @@ export default async function DashboardPage() {
         </div>
 
         {/* Grid de Vagas Abertas e Candidaturas Recentes */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Vagas Abertas */}
           <Card className="border shadow-xs">
-            <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-semibold">Vagas Abertas</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between p-4 pb-2">
+              <CardTitle className="text-sm font-semibold">{t("Vagas Abertas")}</CardTitle>
               <Link href="/app/recrutamento/vagas">
-                <Button variant="ghost" size="sm" className="h-6 text-xs text-primary px-2">
-                  Ver todas
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-primary">
+                  {t("Ver todas")}
                 </Button>
               </Link>
             </CardHeader>
             <CardContent className="p-4 pt-1">
               {openJobs.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-4 text-center">Nenhuma vaga aberta no momento.</p>
+                <p className="py-4 text-center text-xs text-muted-foreground">
+                  {t("Nenhuma vaga aberta no momento.")}
+                </p>
               ) : (
                 <div className="divide-y divide-border">
                   {openJobs.slice(0, 4).map((j) => {
-                    const company = j.client_company_id ? companyMap.get(j.client_company_id) : null;
+                    const company = j.client_company_id
+                      ? companyMap.get(j.client_company_id)
+                      : null;
                     return (
                       <Link
                         key={j.id}
                         href={`/app/recrutamento/vagas`}
-                        className="py-2.5 flex items-center justify-between hover:bg-muted/40 px-2 rounded-md transition-colors group"
+                        className="group flex items-center justify-between rounded-md px-2 py-2.5 transition-colors hover:bg-muted/40"
                       >
                         <div className="min-w-0 flex-1 pr-3">
-                          <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                          <p className="truncate text-sm font-medium text-foreground transition-colors group-hover:text-primary">
                             {j.title}
                           </p>
                           {company && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                               <Buildings size={12} /> {company}
                             </p>
                           )}
                         </div>
-                        <div className="text-right shrink-0">
+                        <div className="shrink-0 text-right">
                           <Badge variant="outline" className="text-[10px]">
-                            {j.work_model === "remote" ? "Remoto" : j.work_model === "hybrid" ? "Híbrido" : "Presencial"}
+                            {t(
+                              j.work_model === "remote"
+                                ? "Remoto"
+                                : j.work_model === "hybrid"
+                                  ? "Híbrido"
+                                  : "Presencial",
+                            )}
                           </Badge>
                         </div>
                       </Link>
@@ -574,43 +652,45 @@ export default async function DashboardPage() {
 
           {/* Candidaturas Recentes & Movimentações */}
           <Card className="border shadow-xs">
-            <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-semibold">Candidaturas Recentes</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between p-4 pb-2">
+              <CardTitle className="text-sm font-semibold">{t("Candidaturas Recentes")}</CardTitle>
               <Link href="/app/recrutamento/pipeline">
-                <Button variant="ghost" size="sm" className="h-6 text-xs text-primary px-2">
-                  Ver Funil
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-primary">
+                  {t("Ver Funil")}
                 </Button>
               </Link>
             </CardHeader>
             <CardContent className="p-4 pt-1">
               {(applications ?? []).length === 0 ? (
-                <p className="text-xs text-muted-foreground py-4 text-center">Nenhuma candidatura registrada.</p>
+                <p className="py-4 text-center text-xs text-muted-foreground">
+                  {t("Nenhuma candidatura registrada.")}
+                </p>
               ) : (
                 <div className="divide-y divide-border">
                   {(applications ?? []).slice(0, 4).map((app) => {
-                    const candName = candidateMap.get(app.candidate_id) || "Candidato";
-                    const jobTitle = jobMap.get(app.job_opening_id) || "Vaga";
-                    const stageLabel = STAGE_LABELS[app.stage] || app.stage;
+                    const candName = candidateMap.get(app.candidate_id) || t("Candidato");
+                    const jobTitle = jobMap.get(app.job_opening_id) || t("Vaga");
+                    const stageLabel = t(STAGE_LABELS[app.stage] || app.stage);
                     return (
                       <Link
                         key={app.id}
                         href="/app/recrutamento/pipeline"
-                        className="py-2.5 flex items-center justify-between hover:bg-muted/40 px-2 rounded-md transition-colors group"
+                        className="group flex items-center justify-between rounded-md px-2 py-2.5 transition-colors hover:bg-muted/40"
                       >
                         <div className="min-w-0 flex-1 pr-3">
-                          <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                          <p className="truncate text-sm font-medium text-foreground transition-colors group-hover:text-primary">
                             {candName}
                           </p>
-                          <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">
                             {jobTitle}
                           </p>
                         </div>
-                        <div className="text-right shrink-0">
+                        <div className="shrink-0 text-right">
                           <Badge variant="secondary" className="text-[10px] font-normal">
                             {stageLabel}
                           </Badge>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            {formatDate(app.created_at)}
+                          <p className="mt-0.5 text-[10px] text-muted-foreground">
+                            {formatDate(app.created_at, idioma)}
                           </p>
                         </div>
                       </Link>

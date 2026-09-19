@@ -23,14 +23,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/hooks/i18n/useT";
 import { useCompanyList, useCompanyDetail } from "@/lib/people/client-hooks";
+import { rotuloDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { useAssignableMembers } from "@/hooks/inbox/useAssignableMembers";
 import { Buildings, User, Kanban, UserCircle } from "@/lib/ui/icons";
-import type {
-  NovaTarefa,
-  PrioridadeDaTarefa,
-  SituacaoDaTarefa,
-  Tarefa,
-} from "@/lib/tarefas/tipos";
+import type { NovaTarefa, PrioridadeDaTarefa, SituacaoDaTarefa, Tarefa } from "@/lib/tarefas/tipos";
 
 interface Props {
   aberto: boolean;
@@ -92,9 +88,7 @@ export function FormularioDeTarefa({
   const [situacao, setSituacao] = useState<SituacaoDaTarefa>(tarefa?.status ?? "pending");
 
   // Vínculos B2B
-  const [selectedLeadId, setSelectedLeadId] = useState<string>(
-    tarefa?.lead_id ?? leadId ?? "none",
-  );
+  const [selectedLeadId, setSelectedLeadId] = useState<string>(tarefa?.lead_id ?? leadId ?? "none");
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(
     tarefa?.client_company_id ?? clientCompanyId ?? "none",
   );
@@ -113,7 +107,8 @@ export function FormularioDeTarefa({
   const companies = companiesData?.data ?? [];
 
   // Detalhe da Empresa para filtrar contatos
-  const activeCompanyId = selectedCompanyId && selectedCompanyId !== "none" ? selectedCompanyId : null;
+  const activeCompanyId =
+    selectedCompanyId && selectedCompanyId !== "none" ? selectedCompanyId : null;
   const { data: companyDetail } = useCompanyDetail(activeCompanyId);
   const companyContacts = useMemo(() => companyDetail?.contacts ?? [], [companyDetail?.contacts]);
 
@@ -186,9 +181,11 @@ export function FormularioDeTarefa({
         priority: prioridade,
         status: situacao,
         lead_id: selectedLeadId && selectedLeadId !== "none" ? selectedLeadId : null,
-        client_company_id: selectedCompanyId && selectedCompanyId !== "none" ? selectedCompanyId : null,
+        client_company_id:
+          selectedCompanyId && selectedCompanyId !== "none" ? selectedCompanyId : null,
         contact_id: selectedContactId && selectedContactId !== "none" ? selectedContactId : null,
-        assigned_to: selectedAssignedTo && selectedAssignedTo !== "none" ? selectedAssignedTo : null,
+        assigned_to:
+          selectedAssignedTo && selectedAssignedTo !== "none" ? selectedAssignedTo : null,
       });
       aoMudarAbertura(false);
     } catch (falha) {
@@ -203,7 +200,7 @@ export function FormularioDeTarefa({
 
   return (
     <Dialog open={aberto} onOpenChange={aoMudarAbertura}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{editando ? t("Editar tarefa") : t("Nova tarefa")}</DialogTitle>
         </DialogHeader>
@@ -211,27 +208,27 @@ export function FormularioDeTarefa({
         <form onSubmit={enviar} className="space-y-4 pt-1">
           {/* Vínculo de Contexto B2B */}
           {travadoNoLead ? (
-            <div className="rounded-lg border border-border/70 bg-accent/5 p-3 text-xs space-y-1.5">
+            <div className="space-y-1.5 rounded-lg border border-border/70 bg-accent/5 p-3 text-xs">
               <div className="flex items-center gap-1.5 font-medium text-foreground">
-                <Kanban size={14} className="text-primary shrink-0" />
+                <Kanban size={14} className="shrink-0 text-primary" />
                 <span>{t("Oportunidade")}:</span>
                 <span className="text-primary">{leadTitle || t("Negócio ativo")}</span>
               </div>
             </div>
           ) : (
-            <div className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
+              <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                 {t("Contexto B2B")}
               </p>
 
               {/* Oportunidade */}
               <div className="space-y-1.5">
-                <Label htmlFor="tarefa-oportunidade" className="text-xs flex items-center gap-1.5">
-                  <Kanban size={13} className="text-primary shrink-0" />
+                <Label htmlFor="tarefa-oportunidade" className="flex items-center gap-1.5 text-xs">
+                  <Kanban size={13} className="shrink-0 text-primary" />
                   {t("Oportunidade comercial (opcional)")}
                 </Label>
                 <Select value={selectedLeadId} onValueChange={handleLeadChange}>
-                  <SelectTrigger id="tarefa-oportunidade" className="text-xs h-9">
+                  <SelectTrigger id="tarefa-oportunidade" className="h-9 text-xs">
                     <SelectValue placeholder={t("Selecione uma oportunidade...")} />
                   </SelectTrigger>
                   <SelectContent className="max-h-56">
@@ -245,11 +242,11 @@ export function FormularioDeTarefa({
                 </Select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {/* Empresa */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="tarefa-empresa" className="text-xs flex items-center gap-1.5">
-                    <Buildings size={13} className="text-primary shrink-0" />
+                  <Label htmlFor="tarefa-empresa" className="flex items-center gap-1.5 text-xs">
+                    <Buildings size={13} className="shrink-0 text-primary" />
                     {t("Empresa cliente")}
                   </Label>
                   <Select
@@ -257,7 +254,7 @@ export function FormularioDeTarefa({
                     onValueChange={handleCompanyChange}
                     disabled={loadingCompanies}
                   >
-                    <SelectTrigger id="tarefa-empresa" className="text-xs h-9">
+                    <SelectTrigger id="tarefa-empresa" className="h-9 text-xs">
                       <SelectValue placeholder={t("Selecione a empresa...")} />
                     </SelectTrigger>
                     <SelectContent className="max-h-56">
@@ -273,8 +270,8 @@ export function FormularioDeTarefa({
 
                 {/* Contato / Decisor */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="tarefa-contato" className="text-xs flex items-center gap-1.5">
-                    <User size={13} className="text-primary shrink-0" />
+                  <Label htmlFor="tarefa-contato" className="flex items-center gap-1.5 text-xs">
+                    <User size={13} className="shrink-0 text-primary" />
                     {t("Decisor / Contato")}
                   </Label>
                   <Select
@@ -282,7 +279,7 @@ export function FormularioDeTarefa({
                     onValueChange={setSelectedContactId}
                     disabled={activeCompanyId ? companyContacts.length === 0 : false}
                   >
-                    <SelectTrigger id="tarefa-contato" className="text-xs h-9">
+                    <SelectTrigger id="tarefa-contato" className="h-9 text-xs">
                       <SelectValue
                         placeholder={
                           activeCompanyId && companyContacts.length === 0
@@ -295,7 +292,7 @@ export function FormularioDeTarefa({
                       <SelectItem value="none">{t("Nenhum contato")}</SelectItem>
                       {companyContacts.map((ct) => (
                         <SelectItem key={ct.contact_id} value={ct.contact_id}>
-                          {ct.contact?.name || ct.contact?.display_name || t("Sem nome")}
+                          {rotuloDoContato(ct.contact, t)}
                           {ct.role_in_company ? ` (${ct.role_in_company})` : ""}
                         </SelectItem>
                       ))}
@@ -308,8 +305,8 @@ export function FormularioDeTarefa({
 
           {/* Responsável */}
           <div className="space-y-1.5">
-            <Label htmlFor="tarefa-responsavel" className="text-xs flex items-center gap-1.5">
-              <UserCircle size={13} className="text-primary shrink-0" />
+            <Label htmlFor="tarefa-responsavel" className="flex items-center gap-1.5 text-xs">
+              <UserCircle size={13} className="shrink-0 text-primary" />
               {t("Responsável pela tarefa")}
             </Label>
             <Select
@@ -317,7 +314,7 @@ export function FormularioDeTarefa({
               onValueChange={setSelectedAssignedTo}
               disabled={loadingMembers}
             >
-              <SelectTrigger id="tarefa-responsavel" className="text-xs h-9">
+              <SelectTrigger id="tarefa-responsavel" className="h-9 text-xs">
                 <SelectValue placeholder={t("Atribuir a um membro...")} />
               </SelectTrigger>
               <SelectContent className="max-h-56">
@@ -412,12 +409,15 @@ export function FormularioDeTarefa({
           </div>
 
           {erro ? (
-            <p role="alert" className="rounded-md bg-destructive/10 p-2 text-xs font-medium text-destructive">
+            <p
+              role="alert"
+              className="rounded-md bg-destructive/10 p-2 text-xs font-medium text-destructive"
+            >
               {erro}
             </p>
           ) : null}
 
-          <DialogFooter className="sticky bottom-0 bg-background/95 backdrop-blur-xs py-2.5 border-t mt-3 z-10 flex flex-row items-center justify-end gap-2">
+          <DialogFooter className="sticky bottom-0 z-10 mt-3 flex flex-row items-center justify-end gap-2 border-t bg-background/95 py-2.5 backdrop-blur-xs">
             <Button
               type="button"
               variant="ghost"

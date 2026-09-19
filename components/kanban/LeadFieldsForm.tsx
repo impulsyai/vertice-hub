@@ -22,6 +22,7 @@ import { updateLeadSchema, type UpdateLeadInput } from "@/lib/schemas/leads";
 import { parseReaisToCents } from "@/lib/money";
 import { CustomFieldsEditor, type CustomFieldDef } from "@/components/contacts/CustomFieldsEditor";
 import { useCompanyList, useCompanyDetail } from "@/lib/people/client-hooks";
+import { rotuloDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { EcoDoValor } from "./EcoDoValor";
 
 interface FormShape {
@@ -52,7 +53,9 @@ function centsToReais(cents: number | null | undefined): string {
 export function LeadFieldsForm({ lead, pipelineId, fieldDefs = [], onSaved, onCancel }: Props) {
   const t = useT();
   const edit = useEditLead(pipelineId);
-  const [customFields, setCustomFields] = useState<Record<string, unknown>>(lead.custom_fields ?? {});
+  const [customFields, setCustomFields] = useState<Record<string, unknown>>(
+    lead.custom_fields ?? {},
+  );
 
   const { data: companiesData } = useCompanyList({ limit: 100 });
   const companies = companiesData?.data ?? [];
@@ -113,8 +116,7 @@ export function LeadFieldsForm({ lead, pipelineId, fieldDefs = [], onSaved, onCa
         values.client_company_id && values.client_company_id !== "none"
           ? values.client_company_id
           : null,
-      contact_id:
-        values.contact_id && values.contact_id !== "none" ? values.contact_id : null,
+      contact_id: values.contact_id && values.contact_id !== "none" ? values.contact_id : null,
       value_cents: valueCents,
       tags,
       expected_close_date: values.expected_close_date || null,
@@ -146,10 +148,7 @@ export function LeadFieldsForm({ lead, pipelineId, fieldDefs = [], onSaved, onCa
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="title">{t("Título da Oportunidade")}</Label>
-        <Input
-          id="title"
-          {...form.register("title", { required: true, minLength: 2 })}
-        />
+        <Input id="title" {...form.register("title", { required: true, minLength: 2 })} />
       </div>
 
       <div className="space-y-2">
@@ -185,15 +184,15 @@ export function LeadFieldsForm({ lead, pipelineId, fieldDefs = [], onSaved, onCa
                 !selectedCompanyId || selectedCompanyId === "none"
                   ? t("Selecione a empresa primeiro")
                   : companyContacts.length === 0
-                  ? t("Nenhum decisor cadastrado")
-                  : t("Selecione o decisor")
+                    ? t("Nenhum decisor cadastrado")
+                    : t("Selecione o decisor")
               }
             />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">{t("Sem decisor definido")}</SelectItem>
             {companyContacts.map((c) => {
-              const name = c.contact?.display_name || c.contact?.name || t("Contato");
+              const name = rotuloDoContato(c.contact, t);
               const role = c.role_in_company ? ` (${c.role_in_company})` : "";
               const primary = c.is_primary ? ` [${t("Principal")}]` : "";
               return (
@@ -231,11 +230,7 @@ export function LeadFieldsForm({ lead, pipelineId, fieldDefs = [], onSaved, onCa
         </div>
         <div className="space-y-2">
           <Label htmlFor="expected_close_date">{t("Fechamento previsto")}</Label>
-          <Input
-            id="expected_close_date"
-            type="date"
-            {...form.register("expected_close_date")}
-          />
+          <Input id="expected_close_date" type="date" {...form.register("expected_close_date")} />
         </div>
       </div>
 

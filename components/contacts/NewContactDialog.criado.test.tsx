@@ -64,8 +64,17 @@ const CORPO_DA_ROTA: ApiSuccess<CreateContactResult> = {
   data: { contact: CONTATO, action: "created" },
 };
 
+const CORPO_DA_LISTA_DE_EMPRESAS = {
+  data: {
+    data: [],
+    pagination: { page: 1, limit: 100, total: 0, totalPages: 0 },
+  },
+};
+
 function envolver(ui: ReactNode) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
   return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
 }
 
@@ -73,11 +82,18 @@ beforeEach(() => {
   vi.stubGlobal(
     "fetch",
     vi.fn(
-      async () =>
-        new Response(JSON.stringify(CORPO_DA_ROTA), {
-          status: 201,
-          headers: { "content-type": "application/json" },
-        }),
+      async (input: RequestInfo | URL) =>
+        new Response(
+          JSON.stringify(
+            String(input).includes("/api/v1/people/companies")
+              ? CORPO_DA_LISTA_DE_EMPRESAS
+              : CORPO_DA_ROTA,
+          ),
+          {
+            status: 201,
+            headers: { "content-type": "application/json" },
+          },
+        ),
     ),
   );
 });
@@ -92,7 +108,12 @@ describe("NewContactDialog · onCriado", () => {
     const onCriado = vi.fn();
     const user = userEvent.setup();
     envolver(
-      <NewContactDialog open onOpenChange={vi.fn()} nomeInicial="Joana Prado" onCriado={onCriado} />,
+      <NewContactDialog
+        open
+        onOpenChange={vi.fn()}
+        nomeInicial="Joana Prado"
+        onCriado={onCriado}
+      />,
     );
 
     await user.type(screen.getByLabelText(/Telefone/i), "+5511999998888");
@@ -114,11 +135,18 @@ describe("NewContactDialog · onCriado", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(
-        async () =>
-          new Response(JSON.stringify({ data: { action: "created" } }), {
-            status: 201,
-            headers: { "content-type": "application/json" },
-          }),
+        async (input: RequestInfo | URL) =>
+          new Response(
+            JSON.stringify(
+              String(input).includes("/api/v1/people/companies")
+                ? CORPO_DA_LISTA_DE_EMPRESAS
+                : { data: { action: "created" } },
+            ),
+            {
+              status: 201,
+              headers: { "content-type": "application/json" },
+            },
+          ),
       ),
     );
     const onCriado = vi.fn();
