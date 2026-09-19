@@ -70,12 +70,22 @@ const yml = readFileSync(WORKFLOW, "utf8");
 const parte1 = listaDoWorkflow(yml, "SPECS_PARTE_1");
 const parte2 = listaDoWorkflow(yml, "SPECS_PARTE_2");
 const parte3 = listaDoWorkflow(yml, "SPECS_PARTE_3");
+const parte4 = listaDoWorkflow(yml, "SPECS_PARTE_4");
+const parte5 = listaDoWorkflow(yml, "SPECS_PARTE_5");
+const parte6 = listaDoWorkflow(yml, "SPECS_PARTE_6");
+const partes = [parte1, parte2, parte3, parte4, parte5, parte6];
 const foraDoCi = listaDoWorkflow(yml, "FORA_DO_CI");
 const noDisco = readdirSync(DIR_SPECS)
   .filter((f) => f.endsWith(".spec.ts"))
   .sort();
 
 describe("cobertura do e2e no CI", () => {
+  it("cada parte declarada tem specs", () => {
+    for (const [index, parte] of partes.entries()) {
+      expect(parte.length, `SPECS_PARTE_${index + 1} vazia`).toBeGreaterThan(10);
+    }
+  });
+
   it("o parser está vivo — controle positivo antes de qualquer conclusão", () => {
     // Sem isto, um regex que parou de casar devolveria três listas vazias e a
     // asserção de vigência passaria por vacuidade, enquanto a de completude
@@ -90,7 +100,7 @@ describe("cobertura do e2e no CI", () => {
   });
 
   it("toda spec do disco está em exatamente uma lista", () => {
-    const declaradas = [...parte1, ...parte2, ...parte3, ...foraDoCi];
+    const declaradas = [...partes.flat(), ...foraDoCi];
     const semLista = noDisco.filter((f) => !declaradas.includes(f));
     expect(
       semLista,
@@ -109,7 +119,7 @@ describe("cobertura do e2e no CI", () => {
     // O sentido inverso, e ele é pior: `playwright test naoexiste.spec.ts` não
     // acha nada e o job termina VERDE. Uma renomeação silenciosamente desliga a
     // cobertura daquele arquivo.
-    const fantasmas = [...parte1, ...parte2, ...parte3, ...foraDoCi].filter(
+    const fantasmas = [...partes.flat(), ...foraDoCi].filter(
       (f) => !noDisco.includes(f),
     );
     expect(fantasmas, "lista do CI aponta para spec inexistente — renomeada ou apagada").toEqual(
