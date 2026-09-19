@@ -56,21 +56,13 @@ describe("Sidebar agrupado", () => {
       .filter(Boolean);
     // Organização não tem título aqui: seu hub (Configurações) vive no rodapé
     // fixo, fora da área que rola — medido, ele caía fora da dobra até em 1080px.
-    expect(titulos).toEqual(["Atendimento", "CRM", "Recrutamento", "Agente de IA", "Canais", "Análise"]);
+    expect(titulos).toEqual(["Início", "Atendimento", "Comercial", "Recrutamento", "Automação & IA", "Canais", "Análise"]);
   });
 
-  it("leva às Etapas do funil pelo CRM, e não por Configurações", () => {
+  it("leva às Etapas do funil pelo Comercial, e não por Configurações", () => {
     comoPapel("admin");
     render(<Sidebar collapsed={false} />);
-    // ⚠️ O CAMINHO MUDOU, A PROPRIEDADE NÃO. Etapas do funil saiu do menu para
-    // dentro do hub do CRM quando Tarefas virou o quinto destino do grupo e o
-    // menu passou a rolar. A porta continua sendo CRM — "Ver tudo em CRM" leva
-    // a `/app/crm`, e é lá que a tela aparece —, nunca Configurações, que é o
-    // enterro que originou toda esta reorganização.
-    //
-    // O que este teste prende é a porta EXISTIR no grupo certo do sidebar; que
-    // ela desemboca na tela é o e2e `navegacao.spec.ts` que percorre, clicando.
-    const hub = screen.getByRole("link", { name: /Ver tudo em CRM/ });
+    const hub = screen.getByRole("link", { name: /Ver tudo em Comercial/ });
     expect(hub).toHaveAttribute("href", "/app/crm");
     expect(screen.queryByRole("link", { name: "Etapas do funil" })).toBeNull();
   });
@@ -78,36 +70,15 @@ describe("Sidebar agrupado", () => {
   it("e os dois itens de funil não disputam o mesmo nome", () => {
     comoPapel("admin");
     render(<Sidebar collapsed={false} />);
-    expect(screen.getByRole("link", { name: "Funis" })).toHaveAttribute("href", "/app/kanban");
+    expect(screen.getByRole("link", { name: "Oportunidades" })).toHaveAttribute("href", "/app/kanban");
   });
 
   it("desenterra Audit Log — e Nuvemshop ficou de fora, por escolha", () => {
     comoPapel("admin");
     render(<Sidebar collapsed={false} />);
-    // ⚠️ O CAMINHO MUDOU, A PROPRIEDADE NÃO. O que esta linha sempre prendeu é
-    // que Audit Log deixou de existir só como card enterrado em Configurações.
-    // Quando Atividades (PR #583) virou o quinto destino do grupo Análise e o
-    // menu passou a rolar em 900px, a resposta foi o hub do grupo — como o
-    // comentário de densidade do `Sidebar.tsx` já mandava. Audit Log foi para
-    // dentro dele: a porta agora é "Ver tudo em Análise", nunca Configurações.
-    //
-    // Que a porta desemboca na tela é o e2e `navegacao.spec.ts` que percorre,
-    // clicando; aqui prende-se que ela EXISTE, no grupo certo do sidebar.
-    //
-    // Canal oficial não está aqui de propósito: virou aba de Conexões no PR
-    // #105, e Conexões é a porta.
     const hubAnalise = screen.getByRole("link", { name: /Ver tudo em Análise/ });
     expect(hubAnalise).toHaveAttribute("href", "/app/analise");
     expect(screen.queryByRole("link", { name: /Audit Log/ })).toBeNull();
-
-    // NUVEMSHOP SAIU, e esta linha é a reversão explícita de uma decisão que
-    // este mesmo teste travava: a integração tinha sido "desenterrada" para o
-    // menu justamente por não ter link nenhum. O dono do produto pediu para
-    // ocultá-la — não usa a integração —, então o que era garantia virou o
-    // contrário, e fica dito aqui para ninguém "consertar" de volta sem saber.
-    //
-    // Some do MENU, não do produto: a rota e a página seguem de pé e o ⌘K
-    // continua achando (`searchable()` filtra por papel, nunca por `sidebar`).
     expect(screen.queryByRole("link", { name: /Nuvemshop/ })).toBeNull();
   });
 
@@ -136,14 +107,17 @@ describe("Sidebar agrupado", () => {
     expect(screen.getByRole("link", { name: /Ver tudo em IA/ })).toHaveAttribute("href", "/app/ai");
   });
 
-  it("usa uma única porta quando o grupo só tem o hub", () => {
+  it("Recrutamento exibe os itens diretos no sidebar e seu hub", () => {
     comoPapel("admin");
     render(<Sidebar collapsed={false} />);
-    expect(screen.getByRole("link", { name: "Recrutamento" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Banco de Talentos" })).toHaveAttribute(
+      "href",
+      "/app/recrutamento/talentos",
+    );
+    expect(screen.getByRole("link", { name: "Ver tudo em Recrutamento" })).toHaveAttribute(
       "href",
       "/app/recrutamento",
     );
-    expect(screen.queryByRole("link", { name: "Ver tudo em Recrutamento" })).toBeNull();
   });
 
   it("preserva o rótulo do hub quando a personalização esvazia outro grupo", () => {
@@ -153,7 +127,7 @@ describe("Sidebar agrupado", () => {
       destinos: ["/app/products"],
     };
     render(<Sidebar collapsed={false} />);
-    expect(screen.getByRole("link", { name: "Ver tudo em CRM" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Ver tudo em Comercial" })).toHaveAttribute(
       "href",
       "/app/crm",
     );
@@ -163,14 +137,13 @@ describe("Sidebar agrupado", () => {
     comoPapel("admin");
     render(<Sidebar collapsed />);
     expect(screen.queryAllByRole("heading")).toHaveLength(0);
-    expect(screen.getByRole("link", { name: /Inbox/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Conversas/ })).toBeTruthy();
   });
 
   it("marca a rota atual com aria-current", () => {
     comoPapel("admin");
     render(<Sidebar collapsed={false} />);
-    expect(screen.getByRole("link", { name: /Inbox/ })).toHaveAttribute("aria-current", "page");
-    // "Kanban" saiu da interface; o item da mesma URL agora se chama "Funis".
-    expect(screen.getByRole("link", { name: "Funis" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: /Conversas/ })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Oportunidades" })).not.toHaveAttribute("aria-current");
   });
 });

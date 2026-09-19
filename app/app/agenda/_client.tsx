@@ -162,9 +162,13 @@ export function AgendaClient({
   // primeiro em ordem alfabética e não havia como marcar outro: numa org com
   // "Atendimento", "Consulta", "Reunião", só "Atendimento" era alcançável pela
   // tela. As categorias existiam no banco, no seed e na API — e a tela oferecia
-  // uma. Achado escrevendo a spec de marcar, não lendo o código.
   const [tipoId, setTipoId] = React.useState<string | null>(() => tiposIniciais[0]?.id ?? null);
   const tipo = tiposIniciais.find((t) => t.id === tipoId) ?? tiposIniciais[0] ?? null;
+  const [opportunityId, setOpportunityId] = React.useState<string>("");
+  const [customTitle, setCustomTitle] = React.useState<string>("");
+  const [observacoes, setObservacoes] = React.useState<string>("");
+  const [modalidade, setModalidade] = React.useState<"online" | "presencial">("online");
+  const [localLink, setLocalLink] = React.useState<string>("");
   const [visao, setVisao] = React.useState<VisaoDaAgenda>("semana");
   /**
    * No CELULAR a agenda abre no DIA, não na semana.
@@ -500,6 +504,10 @@ export function AgendaClient({
             // não usado reapareceria na PRÓXIMA marcação, que é de outro
             // cliente — convite para a pessoa errada, sem ninguém ter pedido.
             setEmailConvidado("");
+            setCustomTitle("");
+            setObservacoes("");
+            setLocalLink("");
+            setOpportunityId("");
             // E o próprio cliente, que é o pior dos quatro a sobrar: medido numa
             // instalação real em 2026-09-12, "Novo agendamento" abriu com um
             // contato JÁ selecionado, herdado de uma abertura anterior feita a
@@ -556,9 +564,83 @@ export function AgendaClient({
           </SheetHeader>
           <div
             data-testid="novo-agendamento-scroll"
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 space-y-3 pt-2"
           >
-            {!remarcandoId?<VinculoDaMarcacao contactId={contactId} conversationId={conversationId} onChange={(contact,conversation)=>escolherVinculo({contact,conversation})}/>:null}
+            {!remarcandoId ? (
+              <div className="space-y-3 pt-2">
+                {/* Título do compromisso */}
+                <div>
+                  <label className="block text-xs font-medium text-text-muted" htmlFor="titulo-compromisso">
+                    {t("Título do compromisso")} <span className="opacity-70">({t("opcional")})</span>
+                  </label>
+                  <input
+                    id="titulo-compromisso"
+                    type="text"
+                    value={customTitle}
+                    onChange={(e) => setCustomTitle(e.target.value)}
+                    placeholder={tipo ? tipo.nome : t("Reunião com Decisor")}
+                    className="mt-1 w-full rounded-md border bg-surface p-2 text-sm border-border focus:border-border-strong outline-hidden"
+                  />
+                </div>
+
+                <VinculoDaMarcacao
+                  contactId={contactId}
+                  conversationId={conversationId}
+                  opportunityId={opportunityId}
+                  onChange={(contact, conversation) => escolherVinculo({ contact, conversation })}
+                  onOpportunityChange={setOpportunityId}
+                  onContactSelected={(c) => {
+                    if (!emailConvidado && c.email) setEmailConvidado(c.email);
+                  }}
+                />
+
+                {/* Modalidade & Local/Link */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-text-muted">
+                      {t("Modalidade")}
+                    </label>
+                    <select
+                      value={modalidade}
+                      onChange={(e) => setModalidade(e.target.value as "online" | "presencial")}
+                      className="mt-1 w-full rounded-md border bg-surface p-2 text-sm border-border"
+                    >
+                      <option value="online">{t("Online (Meet / Zoom / Teams)")}</option>
+                      <option value="presencial">{t("Presencial")}</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-text-muted" htmlFor="local-link">
+                      {t("Local ou Link")} <span className="opacity-70">({t("opcional")})</span>
+                    </label>
+                    <input
+                      id="local-link"
+                      type="text"
+                      value={localLink}
+                      onChange={(e) => setLocalLink(e.target.value)}
+                      placeholder={modalidade === "online" ? "https://meet.google.com/..." : "Endereço da reunião"}
+                      className="mt-1 w-full rounded-md border bg-surface p-2 text-sm border-border focus:border-border-strong outline-hidden"
+                    />
+                  </div>
+                </div>
+
+                {/* Observações / Pauta */}
+                <div>
+                  <label className="block text-xs font-medium text-text-muted" htmlFor="observacoes-pauta">
+                    {t("Observações / Pauta")} <span className="opacity-70">({t("opcional")})</span>
+                  </label>
+                  <textarea
+                    id="observacoes-pauta"
+                    rows={2}
+                    value={observacoes}
+                    onChange={(e) => setObservacoes(e.target.value)}
+                    placeholder={t("Pauta do encontro, contexto e alinhamentos prévios...")}
+                    className="mt-1 w-full rounded-md border bg-surface p-2 text-sm border-border focus:border-border-strong outline-hidden resize-none"
+                  />
+                </div>
+              </div>
+            ) : null}
           {tiposIniciais.length > 1 && (
             <div className="mt-4" data-testid="tipos-de-agendamento">
               <p className="mb-2 text-xs font-medium text-text-muted">{t("Tipo de agendamento")}</p>
@@ -697,16 +779,31 @@ export function AgendaClient({
                         return r;
                       });
                   }
+                  const notesPayload = [
+                    observacoes.trim(),
+                    modalidade ? `Modalidade: ${modalidade === "online" ? "Online" : "Presencial"}` : "",
+                    localLink.trim() ? `Local/Link: ${localLink.trim()}` : "",
+                    opportunityId ? `Oportunidade ID: ${opportunityId}` : "",
+                  ]
+                    .filter(Boolean)
+                    .join("\n");
+
                   return marcar
                     .mutateAsync({
                       event_type_id: tipo.id,
-                      contact_id:contactId||undefined,
-                      conversation_id:conversationId||undefined,
+                      contact_id: contactId || undefined,
+                      conversation_id: conversationId || undefined,
                       starts_at: instante,
                       guest_email: convidado,
+                      title: customTitle.trim() || undefined,
+                      notes: notesPayload || undefined,
                     })
                     .then((r) => {
                       setEmailConvidado("");
+                      setCustomTitle("");
+                      setObservacoes("");
+                      setLocalLink("");
+                      setOpportunityId("");
                       // Guardado para o fechamento saber para onde levar a grade.
                       setMarcadoEm(instante);
                       return r;

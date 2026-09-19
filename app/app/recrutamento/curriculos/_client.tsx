@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiClient } from "@/lib/api/client";
 import { useResumeList } from "@/lib/people/client-hooks";
+import { formatFileSize } from "@/lib/ui/form-masks";
 
 export function CurriculosClient() {
   const t = useT();
@@ -63,64 +64,128 @@ export function CurriculosClient() {
           </Link>
         </Card>
       ) : (
-        <div className="rounded-md border bg-card overflow-hidden shadow-xs">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/60 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="p-4">{t("Arquivo")}</th>
-                <th className="p-4">{t("Candidato")}</th>
-                <th className="p-4">{t("Tamanho")}</th>
-                <th className="p-4">{t("Origem")}</th>
-                <th className="p-4">{t("Data")}</th>
-                <th className="p-4">{t("Status")}</th>
-                <th className="p-4 text-right">{t("Ação")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {resumes.map((r) => (
-                <tr key={r.id} className="hover:bg-accent/5 transition-colors">
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-primary shrink-0" />
-                      <span className="font-medium text-foreground">{r.original_filename}</span>
+        <div className="space-y-4">
+          {/* Mobile Cards */}
+          <div className="grid grid-cols-1 gap-3 md:hidden">
+            {resumes.map((r) => (
+              <div
+                key={r.id}
+                onClick={() => {
+                  window.location.href = `/app/recrutamento/talentos/${r.candidate_id}`;
+                }}
+                className="rounded-lg border bg-card p-4 shadow-xs hover:border-primary/40 transition-colors cursor-pointer space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    <FileText className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm text-foreground truncate max-w-[200px]" title={r.original_filename}>
+                        {r.original_filename}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {formatFileSize(r.file_size_bytes)} • {new Date(r.created_at).toLocaleDateString(tagDoIdioma)}
+                      </p>
                     </div>
-                  </td>
-                  <td className="p-4">
-                    <Link
-                      href={`/app/recrutamento/talentos/${r.candidate_id}`}
-                      className="text-primary hover:underline inline-flex items-center gap-1 font-medium"
-                    >
-                      <span>{t("Ver Dossiê")}</span>
-                      <ArrowSquareOut className="h-3 w-3" />
-                    </Link>
-                  </td>
-                  <td className="p-4 text-muted-foreground">{(r.file_size_bytes / 1024).toFixed(1)} KB</td>
-                  <td className="p-4 text-muted-foreground capitalize">{r.source_type}</td>
-                  <td className="p-4 text-muted-foreground">{new Date(r.created_at).toLocaleDateString(tagDoIdioma)}</td>
-                  <td className="p-4">
-                    {r.is_current ? (
-                      <Badge variant="outline" className="border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium">
-                        {t("Atual")}
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="font-normal text-muted-foreground">{t("Histórico")}</Badge>
-                    )}
-                  </td>
-                  <td className="p-4 text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 h-8 text-xs hover:bg-accent/10 hover:text-primary"
-                      onClick={() => handleDownloadResume(r.id)}
-                    >
-                      <DownloadSimple className="h-3.5 w-3.5" />
-                      {t("Download")}
-                    </Button>
-                  </td>
+                  </div>
+                  {r.is_current ? (
+                    <Badge variant="outline" className="border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium text-[10px] shrink-0">
+                      {t("Atual")}
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="font-normal text-muted-foreground text-[10px] shrink-0">{t("Histórico")}</Badge>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t text-xs" onClick={(e) => e.stopPropagation()}>
+                  <Link
+                    href={`/app/recrutamento/talentos/${r.candidate_id}`}
+                    className="text-primary hover:underline inline-flex items-center gap-1 font-medium"
+                  >
+                    <span>{t("Ver Dossiê")}</span>
+                    <ArrowSquareOut className="h-3 w-3" />
+                  </Link>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 h-7 text-xs"
+                    onClick={() => handleDownloadResume(r.id)}
+                  >
+                    <DownloadSimple className="h-3.5 w-3.5" />
+                    {t("Download")}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table */}
+          <div className="hidden md:block rounded-md border bg-card overflow-hidden shadow-xs">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/60 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="p-4">{t("Arquivo")}</th>
+                  <th className="p-4">{t("Candidato")}</th>
+                  <th className="p-4">{t("Tamanho")}</th>
+                  <th className="p-4">{t("Origem")}</th>
+                  <th className="p-4">{t("Data")}</th>
+                  <th className="p-4">{t("Status")}</th>
+                  <th className="p-4 text-right">{t("Ação")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {resumes.map((r) => (
+                  <tr
+                    key={r.id}
+                    onClick={() => {
+                      window.location.href = `/app/recrutamento/talentos/${r.candidate_id}`;
+                    }}
+                    className="hover:bg-accent/5 transition-colors cursor-pointer"
+                  >
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-primary shrink-0" />
+                        <span className="font-medium text-foreground">{r.original_filename}</span>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <Link
+                        href={`/app/recrutamento/talentos/${r.candidate_id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-primary hover:underline inline-flex items-center gap-1 font-medium"
+                      >
+                        <span>{t("Ver Dossiê")}</span>
+                        <ArrowSquareOut className="h-3 w-3" />
+                      </Link>
+                    </td>
+                    <td className="p-4 text-muted-foreground">{formatFileSize(r.file_size_bytes)}</td>
+                    <td className="p-4 text-muted-foreground capitalize">{r.source_type}</td>
+                    <td className="p-4 text-muted-foreground">{new Date(r.created_at).toLocaleDateString(tagDoIdioma)}</td>
+                    <td className="p-4">
+                      {r.is_current ? (
+                        <Badge variant="outline" className="border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium">
+                          {t("Atual")}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="font-normal text-muted-foreground">{t("Histórico")}</Badge>
+                      )}
+                    </td>
+                    <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 h-8 text-xs hover:bg-accent/10 hover:text-primary"
+                        onClick={() => handleDownloadResume(r.id)}
+                      >
+                        <DownloadSimple className="h-3.5 w-3.5" />
+                        {t("Download")}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

@@ -45,6 +45,11 @@ export const DICIONARIO: Traducoes = {
   "Candidaturas": { es: "Postulaciones" },
   "Currículos": { es: "Currículos" },
   "Empresas": { es: "Empresas" },
+  "Oportunidades": { es: "Oportunidades" },
+  "Assistentes": { es: "Asistentes" },
+  "Comercial": { es: "Comercial" },
+  "Automação & IA": { es: "Automatización e IA" },
+  "Ver tudo em Comercial": { es: "Ver todo en Comercial" },
   // ─── Vértice People ───
   "Ver dossiê": { es: "Ver expediente" },
   "Posição Corporativa": { es: "Posición corporativa" },

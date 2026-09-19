@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
@@ -57,6 +58,8 @@ export function TalentosClient() {
   const candidates = data?.data ?? [];
   const pagination = data?.pagination;
 
+  const router = useRouter();
+
   return (
     <div className="space-y-6 p-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -72,9 +75,9 @@ export function TalentosClient() {
         </Button>
       </header>
 
-      {/* Barra de Filtros */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[240px] max-w-sm">
+      {/* Barra de Filtros Responsiva */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="relative flex-1 w-full sm:max-w-sm">
           <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={t("Buscar por nome, cargo ou empresa...")}
@@ -83,51 +86,53 @@ export function TalentosClient() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="pl-9"
+            className="pl-9 w-full"
           />
         </div>
 
-        <Select
-          value={status}
-          onValueChange={(val) => {
-            setStatus(val);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder={t("Status")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("Todos os status")}</SelectItem>
-            <SelectItem value="active">{t("Ativo")}</SelectItem>
-            <SelectItem value="in_process">{t("Em Processo")}</SelectItem>
-            <SelectItem value="hired">{t("Contratado")}</SelectItem>
-            <SelectItem value="inactive">{t("Inativo")}</SelectItem>
-            <SelectItem value="do_not_contact">{t("Não Contatar")}</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+          <Select
+            value={status}
+            onValueChange={(val) => {
+              setStatus(val);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[160px]">
+              <SelectValue placeholder={t("Status")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("Todos os status")}</SelectItem>
+              <SelectItem value="active">{t("Ativo")}</SelectItem>
+              <SelectItem value="in_process">{t("Em Processo")}</SelectItem>
+              <SelectItem value="hired">{t("Contratado")}</SelectItem>
+              <SelectItem value="inactive">{t("Inativo")}</SelectItem>
+              <SelectItem value="do_not_contact">{t("Não Contatar")}</SelectItem>
+            </SelectContent>
+          </Select>
 
-        <Select
-          value={seniority}
-          onValueChange={(val) => {
-            setSeniority(val);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-[195px]">
-            <SelectValue placeholder={t("Senioridade")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("Todas as senioridades")}</SelectItem>
-            <SelectItem value="junior">{t("Júnior")}</SelectItem>
-            <SelectItem value="pleno">{t("Pleno")}</SelectItem>
-            <SelectItem value="senior">{t("Sênior")}</SelectItem>
-            <SelectItem value="especialista">{t("Especialista")}</SelectItem>
-            <SelectItem value="coordenacao">{t("Coordenação")}</SelectItem>
-            <SelectItem value="gerencia">{t("Gerência")}</SelectItem>
-            <SelectItem value="diretoria">{t("Diretoria / C-Level")}</SelectItem>
-          </SelectContent>
-        </Select>
+          <Select
+            value={seniority}
+            onValueChange={(val) => {
+              setSeniority(val);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[195px]">
+              <SelectValue placeholder={t("Senioridade")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("Todas as senioridades")}</SelectItem>
+              <SelectItem value="junior">{t("Júnior")}</SelectItem>
+              <SelectItem value="pleno">{t("Pleno")}</SelectItem>
+              <SelectItem value="senior">{t("Sênior")}</SelectItem>
+              <SelectItem value="especialista">{t("Especialista")}</SelectItem>
+              <SelectItem value="coordenacao">{t("Coordenação")}</SelectItem>
+              <SelectItem value="gerencia">{t("Gerência")}</SelectItem>
+              <SelectItem value="diretoria">{t("Diretoria / C-Level")}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {isLoading ? (
@@ -151,59 +156,100 @@ export function TalentosClient() {
           </Button>
         </Card>
       ) : (
-        <div className="rounded-md border bg-card overflow-hidden shadow-xs">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/60 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="p-3.5">{t("Nome")}</th>
-                <th className="p-3.5">{t("Cargo / Empresa")}</th>
-                <th className="p-3.5">{t("Área")}</th>
-                <th className="p-3.5">{t("Localização")}</th>
-                <th className="p-3.5">{t("Senioridade")}</th>
-                <th className="p-3.5">{t("Status")}</th>
-                <th className="p-3.5 text-right">{t("Ações")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {candidates.map((c) => (
-                <tr key={c.id} className="hover:bg-accent/5 transition-colors">
-                  <td className="p-3.5">
-                    <Link
-                      href={`/app/recrutamento/talentos/${c.id}`}
-                      className="font-medium text-foreground hover:text-primary transition-colors block"
-                    >
-                      {c.full_name}
-                    </Link>
-                    <span className="text-xs text-muted-foreground">{c.email ?? c.phone_e164 ?? "—"}</span>
-                  </td>
-                  <td className="p-3.5">
-                    <div className="text-foreground font-medium">{c.current_job_title ?? c.current_role ?? "—"}</div>
-                    {c.current_company && (
-                      <div className="text-xs text-muted-foreground">{c.current_company}</div>
-                    )}
-                  </td>
-                  <td className="p-3.5 text-muted-foreground">{c.area ?? "—"}</td>
-                  <td className="p-3.5 text-muted-foreground">
-                    {c.city && c.state ? `${c.city}, ${c.state}` : c.city ?? "—"}
-                  </td>
-                  <td className="p-3.5 text-muted-foreground capitalize">{c.seniority ?? "—"}</td>
-                  <td className="p-3.5">
-                    <CandidateStatusBadge status={c.status} />
-                  </td>
-                  <td className="p-3.5 text-right">
-                    <Link href={`/app/recrutamento/talentos/${c.id}`}>
-                      <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs hover:bg-accent/10 hover:text-primary">
-                        <span>{t("Ver dossiê")}</span>
-                        <ArrowSquareOut className="h-3.5 w-3.5" />
-                      </Button>
-                    </Link>
-                  </td>
+        <div className="space-y-4">
+          {/* Visualização Mobile: Cards */}
+          <div className="block md:hidden space-y-3">
+            {candidates.map((c) => (
+              <div
+                key={c.id}
+                onClick={() => router.push(`/app/recrutamento/talentos/${c.id}`)}
+                className="rounded-lg border bg-card p-4 shadow-xs hover:border-primary/50 transition-colors cursor-pointer space-y-2.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-base text-foreground truncate">{c.full_name}</h3>
+                    <p className="text-xs text-muted-foreground truncate">{c.email ?? c.phone_e164 ?? "—"}</p>
+                  </div>
+                  <CandidateStatusBadge status={c.status} />
+                </div>
+
+                <div className="space-y-1 text-xs">
+                  <div className="flex items-center gap-1.5 text-foreground">
+                    <span className="font-medium text-muted-foreground">{t("Cargo / Empresa")}:</span>
+                    <span className="truncate">{c.current_job_title ?? c.current_role ?? "—"} {c.current_company ? `(${c.current_company})` : ""}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-muted-foreground pt-1">
+                    <span><span className="font-medium">{t("Senioridade")}:</span> <span className="capitalize text-foreground">{c.seniority ?? "—"}</span></span>
+                    <span><span className="font-medium">{t("Local")}:</span> {c.city && c.state ? `${c.city}, ${c.state}` : c.city ?? "—"}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Visualização Desktop: Tabela */}
+          <div className="hidden md:block rounded-md border bg-card overflow-hidden shadow-xs">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/60 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="p-3.5">{t("Nome")}</th>
+                  <th className="p-3.5">{t("Cargo / Empresa")}</th>
+                  <th className="p-3.5">{t("Área")}</th>
+                  <th className="p-3.5">{t("Localização")}</th>
+                  <th className="p-3.5">{t("Senioridade")}</th>
+                  <th className="p-3.5">{t("Status")}</th>
+                  <th className="p-3.5 text-right">{t("Ações")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {candidates.map((c) => (
+                  <tr
+                    key={c.id}
+                    onClick={() => router.push(`/app/recrutamento/talentos/${c.id}`)}
+                    className="hover:bg-accent/5 transition-colors cursor-pointer"
+                  >
+                    <td className="p-3.5">
+                      <Link
+                        href={`/app/recrutamento/talentos/${c.id}`}
+                        className="font-medium text-foreground hover:text-primary transition-colors block"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {c.full_name}
+                      </Link>
+                      <span className="text-xs text-muted-foreground">{c.email ?? c.phone_e164 ?? "—"}</span>
+                    </td>
+                    <td className="p-3.5">
+                      <div className="text-foreground font-medium">{c.current_job_title ?? c.current_role ?? "—"}</div>
+                      {c.current_company && (
+                        <div className="text-xs text-muted-foreground">{c.current_company}</div>
+                      )}
+                    </td>
+                    <td className="p-3.5 text-muted-foreground">{c.area ?? "—"}</td>
+                    <td className="p-3.5 text-muted-foreground">
+                      {c.city && c.state ? `${c.city}, ${c.state}` : c.city ?? "—"}
+                    </td>
+                    <td className="p-3.5 text-muted-foreground capitalize">{c.seniority ?? "—"}</td>
+                    <td className="p-3.5">
+                      <CandidateStatusBadge status={c.status} />
+                    </td>
+                    <td className="p-3.5 text-right">
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Link href={`/app/recrutamento/talentos/${c.id}`}>
+                          <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs hover:bg-accent/10 hover:text-primary">
+                            <span>{t("Ver dossiê")}</span>
+                            <ArrowSquareOut className="h-3.5 w-3.5" />
+                          </Button>
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
           {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between p-4 border-t text-xs text-muted-foreground">
+            <div className="flex items-center justify-between p-4 border rounded-md bg-card text-xs text-muted-foreground">
               <span>
                 {t("Página")} {pagination.page} {t("de")} {pagination.totalPages} ({pagination.total} {t("candidatos")})
               </span>

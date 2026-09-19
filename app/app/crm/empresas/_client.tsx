@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
@@ -38,6 +39,7 @@ export function EmpresasClient() {
   const [isNewOpen, setIsNewOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<ClientCompany | null>(null);
 
+  const router = useRouter();
   const { data, isLoading } = useCompanyList({ search: search || undefined, page, limit: 20 });
   const companies = data?.data ?? [];
   const pagination = data?.pagination;
@@ -93,93 +95,147 @@ export function EmpresasClient() {
           </Button>
         </Card>
       ) : (
-        <div className="rounded-md border bg-card overflow-hidden shadow-xs">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/60 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="p-4">{t("Empresa")}</th>
-                <th className="p-4">{t("Setor")}</th>
-                <th className="p-4">{t("Localização")}</th>
-                <th className="p-4">{t("Website")}</th>
-                <th className="p-4">{t("Status")}</th>
-                <th className="p-4 text-right">{t("Ações")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {companies.map((company) => (
-                <tr key={company.id} className="hover:bg-accent/5 transition-colors">
-                  <td className="p-4">
-                    <Link
-                      href={`/app/crm/empresas/${company.id}`}
-                      className="font-medium text-foreground hover:text-primary hover:underline transition-colors block"
-                    >
-                      {company.trade_name}
-                    </Link>
+        <div className="space-y-4">
+          {/* Visualização Mobile: Cards */}
+          <div className="block md:hidden space-y-3">
+            {companies.map((company) => (
+              <div
+                key={company.id}
+                onClick={() => router.push(`/app/crm/empresas/${company.id}`)}
+                className="rounded-lg border bg-card p-4 shadow-xs hover:border-primary/50 transition-colors cursor-pointer space-y-2.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-base text-foreground truncate">{company.trade_name}</h3>
                     {company.legal_name && (
-                      <div className="text-xs text-muted-foreground">{company.legal_name}</div>
+                      <p className="text-xs text-muted-foreground truncate">{company.legal_name}</p>
                     )}
-                  </td>
-                  <td className="p-4 text-muted-foreground">{company.industry ?? "—"}</td>
-                  <td className="p-4 text-muted-foreground">
-                    {company.city && company.state ? `${company.city}, ${company.state}` : company.city ?? "—"}
-                  </td>
-                  <td className="p-4 text-muted-foreground">
-                    {company.website ? (
-                      <a
-                        href={company.website.startsWith("http") ? company.website : `https://${company.website}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-primary hover:underline"
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={
+                      company.status === "active"
+                        ? "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium"
+                        : company.status === "prospect"
+                        ? "border-amber-600/30 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium"
+                        : "border-stone-300 bg-stone-100 text-stone-700 font-normal"
+                    }
+                  >
+                    {company.status === "active" ? t("Ativa") : company.status === "prospect" ? t("Prospect") : t("Inativa")}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-2 border-t border-border/60">
+                  <div>
+                    <span className="font-medium text-foreground">{t("Setor")}:</span> {company.industry ?? "—"}
+                  </div>
+                  <div>
+                    <span className="font-medium text-foreground">{t("Local")}:</span> {company.city && company.state ? `${company.city}, ${company.state}` : company.city ?? "—"}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Visualização Desktop: Tabela */}
+          <div className="hidden md:block rounded-md border bg-card overflow-hidden shadow-xs">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/60 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="p-4">{t("Empresa")}</th>
+                  <th className="p-4">{t("Setor")}</th>
+                  <th className="p-4">{t("Localização")}</th>
+                  <th className="p-4">{t("Website")}</th>
+                  <th className="p-4">{t("Status")}</th>
+                  <th className="p-4 text-right">{t("Ações")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {companies.map((company) => (
+                  <tr
+                    key={company.id}
+                    onClick={() => router.push(`/app/crm/empresas/${company.id}`)}
+                    className="hover:bg-accent/5 transition-colors cursor-pointer"
+                  >
+                    <td className="p-4">
+                      <Link
+                        href={`/app/crm/empresas/${company.id}`}
+                        className="font-medium text-foreground hover:text-primary hover:underline transition-colors block"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        {company.website.replace(/^https?:\/\//, "")}
-                      </a>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="p-4">
-                    <Badge
-                      variant="outline"
-                      className={
-                        company.status === "active"
-                          ? "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium"
-                          : company.status === "prospect"
-                          ? "border-amber-600/30 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium"
-                          : "border-stone-300 bg-stone-100 text-stone-700 font-normal"
-                      }
-                    >
-                      {company.status === "active" ? t("Ativa") : company.status === "prospect" ? t("Prospect") : t("Inativa")}
-                    </Badge>
-                  </td>
-                  <td className="p-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Link href={`/app/crm/empresas/${company.id}`}>
+                        {company.trade_name}
+                      </Link>
+                      {company.legal_name && (
+                        <div className="text-xs text-muted-foreground">{company.legal_name}</div>
+                      )}
+                    </td>
+                    <td className="p-4 text-muted-foreground">{company.industry ?? "—"}</td>
+                    <td className="p-4 text-muted-foreground">
+                      {company.city && company.state ? `${company.city}, ${company.state}` : company.city ?? "—"}
+                    </td>
+                    <td className="p-4 text-muted-foreground">
+                      {company.website ? (
+                        <a
+                          href={company.website.startsWith("http") ? company.website : `https://${company.website}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {company.website.replace(/^https?:\/\//, "")}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="p-4">
+                      <Badge
+                        variant="outline"
+                        className={
+                          company.status === "active"
+                            ? "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium"
+                            : company.status === "prospect"
+                            ? "border-amber-600/30 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium"
+                            : "border-stone-300 bg-stone-100 text-stone-700 font-normal"
+                        }
+                      >
+                        {company.status === "active" ? t("Ativa") : company.status === "prospect" ? t("Prospect") : t("Inativa")}
+                      </Badge>
+                    </td>
+                    <td className="p-4 text-right">
+                      <div
+                        className="flex items-center justify-end gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Link href={`/app/crm/empresas/${company.id}`}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1.5 h-8 text-xs hover:bg-accent/10 hover:text-primary"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            {t("Ver empresa")}
+                          </Button>
+                        </Link>
                         <Button
                           variant="ghost"
                           size="sm"
                           className="gap-1.5 h-8 text-xs hover:bg-accent/10 hover:text-primary"
+                          onClick={() => setEditingCompany(company)}
                         >
-                          <Eye className="h-3.5 w-3.5" />
-                          {t("Ver empresa")}
+                          <PencilSimple className="h-3.5 w-3.5" />
+                          {t("Editar")}
                         </Button>
-                      </Link>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1.5 h-8 text-xs hover:bg-accent/10 hover:text-primary"
-                        onClick={() => setEditingCompany(company)}
-                      >
-                        <PencilSimple className="h-3.5 w-3.5" />
-                        {t("Editar")}
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
           {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between p-4 border-t text-xs text-muted-foreground">
+            <div className="flex items-center justify-between p-4 border rounded-md bg-card text-xs text-muted-foreground">
               <span>
                 {t("Página")} {pagination.page} {t("de")} {pagination.totalPages} ({pagination.total} {t("empresas")})
               </span>

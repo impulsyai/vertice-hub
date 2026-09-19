@@ -417,7 +417,7 @@ export function FormularioDeTarefa({
             </p>
           ) : null}
 
-          <DialogFooter className="pt-2">
+          <DialogFooter className="sticky bottom-0 bg-background/95 backdrop-blur-xs py-2.5 border-t mt-3 z-10 flex flex-row items-center justify-end gap-2">
             <Button
               type="button"
               variant="ghost"

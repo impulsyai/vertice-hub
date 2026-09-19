@@ -28,6 +28,7 @@ import { CustomFieldsEditor, type CustomFieldDef } from "@/components/contacts/C
 import type { Contact } from "@/lib/types/contacts";
 import { phoneForDisplay } from "@/lib/channels/phone-variants";
 import { useCompanyList } from "@/lib/people/client-hooks";
+import { maskPhoneBR } from "@/lib/ui/form-masks";
 
 interface FormShape {
   name?: string;
@@ -147,8 +148,16 @@ export function EditContactDialog({ contact, open, onOpenChange, customFieldDefs
             <Input id="ec-email" type="email" {...form.register("email")} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="ec-phone">{t("Telefone (E.164)")}</Label>
-            <Input id="ec-phone" {...form.register("phone_number")} />
+            <Label htmlFor="ec-phone">{t("Telefone / WhatsApp")}</Label>
+            <Input
+              id="ec-phone"
+              placeholder="(81) 99584-8588"
+              {...form.register("phone_number", {
+                onChange: (e) => {
+                  e.target.value = maskPhoneBR(e.target.value);
+                },
+              })}
+            />
           </div>
 
           <div className="space-y-2">

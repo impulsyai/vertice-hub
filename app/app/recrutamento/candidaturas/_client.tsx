@@ -119,71 +119,137 @@ export function CandidaturasClient() {
           </Link>
         </Card>
       ) : (
-        <div className="rounded-md border bg-card overflow-hidden shadow-xs">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/60 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="p-4">{t("Candidato")}</th>
-                <th className="p-4">{t("Vaga")}</th>
-                <th className="p-4">{t("Empresa Cliente")}</th>
-                <th className="p-4">{t("Etapa Atual")}</th>
-                <th className="p-4">{t("Data")}</th>
-                <th className="p-4 text-right">{t("Ações")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {applications.map((app) => {
-                const stageDef = RECRUITMENT_STAGES.find((s) => s.id === app.stage);
-                return (
-                  <tr key={app.id} className="hover:bg-accent/5 transition-colors">
-                    <td className="p-4">
-                      <Link
-                        href={`/app/recrutamento/talentos/${app.candidate_id}`}
-                        className="font-medium text-foreground hover:text-primary transition-colors block"
-                      >
+        <div className="space-y-4">
+          {/* Mobile Cards */}
+          <div className="grid grid-cols-1 gap-3 md:hidden">
+            {applications.map((app) => {
+              const stageDef = RECRUITMENT_STAGES.find((s) => s.id === app.stage);
+              return (
+                <div
+                  key={app.id}
+                  onClick={() => {
+                    window.location.href = `/app/recrutamento/talentos/${app.candidate_id}`;
+                  }}
+                  className="rounded-lg border bg-card p-4 shadow-xs hover:border-primary/40 transition-colors cursor-pointer space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-semibold text-foreground text-sm">
                         {app.candidate?.full_name ?? t("Candidato")}
-                      </Link>
-                      <span className="text-xs text-muted-foreground">{app.candidate?.current_job_title ?? app.candidate?.current_role ?? "—"}</span>
-                    </td>
-                    <td className="p-4">
-                      <Link
-                        href={`/app/recrutamento/vagas/${app.job_opening_id}`}
-                        className="text-foreground hover:text-primary transition-colors block font-medium"
-                      >
-                        {app.job_opening?.title ?? t("Vaga")}
-                      </Link>
-                    </td>
-                    <td className="p-4 text-muted-foreground">
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        {app.candidate?.current_job_title ?? app.candidate?.current_role ?? "—"}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary font-medium text-[11px] shrink-0">
+                      {stageDef?.label ?? app.stage}
+                    </Badge>
+                  </div>
+
+                  <div className="text-xs space-y-1 text-muted-foreground border-t pt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-foreground">{app.job_opening?.title ?? t("Vaga")}</span>
+                      <span>{new Date(app.stage_changed_at || app.created_at).toLocaleDateString(tagDoIdioma)}</span>
+                    </div>
+                    <div className="truncate">
                       {app.job_opening?.client_company?.trade_name ?? "—"}
-                    </td>
-                    <td className="p-4">
-                      <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary font-medium text-xs">
-                        {stageDef?.label ?? app.stage}
-                      </Badge>
-                    </td>
-                    <td className="p-4 text-muted-foreground text-xs">
-                      {new Date(app.stage_changed_at || app.created_at).toLocaleDateString(tagDoIdioma)}
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link href={`/app/recrutamento/pipeline?job_id=${app.job_opening_id}`}>
-                          <Button variant="outline" size="sm" className="h-8 text-xs">
-                            {t("Pipeline")}
-                          </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-dashed" onClick={(e) => e.stopPropagation()}>
+                    <Link href={`/app/recrutamento/pipeline?job_id=${app.job_opening_id}`}>
+                      <Button variant="outline" size="sm" className="h-7 text-xs">
+                        {t("Funil")}
+                      </Button>
+                    </Link>
+                    <Link href={`/app/recrutamento/talentos/${app.candidate_id}`}>
+                      <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs">
+                        <span>{t("Dossiê")}</span>
+                        <ArrowSquareOut className="h-3 w-3" />
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop Table */}
+          <div className="hidden md:block rounded-md border bg-card overflow-hidden shadow-xs">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/60 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="p-4">{t("Candidato")}</th>
+                  <th className="p-4">{t("Vaga")}</th>
+                  <th className="p-4">{t("Empresa Cliente")}</th>
+                  <th className="p-4">{t("Etapa Atual")}</th>
+                  <th className="p-4">{t("Data")}</th>
+                  <th className="p-4 text-right">{t("Ações")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {applications.map((app) => {
+                  const stageDef = RECRUITMENT_STAGES.find((s) => s.id === app.stage);
+                  return (
+                    <tr
+                      key={app.id}
+                      onClick={() => {
+                        window.location.href = `/app/recrutamento/talentos/${app.candidate_id}`;
+                      }}
+                      className="hover:bg-accent/5 transition-colors cursor-pointer"
+                    >
+                      <td className="p-4">
+                        <Link
+                          href={`/app/recrutamento/talentos/${app.candidate_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-medium text-foreground hover:text-primary transition-colors block"
+                        >
+                          {app.candidate?.full_name ?? t("Candidato")}
                         </Link>
-                        <Link href={`/app/recrutamento/talentos/${app.candidate_id}`}>
-                          <Button variant="ghost" size="sm" className="h-8 gap-1">
-                            <span>{t("Dossiê")}</span>
-                            <ArrowSquareOut className="h-3.5 w-3.5" />
-                          </Button>
+                        <span className="text-xs text-muted-foreground">{app.candidate?.current_job_title ?? app.candidate?.current_role ?? "—"}</span>
+                      </td>
+                      <td className="p-4">
+                        <Link
+                          href={`/app/recrutamento/vagas/${app.job_opening_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-foreground hover:text-primary transition-colors block font-medium"
+                        >
+                          {app.job_opening?.title ?? t("Vaga")}
                         </Link>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                      <td className="p-4 text-muted-foreground">
+                        {app.job_opening?.client_company?.trade_name ?? "—"}
+                      </td>
+                      <td className="p-4">
+                        <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary font-medium text-xs">
+                          {stageDef?.label ?? app.stage}
+                        </Badge>
+                      </td>
+                      <td className="p-4 text-muted-foreground text-xs">
+                        {new Date(app.stage_changed_at || app.created_at).toLocaleDateString(tagDoIdioma)}
+                      </td>
+                      <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-2">
+                          <Link href={`/app/recrutamento/pipeline?job_id=${app.job_opening_id}`}>
+                            <Button variant="outline" size="sm" className="h-8 text-xs">
+                              {t("Funil")}
+                            </Button>
+                          </Link>
+                          <Link href={`/app/recrutamento/talentos/${app.candidate_id}`}>
+                            <Button variant="ghost" size="sm" className="h-8 gap-1">
+                              <span>{t("Dossiê")}</span>
+                              <ArrowSquareOut className="h-3.5 w-3.5" />
+                            </Button>
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
           {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between p-4 border-t text-xs text-muted-foreground">
               <span>

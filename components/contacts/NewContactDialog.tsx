@@ -26,6 +26,7 @@ import { contactCreateSchema, type ContactCreate } from "@/lib/schemas/contacts"
 import type { Contact } from "@/lib/types/contacts";
 import { useCreateContact } from "@/hooks/contacts/useCreateContact";
 import { useCompanyList } from "@/lib/people/client-hooks";
+import { maskPhoneBR, maskCpf } from "@/lib/ui/form-masks";
 
 interface FormShape {
   name?: string;
@@ -151,16 +152,28 @@ export function NewContactDialog({ open, onOpenChange, nomeInicial, onCriado }: 
             <Input id="email" type="email" {...form.register("email")} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="phone_number">{t("Telefone (E.164)")}</Label>
+            <Label htmlFor="phone_number">{t("Telefone / WhatsApp")}</Label>
             <Input
               id="phone_number"
-              placeholder="+5511999998888"
-              {...form.register("phone_number")}
+              placeholder="(81) 99584-8588"
+              {...form.register("phone_number", {
+                onChange: (e) => {
+                  e.target.value = maskPhoneBR(e.target.value);
+                },
+              })}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="cpf">{t("CPF (opcional)")}</Label>
-            <Input id="cpf" placeholder="00000000000" {...form.register("cpf")} />
+            <Input
+              id="cpf"
+              placeholder="000.000.000-00"
+              {...form.register("cpf", {
+                onChange: (e) => {
+                  e.target.value = maskCpf(e.target.value);
+                },
+              })}
+            />
           </div>
 
           <div className="space-y-2">
@@ -210,7 +223,7 @@ export function NewContactDialog({ open, onOpenChange, nomeInicial, onCriado }: 
 
           <div className="space-y-2">
             <Label htmlFor="tagsRaw">{t("Tags (separadas por vírgula)")}</Label>
-            <Input id="tagsRaw" placeholder="vip, recompra" {...form.register("tagsRaw")} />
+            <Input id="tagsRaw" placeholder="vip, decisor, executivo" {...form.register("tagsRaw")} />
           </div>
           {serverError && (
             <p className="text-sm text-error-fg">{serverError}</p>

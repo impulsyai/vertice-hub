@@ -84,7 +84,7 @@ describe("CRM Tasks B2B Linking & Validation", () => {
       }),
     };
 
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
+    vi.mocked(createClient).mockResolvedValue(mockSupabase as never);
 
     const req = new NextRequest("http://localhost/api/v1/tasks", {
       method: "POST",
@@ -151,7 +151,7 @@ describe("CRM Tasks B2B Linking & Validation", () => {
       })),
     };
 
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
+    vi.mocked(createClient).mockResolvedValue(mockSupabase as never);
 
     const req = new NextRequest("http://localhost/api/v1/tasks", {
       method: "POST",
@@ -212,7 +212,7 @@ describe("CRM Tasks B2B Linking & Validation", () => {
       }),
     };
 
-    vi.mocked(createClient).mockResolvedValue(mockSupabase as any);
+    vi.mocked(createClient).mockResolvedValue(mockSupabase as never);
 
     const req = new NextRequest("http://localhost/api/v1/tasks", {
       method: "POST",

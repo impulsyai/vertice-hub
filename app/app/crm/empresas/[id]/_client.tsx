@@ -243,7 +243,7 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
             <CardContent className="pt-4">
               {leads.length === 0 ? (
                 <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground flex flex-col items-center justify-center">
-                  <Kanban className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                  <Kanban className="h-8 w-8 text-muted-foreground mb-2" aria-hidden="true" />
                   <p className="font-medium text-foreground">{t("Nenhuma oportunidade comercial vinculada")}</p>
                   <p className="text-xs text-muted-foreground mt-1 max-w-sm">
                     {t("Crie uma oportunidade no Funil Comercial associando esta empresa cliente.")}
@@ -312,7 +312,7 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
             <CardContent className="pt-4">
               {jobs.length === 0 ? (
                 <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground flex flex-col items-center justify-center">
-                  <Briefcase className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                  <Briefcase className="h-8 w-8 text-muted-foreground mb-2" aria-hidden="true" />
                   <p className="font-medium text-foreground">{t("Nenhuma vaga vinculada")}</p>
                   <p className="text-xs text-muted-foreground mt-1 max-w-sm">
                     {t(
@@ -413,7 +413,7 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
             <CardContent className="pt-4">
               {contacts.length === 0 ? (
                 <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground flex flex-col items-center justify-center">
-                  <User className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                  <User className="h-8 w-8 text-muted-foreground mb-2" aria-hidden="true" />
                   <p className="font-medium text-foreground">{t("Nenhum contato vinculado")}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {t("Não há decisores corporativos associados a esta empresa.")}
@@ -453,7 +453,7 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                             </div>
                             {c.role_in_company && (
                               <div className="text-xs text-muted-foreground flex items-center gap-1">
-                                <Briefcase className="h-3 w-3 shrink-0" />
+                                <Briefcase className="h-3 w-3 shrink-0" aria-hidden="true" />
                                 <span className="truncate">{c.role_in_company}</span>
                               </div>
                             )}
@@ -463,18 +463,18 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                         <div className="space-y-1 text-xs text-muted-foreground pt-1 border-t border-border/40">
                           {contact?.phone_number && (
                             <div className="flex items-center gap-1.5">
-                              <Phone className="h-3 w-3 text-muted-foreground/80 shrink-0" />
+                              <Phone className="h-3 w-3 text-muted-foreground shrink-0" aria-hidden="true" />
                               <span>{contact.phone_number}</span>
                             </div>
                           )}
                           {contact?.email && (
                             <div className="flex items-center gap-1.5">
-                              <EnvelopeSimple className="h-3 w-3 text-muted-foreground/80 shrink-0" />
+                              <EnvelopeSimple className="h-3 w-3 text-muted-foreground shrink-0" aria-hidden="true" />
                               <span className="truncate">{contact.email}</span>
                             </div>
                           )}
                           {!contact?.phone_number && !contact?.email && (
-                            <span className="italic text-muted-foreground/70">
+                            <span className="italic text-muted-foreground">
                               {t("Sem dados de contato direto.")}
                             </span>
                           )}

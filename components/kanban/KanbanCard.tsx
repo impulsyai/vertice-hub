@@ -143,7 +143,7 @@ export function KanbanCard({
           title={card.tags.length > 0 ? `Tags: ${card.tags.join(", ")}` : undefined}
           className={cn(
             "group relative overflow-hidden rounded-md border border-border bg-surface",
-            "py-2.5 pl-3 pr-3 shadow-xs transition-colors",
+            "py-2.5 pl-3 pr-3 shadow-xs transition-colors cursor-pointer",
             "hover:border-border-strong",
             snapshot.isDragging && "rotate-1 shadow-md ring-1 ring-accent/40",
             isSelected && "ring-2 ring-accent",
@@ -174,23 +174,14 @@ export function KanbanCard({
             )}
           />
 
-          {/* ① identidade — altura FIXA de 2 linhas, com ou sem texto longo. */}
+          {/* ① Título e ações */}
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 flex-1 items-start gap-1.5">
-              {/* A largura é SEMPRE reservada (`h-4 w-4` num wrapper que não
-                  some), só a tinta é condicional: o card tem orçamento fixo de
-                  altura e largura, e uma caixa que aparece no hover EMPURRANDO
-                  o título faria o quadro inteiro tremer com o mouse. Some por
-                  opacidade, nunca por `hidden`. `focus:opacity-100` no próprio
-                  input: uma caixa invisível e tabulável seria armadilha de
-                  teclado. */}
               <input
                 type="checkbox"
                 checked={Boolean(isSelected)}
                 aria-label={`${t("Selecionar")}: ${card.title}`}
                 onClick={(e) => {
-                  // O card inteiro tem onClick (abre o dossiê): sem parar a
-                  // propagação, marcar a caixa abriria o dossiê por cima.
                   e.stopPropagation();
                   onSelect?.(card.id, e.shiftKey ? "intervalo" : "alterna");
                 }}
@@ -198,7 +189,7 @@ export function KanbanCard({
                   /* estado vem de `isSelected`; quem decide é o onClick acima */
                 }}
                 className={cn(
-                  "mt-1 h-4 w-4 shrink-0 cursor-pointer accent-accent transition-opacity",
+                  "mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-accent transition-opacity",
                   "focus:opacity-100 focus-visible:outline-2 focus-visible:outline-accent",
                   isSelected || isSelecting
                     ? "opacity-100"
@@ -209,61 +200,57 @@ export function KanbanCard({
                 <span
                   className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
                   title={card.canonicalTag}
-                  // role="img": um span nu não aceita aria-label (aria-prohibited-attr).
                   role="img"
                   aria-label={`${t("Tag")}: ${card.canonicalTag}`}
                 />
               )}
-              {/* O TÍTULO é o elemento ativável, não o card inteiro.
-                  `role="group"` no card foi decisão da wave 2 (o dnd marca o
-                  handle como button, e com o menu de ações dentro isso vira
-                  nested-interactive no axe). Voltar o card para `button`
-                  reintroduziria aquele defeito com cara de melhoria de
-                  acessibilidade; deixar só onKeyDown daria uma ação que existe
-                  e NÃO É DESCOBERTA por leitor de tela. O título como button
-                  atende mouse, teclado e leitor sem desfazer a decisão antiga. */}
-              <h3 className="line-clamp-2 text-sm font-medium leading-5 text-text">
+              <h3 className="text-sm font-medium leading-5 text-text min-w-0 flex-1">
                 <button
                   type="button"
                   onClick={(e) => {
-                    // `stopPropagation` continua: sem ele o handler do card
-                    // rodaria de novo e o gesto seria contado duas vezes (um
-                    // ctrl+clique marcaria e desmarcaria no mesmo instante).
-                    // Por isso a DECISÃO tem de ser tomada aqui também.
                     e.stopPropagation();
                     decidirClique(e);
                   }}
-                  className="text-left hover:underline"
+                  className="text-left hover:underline line-clamp-2 break-words"
+                  title={card.title}
                 >
                   {card.title}
                 </button>
               </h3>
-
-              {card.companyName && (
-                <div className="mt-1 flex items-center gap-1.5 text-xs text-text-muted truncate">
-                  <Buildings size={13} className="shrink-0 text-primary" />
-                  <span className="truncate font-medium text-text">{card.companyName}</span>
-                </div>
-              )}
-
-              {card.contactName && (
-                <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-text-muted truncate">
-                  <User size={12} className="shrink-0" />
-                  <span className="truncate">{card.contactName}</span>
-                  {card.contactRole && (
-                    <span className="text-[10px] text-text-muted truncate">
-                      ({card.contactRole})
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
             <KanbanCardActions lead={lead} pipelineId={pipelineId} />
           </div>
 
-          {/* ② valor e fechamento previsto */}
-          <div className="mt-1.5 flex items-center justify-between text-xs font-medium tabular-nums">
-            <span className={value ? "text-text" : "text-text-muted"}>{value ?? "—"}</span>
+          {/* ② Empresa */}
+          {card.companyName && (
+            <div
+              className="mt-1.5 flex items-center gap-1.5 text-xs text-text-muted min-w-0"
+              title={card.companyName}
+            >
+              <Buildings size={13} className="shrink-0 text-primary" aria-hidden="true" />
+              <span className="truncate font-medium text-text">{card.companyName}</span>
+            </div>
+          )}
+
+          {/* ③ Contato / Decisor */}
+          {card.contactName && (
+            <div
+              className="mt-0.5 flex items-center gap-1.5 text-xs text-text-muted min-w-0"
+              title={`${card.contactName}${card.contactRole ? ` (${card.contactRole})` : ""}`}
+            >
+              <User size={12} className="shrink-0 text-muted-foreground" />
+              <span className="truncate text-text/80">{card.contactName}</span>
+              {card.contactRole && (
+                <span className="text-[11px] text-text-muted truncate">
+                  ({card.contactRole})
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* ④ Valor e fechamento previsto */}
+          <div className="mt-2 flex items-center justify-between text-xs font-semibold tabular-nums border-t border-border/40 pt-1.5">
+            <span className={value ? "text-primary font-semibold" : "text-text-muted font-normal"}>{value ?? "—"}</span>
             {card.expectedCloseDate && (
               <span className="flex items-center gap-1 text-[11px] font-normal text-text-muted">
                 <Calendar size={11} className="shrink-0" />

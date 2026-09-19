@@ -7,6 +7,8 @@ import { useAttendantMetrics, type AttendantMetric } from "@/hooks/metrics/useAt
 import { AtritoPanel } from "./AtritoPanel";
 import { useTeamMembers } from "@/hooks/team/useTeamMembers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -45,6 +47,7 @@ interface Props {
 
 export function MetricsClient({ canCompare, currentUserId }: Props) {
   const t = useT();
+  const [activeTab, setActiveTab] = useState<"comercial" | "recrutamento">("comercial");
   const [owner, setOwner] = useState<string>(ALL);
   const selectedOwner = owner === ALL ? null : owner;
   const { data, isLoading, isError } = useAttendantMetrics(selectedOwner);
@@ -56,11 +59,51 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
     return <p className="text-sm text-destructive">{t("Erro ao carregar métricas.")}</p>;
 
   const metrics = data.data;
-  const funnelTotal = metrics.funnel.reduce((acc, s) => acc + s.count, 0);
-  const maxCount = Math.max(1, ...metrics.funnel.map((s) => s.count));
+
+  // Filtrar e-commerce residue caso persista em cache
+  const cleanFunnel = (metrics.funnel || []).filter(
+    (s) =>
+      !s.stage_name.toLowerCase().includes("carrinho") &&
+      !s.stage_name.toLowerCase().includes("separação") &&
+      !s.stage_name.toLowerCase().includes("pagamento") &&
+      !s.stage_name.toLowerCase().includes("enviado") &&
+      !s.stage_name.toLowerCase().includes("entregue")
+  );
+
+  const funnelTotal = cleanFunnel.reduce((acc, s) => acc + s.count, 0);
+  const maxCount = Math.max(1, ...cleanFunnel.map((s) => s.count));
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Abas: Comercial vs Recrutamento */}
+      <div className="flex items-center gap-2 border-b pb-2">
+        <Button
+          variant={activeTab === "comercial" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setActiveTab("comercial")}
+          className="h-8 text-xs font-medium"
+        >
+          {t("Comercial")}
+        </Button>
+        <div className="relative">
+          <Button
+            variant={activeTab === "recrutamento" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveTab("recrutamento")}
+            disabled={true}
+            className="h-8 text-xs font-medium opacity-60 cursor-not-allowed"
+          >
+            {t("Recrutamento")}
+          </Button>
+          <Badge
+            variant="outline"
+            className="absolute -top-2.5 -right-3 text-[9px] h-4 px-1 bg-muted border-muted-foreground/30 text-muted-foreground"
+          >
+            {t("Em breve")}
+          </Badge>
+        </div>
+      </div>
+
       {canCompare ? (
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">{t("Atendente")}</span>
@@ -92,24 +135,24 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            {t("Funil")} {selectedOwner ? t("do atendente") : ""} · {funnelTotal}{" "}
-            {funnelTotal === 1 ? t("aberto") : t("abertos")}
+            {t("Funil Comercial")} {selectedOwner ? t("do atendente") : ""} · {funnelTotal}{" "}
+            {funnelTotal === 1 ? t("oportunidade aberta") : t("oportunidades abertas")}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          {metrics.funnel.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("Nenhuma etapa configurada.")}</p>
+          {cleanFunnel.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("Nenhuma oportunidade ativa no funil comercial.")}</p>
           ) : (
-            metrics.funnel.map((s) => (
+            cleanFunnel.map((s) => (
               <div key={s.stage_id} className="flex items-center gap-3">
-                <span className="w-40 shrink-0 truncate text-sm">{s.stage_name}</span>
+                <span className="w-40 shrink-0 truncate text-sm font-medium">{s.stage_name}</span>
                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-primary transition-[width]"
                     style={{ width: `${(s.count / maxCount) * 100}%` }}
                   />
                 </div>
-                <span className="w-8 shrink-0 text-right text-sm tabular-nums">{s.count}</span>
+                <span className="w-8 shrink-0 text-right text-sm tabular-nums font-semibold">{s.count}</span>
               </div>
             ))
           )}

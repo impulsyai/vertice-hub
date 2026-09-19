@@ -124,30 +124,31 @@ export function SidebarContent({
         )}
       >
         {logo && !collapsed ? (
-          // A moldura clara vale SÓ para o logo enviado por quem hospeda. A arte
-          // do produto (ramo `marcaDoProduto`, logo abaixo) já é desenhada para os
-          // dois temas e não precisa dela — pôr a moldura ali seria dar o remédio
-          // a quem não tem a doença.
-          // Chip claro só no tema escuro: a arte enviada é de quem hospeda, sem
-          // garantia de que tenha contraste contra `--color-surface` escuro
-          // (`#1d1c17`). Sem isto, todo logo escuro/colorido — a maioria do que
-          // se sobe pensando em fundo claro — some no tema escuro (issue: logo
-          // da Dra. Mariana Nascimento, azul-marinho sobre quase-preto). O chip
-          // é condicional ao TEMA, não à cor do logo (não dá pra inspecionar
-          // pixel de uma URL externa em server component), então ele aparece
-          // para qualquer logo — inclusive um já pensado pra fundo escuro, que
-          // fica com uma moldura branca de sobra. Troca aceita: pior caso
-          // "moldura desnecessária" é sempre melhor que pior caso "logo
-          // invisível".
-          <div className="rounded-md dark:bg-white dark:px-2 dark:py-1 dark:shadow-sm">
-            {/* <img> em vez de next/image de propósito: a URL vem de quem hospeda
-              (banco ou .env), e next/image exige allowlist de domínios fechada em
-              build — a imagem pré-buildada rejeitaria o domínio do self-hoster.
-              Altura fixa e largura livre porque a arte enviada tem proporção
-              desconhecida; forçar as duas distorceria o logo de quem configurou. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logo} alt={nome} className="h-9 w-auto max-w-[14rem] object-contain" />
-          </div>
+          logo.includes("symbol") || nome.toLowerCase().includes("vértice") ? (
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-center rounded-md dark:bg-white dark:p-1 shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/brand/vertice-symbol.png"
+                  alt={nome}
+                  className="h-8 w-8 object-contain"
+                />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-bold tracking-tight text-foreground leading-tight">
+                  Vértice Hub
+                </span>
+                <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+                  Pessoas & Estratégia
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-md dark:bg-white dark:px-2 dark:py-1 dark:shadow-sm">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logo} alt={nome} className="h-9 w-auto max-w-[14rem] object-contain" />
+            </div>
+          )
         ) : logo && collapsed ? (
           <div className="flex items-center justify-center rounded-md dark:bg-white dark:p-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}

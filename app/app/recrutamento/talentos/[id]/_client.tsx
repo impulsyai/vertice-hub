@@ -42,6 +42,13 @@ import { apiClient } from "@/lib/api/client";
 import { useCandidateDetail, useUpdateCandidate } from "@/lib/people/client-hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { RECRUITMENT_STAGES, type VerticeCandidate } from "@/lib/people/types";
+import {
+  formatFileSize,
+  maskPhoneBR,
+  normalizePhoneBR,
+  normalizeUrl,
+  ESTADOS_BRASIL,
+} from "@/lib/ui/form-masks";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Ativo",
@@ -257,20 +264,22 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
               ) : (
                 <div className="divide-y border rounded-md overflow-hidden">
                   {resumes.map((r) => (
-                    <div key={r.id} className="p-3.5 flex items-center justify-between hover:bg-muted/20">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-5 w-5 text-primary shrink-0" />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">{r.original_filename}</span>
+                    <div key={r.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-muted/20">
+                      <div className="flex items-start sm:items-center gap-3 min-w-0">
+                        <FileText className="h-5 w-5 text-primary shrink-0 mt-0.5 sm:mt-0" />
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium text-sm truncate max-w-[200px] sm:max-w-[340px]" title={r.original_filename}>
+                              {r.original_filename}
+                            </span>
                             {r.is_current && (
                               <Badge variant="outline" className="text-[10px] h-4 bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
                                 {t("Atual")}
                               </Badge>
                             )}
                           </div>
-                          <div className="text-xs text-muted-foreground flex gap-2">
-                            <span>{(r.file_size_bytes / 1024).toFixed(1)} KB</span>
+                          <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                            <span>{formatFileSize(r.file_size_bytes)}</span>
                             <span>•</span>
                             <span>{new Date(r.created_at).toLocaleDateString(tagDoIdioma)}</span>
                           </div>
@@ -279,7 +288,7 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="gap-1.5 h-8 text-xs"
+                        className="gap-1.5 h-8 text-xs shrink-0 w-full sm:w-auto justify-center"
                         onClick={() => handleDownloadResume(r.id)}
                       >
                         <DownloadSimple className="h-3.5 w-3.5" />
@@ -306,25 +315,25 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
               ) : (
                 <div className="divide-y border rounded-md overflow-hidden">
                   {applications.map((app) => (
-                    <div key={app.id} className="p-3.5 flex items-center justify-between hover:bg-muted/20">
-                      <div>
-                        <div className="font-medium text-sm">
+                    <div key={app.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-muted/20">
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm truncate">
                           {app.job_opening ? app.job_opening.title : t("Vaga vinculada")}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs text-muted-foreground truncate">
                           {app.job_opening?.client_company?.trade_name ?? t("Empresa Cliente")}
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 shrink-0">
                         <Badge variant="secondary" className="font-normal text-xs">
                           {(() => {
                             const stageObj = RECRUITMENT_STAGES.find((s) => s.id === app.stage);
                             return stageObj ? stageObj.label.replace(/^\d+\s*/, '') : app.stage;
                           })()}
                         </Badge>
-                        <Link href="/app/recrutamento/pipeline">
+                        <Link href={`/app/recrutamento/pipeline?job_id=${app.job_opening_id}`}>
                           <Button variant="ghost" size="sm" className="h-7 text-xs hover:bg-accent/10 hover:text-primary">
-                            {t("Ver no Funil de Seleção")}
+                            {t("Ver no Funil")}
                           </Button>
                         </Link>
                       </div>
@@ -400,6 +409,7 @@ function EditCandidateDialog({
 
   const currentSeniority = watch("seniority");
   const currentStatus = watch("status");
+  const currentState = watch("state");
 
   async function onSubmit(data: {
     full_name: string;
@@ -421,8 +431,8 @@ function EditCandidateDialog({
       await update.mutateAsync({
         full_name: data.full_name,
         email: data.email || null,
-        phone_e164: data.phone_e164 || null,
-        linkedin_url: data.linkedin_url || null,
+        phone_e164: data.phone_e164 ? normalizePhoneBR(data.phone_e164) : null,
+        linkedin_url: data.linkedin_url ? normalizeUrl(data.linkedin_url) : null,
         current_job_title: data.current_job_title || null,
         current_company: data.current_company || null,
         area: data.area || null,
@@ -451,10 +461,10 @@ function EditCandidateDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-2">
           <div className="space-y-1">
-            <Label htmlFor="edit_full_name">{t("Nome Completo")} *</Label>
-            <Input id="edit_full_name" required {...register("full_name", { required: true })} />
+            <Label htmlFor="edit_full_name">{t("Nome Completo *")}</Label>
+            <Input id="edit_full_name" required {...register("full_name")} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -495,29 +505,37 @@ function EditCandidateDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="edit_email">{t("E-mail")}</Label>
-              <Input id="edit_email" type="email" {...register("email")} />
+              <Input id="edit_email" type="email" placeholder="candidato@empresa.com" {...register("email")} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="edit_phone">{t("Telefone / WhatsApp")}</Label>
-              <Input id="edit_phone" {...register("phone_e164")} />
+              <Input
+                id="edit_phone"
+                placeholder="(81) 99584-8588"
+                {...register("phone_e164", {
+                  onChange: (e) => {
+                    e.target.value = maskPhoneBR(e.target.value);
+                  },
+                })}
+              />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="edit_current_job_title">{t("Cargo Atual")}</Label>
-              <Input id="edit_current_job_title" {...register("current_job_title")} />
+              <Input id="edit_current_job_title" placeholder="ex: Gerente de Operações" {...register("current_job_title")} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="edit_current_company">{t("Empresa Atual")}</Label>
-              <Input id="edit_current_company" {...register("current_company")} />
+              <Input id="edit_current_company" placeholder="ex: Grupo Vértice" {...register("current_company")} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="edit_area">{t("Área")}</Label>
-              <Input id="edit_area" {...register("area")} />
+              <Input id="edit_area" placeholder="ex: Recursos Humanos" {...register("area")} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="edit_availability">{t("Disponibilidade")}</Label>
@@ -528,27 +546,38 @@ function EditCandidateDialog({
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 space-y-1">
               <Label htmlFor="edit_city">{t("Cidade")}</Label>
-              <Input id="edit_city" {...register("city")} />
+              <Input id="edit_city" placeholder="Recife" {...register("city")} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="edit_state">{t("UF")}</Label>
-              <Input id="edit_state" maxLength={2} {...register("state")} />
+              <Select value={currentState || ""} onValueChange={(val) => setValue("state", val)}>
+                <SelectTrigger id="edit_state" className="w-full">
+                  <SelectValue placeholder="UF" />
+                </SelectTrigger>
+                <SelectContent className="max-h-56">
+                  {ESTADOS_BRASIL.map((uf) => (
+                    <SelectItem key={uf.sigla} value={uf.sigla}>
+                      {uf.sigla} - {uf.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           <div className="space-y-1">
             <Label htmlFor="edit_expected_salary">{t("Pretensão Salarial")}</Label>
-            <Input id="edit_expected_salary" type="number" step="100" {...register("expected_salary")} />
+            <Input id="edit_expected_salary" type="number" step="100" placeholder="ex: 8500" {...register("expected_salary")} />
           </div>
 
           <div className="space-y-1">
             <Label htmlFor="edit_linkedin_url">{t("Perfil LinkedIn")}</Label>
-            <Input id="edit_linkedin_url" {...register("linkedin_url")} />
+            <Input id="edit_linkedin_url" placeholder="linkedin.com/in/nome-perfil" {...register("linkedin_url")} />
           </div>
 
           <div className="space-y-1">
             <Label htmlFor="edit_notes">{t("Observações")}</Label>
-            <Input id="edit_notes" {...register("notes")} />
+            <Input id="edit_notes" placeholder="Informações relevantes sobre perfil e entrevistas" {...register("notes")} />
           </div>
 
           <DialogFooter className="pt-2">

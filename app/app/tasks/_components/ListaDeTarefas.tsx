@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -71,8 +72,9 @@ function Linha({
 
   return (
     <div
+      onClick={() => aoEditar(tarefa)}
       className={cn(
-        "group flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/40",
+        "group flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/40 cursor-pointer",
         encerrada && "opacity-60",
       )}
     >
@@ -82,7 +84,10 @@ function Linha({
         aria-checked={encerrada}
         aria-label={encerrada ? t("Reabrir a tarefa") : t("Marcar como concluída")}
         disabled={ocupada || !podeEditar}
-        onClick={() => comBloqueio(() => aoAlternarConcluida(tarefa))}
+        onClick={(e) => {
+          e.stopPropagation();
+          comBloqueio(() => aoAlternarConcluida(tarefa));
+        }}
         className={cn(
           "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-md border transition-colors",
           encerrada
@@ -127,29 +132,44 @@ function Linha({
           </span>
         </div>
 
-        {/* Vínculos B2B da Tarefa */}
+        {/* Vínculos B2B da Tarefa (Navegáveis) */}
         {(tarefa.company || tarefa.lead || tarefa.contact || tarefa.assignee) && (
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
             {tarefa.company && (
-              <span className="flex items-center gap-1 font-medium text-foreground">
+              <Link
+                href={`/app/crm/empresas/${tarefa.company.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 font-medium text-foreground hover:text-primary transition-colors"
+                title={t("Ver Empresa")}
+              >
                 <Buildings size={12} className="text-primary shrink-0" />
-                {tarefa.company.trade_name || tarefa.company.legal_name}
-              </span>
+                <span>{tarefa.company.trade_name || tarefa.company.legal_name}</span>
+              </Link>
             )}
             {tarefa.lead && (
-              <span className="flex items-center gap-1">
+              <Link
+                href="/app/pipelines"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 hover:text-primary transition-colors"
+                title={t("Ver Oportunidade no Funil")}
+              >
                 <Kanban size={12} className="text-primary shrink-0" />
-                {tarefa.lead.title}
-              </span>
+                <span>{tarefa.lead.title}</span>
+              </Link>
             )}
             {tarefa.contact && (
-              <span className="flex items-center gap-1">
+              <Link
+                href={`/app/contacts/${tarefa.contact.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 hover:text-primary transition-colors"
+                title={t("Ver Contato")}
+              >
                 <User size={12} className="text-primary shrink-0" />
-                {tarefa.contact.name}
-              </span>
+                <span>{tarefa.contact.name}</span>
+              </Link>
             )}
             {tarefa.assignee && (
-              <span className="flex items-center gap-1 text-[10px] bg-accent/10 text-accent-foreground px-1.5 py-0.5 rounded">
+              <span className="flex items-center gap-1 text-[10px] bg-accent/10 text-accent-foreground px-1.5 py-0.5 rounded-md">
                 <UserCircle size={12} className="text-primary shrink-0" />
                 {tarefa.assignee.name || tarefa.assignee.email}
               </span>
@@ -159,7 +179,10 @@ function Linha({
       </div>
 
       {podeEditar ? (
-        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="flex shrink-0 items-center gap-1 opacity-100 md:opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+        >
           <Button
             variant="ghost"
             size="icon"
@@ -169,12 +192,6 @@ function Linha({
           >
             <PencilSimple size={14} aria-hidden />
           </Button>
-          {/*
-            Confirmação em DOIS TOQUES no lugar de `confirm()`, que era o do
-            original: `window.confirm` é bloqueado em iframe, ignora o tema e
-            não passa por `t()` — o texto sai no idioma do navegador, não no da
-            organização.
-          */}
           {confirmando ? (
             <Button
               variant="destructive"
