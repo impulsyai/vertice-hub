@@ -17,6 +17,16 @@ import { afirmarAdminDeTenantPuro } from "./utils/precondicao";
 import { generateTotp, msUntilNextTotpWindow } from "./utils/totp";
 
 const CREDS_PATH = path.join(process.cwd(), ".e2e-creds.json");
+const TSX_RUNNER =
+  process.platform === "win32"
+    ? {
+        command: process.env.ComSpec ?? "cmd.exe",
+        args: ["/d", "/s", "/c", "pnpm exec tsx scripts/seed-e2e-followup-agent.ts"],
+      }
+    : {
+        command: "pnpm",
+        args: ["exec", "tsx", "scripts/seed-e2e-followup-agent.ts"],
+      };
 // test-results/ é limpo pelo outputDir do Playwright a cada run — preserva a
 // prova da Task 7.2 aqui (mesmo padrão de followup-queue.spec.ts).
 const ARTIFACTS_DIR = path.join(process.cwd(), "e2e-artifacts");
@@ -853,7 +863,9 @@ test.describe("followup flow builder — editor de condição de aresta / ai_cla
  */
 test.describe("followup flow selector no editor do agente (Task 7.2)", () => {
   test.beforeAll(() => {
-    execFileSync("npx", ["tsx", "scripts/seed-e2e-followup-agent.ts"], { stdio: "inherit" });
+    execFileSync(TSX_RUNNER.command, TSX_RUNNER.args, {
+      stdio: "inherit",
+    });
     // O seed ESCREVE em .e2e-creds.json, e `creds` foi lido no carregamento do
     // módulo — sem reler, o objeto em memória nunca vê o bloco que o seed
     // acabou de gravar. Foi por isto que esta spec ficou fora do CI: a mensagem
