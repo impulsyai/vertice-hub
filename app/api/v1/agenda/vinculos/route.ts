@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const db = await createClient();
   let contacts = db
     .from("contacts")
-    .select("id, name, email, phone, phone_e164")
+    .select("id, name, email, phone_number")
     .eq("organization_id", auth.org.orgId)
     .eq("is_anonymized", false)
     .order("name")

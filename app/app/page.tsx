@@ -3,6 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { partesNoFuso, instanteDe } from "@/lib/agenda/fuso";
+import { APPLICATION_STAGES } from "@/lib/people/types";
 
 import { requireAuth, resolveActiveOrg } from "@/lib/auth/server";
 import { createClient } from "@/lib/supabase/server";
@@ -42,27 +44,30 @@ function formatDate(iso: string | null | undefined): string {
   }
 }
 
-function formatTime(iso: string | null | undefined): string {
+// `fuso` é obrigatório: sem ele, Node.js interpreta o instante em UTC e exibe
+// horário errado em servidores com TZ=UTC (o padrão do Docker). Default
+// defensivo — o chamador SEMPRE deve passar o fuso lido da org.
+function formatTime(iso: string | null | undefined, fuso = "America/Sao_Paulo"): string {
   if (!iso) return "";
   try {
-    return format(new Date(iso), "HH:mm", { locale: ptBR });
+    return new Intl.DateTimeFormat("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: fuso,
+    }).format(new Date(iso));
   } catch {
     return "";
   }
 }
 
-const STAGE_LABELS: Record<string, string> = {
-  "01_recebido": "01 Recebido",
-  "02_triagem": "02 Triagem",
-  "03_fit_cultural": "03 Fit Cultural",
-  "04_entrevista_vertice": "04 Entrevista Vértice",
-  "05_aprovado_vertice": "05 Aprovado Vértice",
-  "06_enviado_cliente": "06 Enviado ao Cliente",
-  "07_entrevista_cliente": "07 Entrevista Cliente",
-  "08_proposta": "08 Proposta",
-  "09_contratado": "09 Contratado",
-  "10_desistiu": "10 Desistiu / Reprovado",
-};
+// Fonte única de verdade: os ids reais do banco (received, screening,
+// vertice_interview, assessment, ...) e os rótulos de lib/people/types.ts.
+// A versão anterior mapeava keys inventadas (01_recebido) que nunca
+// existiram no DB — toda candidatura mostrava o slug cru.
+const STAGE_LABELS: Record<string, string> = Object.fromEntries(
+  APPLICATION_STAGES.map((s) => [s.id, s.label]),
+);
 
 export default async function DashboardPage() {
   const user = await requireAuth();
@@ -72,10 +77,34 @@ export default async function DashboardPage() {
   const orgId = activeOrg.orgId;
   const supabase = await createClient();
 
-  const hojeInicio = new Date();
-  hojeInicio.setHours(0, 0, 0, 0);
-  const hojeFim = new Date();
-  hojeFim.setHours(23, 59, 59, 999);
+  // ── TIMEZONE FIX (hotfix 4.3B #1) ───────────────────────────────────────────
+  // Docker roda TZ=UTC. `new Date().setHours(0,0,0,0)` zeroa em UTC — um
+  // compromisso às 22:00 BRT (= 01:00 UTC do dia seguinte) aparecia no Dashboard
+  // como 01:00 de outro dia. Lemos o fuso da org e usamos `partesNoFuso` +
+  // `instanteDe` (lib/agenda/fuso.ts) para obter os limites UTC do dia LOCAL.
+  const FUSO_PADRAO = "America/Sao_Paulo";
+  const { data: orgTimezoneRow } = await supabase
+    .from("organizations")
+    .select("timezone")
+    .eq("id", orgId)
+    .maybeSingle();
+  const fusoOrg = (() => {
+    const tz = orgTimezoneRow?.timezone as string | undefined;
+    if (!tz) return FUSO_PADRAO;
+    try { Intl.DateTimeFormat(undefined, { timeZone: tz }); return tz; } catch { return FUSO_PADRAO; }
+  })();
+
+  const agora = new Date();
+  const localHoje = partesNoFuso(agora, fusoOrg);
+  // `instanteDe` sem hora/minuto/segundo = meia-noite local em UTC.
+  const hojeInicio = instanteDe(
+    { ano: localHoje.ano, mes: localHoje.mes, dia: localHoje.dia },
+    fusoOrg,
+  );
+  const hojeFim = instanteDe(
+    { ano: localHoje.ano, mes: localHoje.mes, dia: localHoje.dia, hora: 23, minuto: 59, segundo: 59 },
+    fusoOrg,
+  );
   const dataSeteDias = new Date(hojeInicio);
   dataSeteDias.setDate(dataSeteDias.getDate() - 7);
   const seteDiasAtras = dataSeteDias.toISOString();
@@ -240,8 +269,13 @@ export default async function DashboardPage() {
             <ClockCountdown size={16} className="text-primary" />
             Hoje na Operação
           </h2>
-          <span className="text-xs text-muted-foreground">
-            {format(new Date(), "EEEE, dd 'de' MMMM", { locale: ptBR })}
+          <span className="text-xs text-muted-foreground capitalize">
+            {new Intl.DateTimeFormat("pt-BR", {
+              weekday: "long",
+              day: "2-digit",
+              month: "long",
+              timeZone: fusoOrg,
+            }).format(new Date())}
           </span>
         </div>
 
@@ -291,8 +325,8 @@ export default async function DashboardPage() {
                         </div>
                         <div className="text-right shrink-0">
                           <span className="text-xs font-semibold text-foreground">
-                            {formatTime(app.starts_at)}
-                            {app.ends_at ? ` - ${formatTime(app.ends_at)}` : ""}
+                            {formatTime(app.starts_at, fusoOrg)}
+                            {app.ends_at ? ` - ${formatTime(app.ends_at, fusoOrg)}` : ""}
                           </span>
                         </div>
                       </Link>

@@ -733,7 +733,24 @@ export function AgendaClient({
                 // `fuso_da_regra` já vinha da rota e já era tipado pelo hook;
                 // ninguém em tela o lia. Chutar São Paulo para quem atende em
                 // Manaus é uma hora de diferença no horário oferecido ao cliente.
-                local={rotuloDoLocal(tipo.localKind, tipo.localDetalhes)}
+                // `local` reflete a escolha real do usuário, não o default do tipo.
+                //
+                // ERA: `rotuloDoLocal(tipo.localKind, tipo.localDetalhes)` — fixo no
+                // tipo de evento, nunca mudava quando o usuário trocava a Modalidade
+                // no select. Resultado: painel dizia "Presencial" mesmo com "Online"
+                // selecionado, e vice-versa.
+                //
+                // Regra de prioridade:
+                //   1. localLink preenchido → sempre vence (link ou endereço concreto)
+                //   2. online sem link → "Online" (não chutamos link)
+                //   3. presencial → rótulo do tipo ou "Presencial" como fallback
+                local={
+                  localLink.trim()
+                    ? localLink.trim()
+                    : modalidade === "online"
+                    ? "Online"
+                    : (rotuloDoLocal(tipo.localKind, tipo.localDetalhes) ?? "Presencial")
+                }
                 fuso={horarios?.fuso_da_regra}
                 horariosPorDia={horariosPorDia}
                 publicouHorarios={horarios?.publicou_horarios ?? true}

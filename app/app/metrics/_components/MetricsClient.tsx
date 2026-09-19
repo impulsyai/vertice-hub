@@ -62,12 +62,20 @@ export function MetricsClient({ canCompare, currentUserId }: Props) {
 
   // Filtrar e-commerce residue caso persista em cache
   const cleanFunnel = (metrics.funnel || []).filter(
-    (s) =>
-      !s.stage_name.toLowerCase().includes("carrinho") &&
-      !s.stage_name.toLowerCase().includes("separação") &&
-      !s.stage_name.toLowerCase().includes("pagamento") &&
-      !s.stage_name.toLowerCase().includes("enviado") &&
-      !s.stage_name.toLowerCase().includes("entregue")
+    (s) => {
+      const n = s.stage_name.toLowerCase();
+      return (
+        !n.includes("carrinho") &&
+        !n.includes("separação") &&
+        !n.includes("pagamento") &&
+        !n.includes("enviado") &&
+        !n.includes("entregue") &&
+        // Estágios legados do pipeline "Pedidos" — não pertencem ao funil Comercial.
+        !n.includes("pós-venda") &&
+        n !== "pago" &&
+        n !== "cancelado"
+      );
+    },
   );
 
   const funnelTotal = cleanFunnel.reduce((acc, s) => acc + s.count, 0);
