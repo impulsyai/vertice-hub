@@ -290,15 +290,15 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-bg font-sans text-text antialiased">
         <Providers>
-          <MarcaDosClientComponents>
-            <ThemeProvider>{children}</ThemeProvider>
-          </MarcaDosClientComponents>
-          <Toaster
-            position="top-right"
-            richColors
-            closeButton
-            duration={4000}
-          />
+          <ThemeProvider>
+            <MarcaDosClientComponents>{children}</MarcaDosClientComponents>
+            <Toaster
+              position="top-right"
+              richColors
+              closeButton
+              duration={4000}
+            />
+          </ThemeProvider>
         </Providers>
       </body>
     </html>

@@ -16,6 +16,12 @@ import { GRUPO_NO_RODAPE, sidebarGroups } from "@/lib/navigation/registry";
 
 const CHAVE_GRUPOS_FECHADOS = "sidebar-grupos-fechados";
 
+function rotaEstaAtiva(pathname: string, href: string): boolean {
+  // `/app` is the Dashboard route and must not match every product screen.
+  if (href === "/app") return pathname === "/app" || pathname === "/app/dashboard";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 interface SidebarContentProps {
   collapsed: boolean;
   showCollapseControl?: boolean;
@@ -136,7 +142,7 @@ export function SidebarContent({
                 />
               </div>
               <div className="flex min-w-0 flex-col">
-                <span className="text-sm leading-tight font-bold tracking-tight text-foreground">
+                <span className="text-sm leading-tight font-semibold tracking-tight text-foreground">
                   {t("Vértice Hub")}
                 </span>
                 <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
@@ -167,7 +173,7 @@ export function SidebarContent({
           <span className={cn("font-semibold tracking-tight", collapsed && "sr-only")}>{nome}</span>
         )}
         {collapsed && !marcaDoProduto && !logo && (
-          <span aria-hidden className="text-lg font-bold text-primary">
+          <span aria-hidden className="text-lg font-semibold text-primary">
             {/* Spread e não `[0]`: nome começando com emoji ou acento composto
                 quebraria no meio do code point. Mesma regra de `resolveBranding`
                 — a inicial precisa acompanhar o nome que a barra mostra, senão
@@ -236,9 +242,7 @@ export function SidebarContent({
           // e nesses grupos o link "Ver tudo" é parte do contrato de navegação.
           const hubDireto =
             !collapsed && group.id === "recrutamento" && items.length === 0 ? group.hub : undefined;
-          const isHubActive = hubDireto
-            ? pathname === hubDireto.href || pathname.startsWith(hubDireto.href + "/")
-            : false;
+          const isHubActive = hubDireto ? rotaEstaAtiva(pathname, hubDireto.href) : false;
           // Recolhido o sidebar inteiro (rail de 64px), o grupo sempre mostra
           // seus itens — não há onde desenhar cabeçalho nem seta para fechá-lo.
           const aberto = collapsed || !gruposFechados.has(group.id);
@@ -293,7 +297,7 @@ export function SidebarContent({
                   className="space-y-1"
                 >
                   {items.map((item) => {
-                    const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                    const isActive = rotaEstaAtiva(pathname, item.href);
                     const Icon = item.icon;
                     return (
                       <li key={item.href}>
@@ -352,11 +356,11 @@ export function SidebarContent({
           <Link
             href={rodape.href}
             title={collapsed ? t(rodape.label) : undefined}
-            aria-current={pathname.startsWith(rodape.href) ? "page" : undefined}
+            aria-current={rotaEstaAtiva(pathname, rodape.href) ? "page" : undefined}
             onClick={onNavigate}
             className={cn(
               "mb-1 flex items-center gap-3 rounded-md px-3 py-1 text-sm font-medium transition-colors",
-              pathname.startsWith(rodape.href)
+              rotaEstaAtiva(pathname, rodape.href)
                 ? "bg-accent text-accent-foreground shadow-xs"
                 : "text-muted-foreground hover:bg-accent/10 hover:text-foreground",
               collapsed && "justify-center px-2",

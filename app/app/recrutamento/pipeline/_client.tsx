@@ -104,7 +104,7 @@ export function PipelineClient() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] p-6 space-y-4 overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-4rem)] rounded-lg bg-background p-6 space-y-4 overflow-hidden">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shrink-0">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{t("Funil de Seleção")}</h1>
@@ -131,9 +131,9 @@ export function PipelineClient() {
       </header>
 
       {isLoading ? (
-        <div className="flex gap-4 overflow-x-auto pb-4 h-full">
+        <div className="flex h-full gap-4 overflow-x-auto rounded-lg border border-border/80 bg-muted/20 p-3 pb-4">
           {[1, 2, 3, 4, 5].map((col) => (
-            <div key={col} className="w-72 shrink-0 space-y-3 bg-muted/30 p-3 rounded-lg border">
+            <div key={col} className="w-72 shrink-0 space-y-3 rounded-lg border border-border bg-muted/50 p-3 shadow-sm">
               <Skeleton className="h-6 w-32" />
               <Skeleton className="h-24 w-full" />
               <Skeleton className="h-24 w-full" />
@@ -142,14 +142,14 @@ export function PipelineClient() {
         </div>
       ) : (
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex gap-3 overflow-x-auto pb-4 h-full select-none">
+          <div className="flex h-full gap-3 overflow-x-auto rounded-lg border border-border/80 bg-muted/20 p-3 pb-4 select-none">
             {RECRUITMENT_STAGES.map((stage, idx) => {
               const stageApps = columns.get(stage.id) ?? [];
               const stepNumber = String(idx + 1).padStart(2, "0");
               return (
                 <div
                   key={stage.id}
-                  className="flex flex-col w-72 shrink-0 rounded-lg border border-border/80 bg-muted/25 p-2.5 h-full overflow-hidden shadow-xs"
+                  className="flex flex-col w-72 shrink-0 rounded-lg border border-border/80 bg-muted/50 p-2.5 h-full overflow-hidden shadow-sm"
                 >
                   <div className="flex items-center justify-between pb-2 px-1 border-b border-border/60 shrink-0">
                     <div className="flex items-center gap-1.5 min-w-0">
@@ -181,7 +181,7 @@ export function PipelineClient() {
                                 ref={providedDrag.innerRef}
                                 {...providedDrag.draggableProps}
                                 {...providedDrag.dragHandleProps}
-                                className={`rounded-md border bg-card p-3 shadow-xs transition-all ${
+                                className={`rounded-md border border-border/80 bg-card p-3 shadow-sm transition-all ${
                                   snapshotDrag.isDragging
                                     ? "shadow-lg ring-2 ring-primary/40 rotate-1 bg-card"
                                     : "hover:border-primary/40 hover:shadow-xs"
