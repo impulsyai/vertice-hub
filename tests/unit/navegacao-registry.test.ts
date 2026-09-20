@@ -152,7 +152,7 @@ describe("sidebarGroups", () => {
 });
 
 describe("hubSections", () => {
-  it("o hub do CRM é inventário: as seis telas do grupo, nas duas seções", () => {
+  it("o hub do CRM mostra o inventário V1, nas duas seções", () => {
     const secoes = hubSections("crm", true, null);
     expect(secoes.map((s) => s.section)).toEqual(["O dia a dia da venda", "Preparar a venda"]);
     expect(secoes.flatMap((s) => s.items.map((i) => i.href))).toEqual([
@@ -160,9 +160,30 @@ describe("hubSections", () => {
       "/app/contacts",
       "/app/kanban",
       "/app/tasks",
-      "/app/products",
       "/app/settings/tenant/pipelines",
     ]);
+  });
+
+  it("mantém integrações e plataforma fora da navegação V1", () => {
+    const hidden = [
+      "/app/products",
+      "/app/integrations/nuvemshop",
+      "/app/ads/meta",
+      "/app/settings/conversoes",
+      "/app/settings/meta-ads",
+      "/app/settings/billing",
+    ];
+    const searchableHrefs = searchable(ADMIN.platform, ADMIN.role).map((d) => d.href);
+    const hubHrefs = [
+      ...hubSections("crm", ADMIN.platform, ADMIN.role),
+      ...hubSections("analise", ADMIN.platform, ADMIN.role),
+      ...hubSections("organizacao", ADMIN.platform, ADMIN.role),
+    ].flatMap((section) => section.items.map((item) => item.href));
+
+    for (const href of hidden) {
+      expect(searchableHrefs).not.toContain(href);
+      expect(hubHrefs).not.toContain(href);
+    }
   });
 
   it("agrupa a IA nas três etapas da jornada, na ordem", () => {

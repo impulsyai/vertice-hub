@@ -47,7 +47,9 @@ export function canSee(
   return platform || (!!role && ROLE_RANK[role] >= ROLE_RANK[d.minRole ?? "viewer"]);
 }
 export function permitidos(platform: boolean, role: Role | null): NavMetadata[] {
-  return NAV_CATALOG.filter((d) => canSee(d, platform, role));
+  return NAV_CATALOG.filter(
+    (d) => canSee(d, platform, role) && (!("v1Visible" in d) || d.v1Visible !== false),
+  );
 }
 /** Leitura tolera versões antigas/removidas sem lançar no layout. */
 export function lerInterface(raw: unknown): {
