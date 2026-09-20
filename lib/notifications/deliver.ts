@@ -25,7 +25,17 @@ export function entregarAviso(input: EntregarAvisoInput): void {
   const body = traduzir(input.body, idioma);
 
   if (canalLigado(input.category, "in_app")) {
-    toast(title, { description: body });
+    toast(title, {
+      description: body,
+      action: input.href
+        ? {
+            label: "Abrir",
+            onClick: () => {
+              window.location.href = input.href!;
+            },
+          }
+        : undefined,
+    });
   }
   if (canalLigado(input.category, "push")) {
     emitNotification({

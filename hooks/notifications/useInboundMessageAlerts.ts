@@ -5,6 +5,7 @@ import { useCallback, useEffect } from "react";
 import { useActiveOrg } from "@/hooks/auth/AuthProvider";
 import { getOpenConversationId } from "@/hooks/notifications/OpenConversationContext";
 import { useRealtimeChannel } from "@/hooks/realtime/useRealtimeChannel";
+import { rotuloDoContato, SEM_NOME } from "@/lib/contacts/rotulo-do-contato";
 import { avatarUrlServivel } from "@/lib/notifications/avatar_url";
 import { entregarAviso } from "@/lib/notifications/deliver";
 import { shouldNotifyInbound } from "@/lib/notifications/policy";
@@ -41,11 +42,16 @@ async function contactNotifyBits(contactId: string): Promise<{ title: string; ic
   const supabase = createClient();
   const { data } = await supabase
     .from("contacts")
-    .select("display_name, name")
+    .select("display_name, name, phone_number")
     .eq("id", contactId)
     .maybeSingle();
-  const row = data as { display_name?: string | null; name?: string | null } | null;
-  const title = (row?.display_name || row?.name || "Nova mensagem").trim() || "Nova mensagem";
+  const row = data as {
+    display_name?: string | null;
+    name?: string | null;
+    phone_number?: string | null;
+  } | null;
+  const rotulo = rotuloDoContato(row);
+  const title = rotulo === SEM_NOME ? "Nova mensagem no WhatsApp" : rotulo;
   let icon: string | undefined;
   try {
     const r = await fetch(`/api/v1/contacts/${contactId}/avatar`, {
@@ -103,12 +109,12 @@ export function useInboundMessageAlerts(): void {
       const contactId = await contactIdFromRow(row, conversationId);
       const bits = contactId
         ? await contactNotifyBits(contactId)
-        : { title: "Nova mensagem" as const, icon: undefined };
+        : { title: "Nova mensagem no WhatsApp" as const, icon: undefined };
       entregarAviso({
         category: "message",
         kind: "message_inbound",
         title: bits.title,
-        body: previewFromMessage(row),
+        body: `[WhatsApp]: ${previewFromMessage(row)}`,
         tag: conversationId ?? undefined,
         href: conversationId ? `/app/inbox?id=${conversationId}` : undefined,
         icon: bits.icon,
