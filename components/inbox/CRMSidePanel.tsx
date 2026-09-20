@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { Tag, Receipt, Users, ArrowRight } from "@/lib/ui/icons";
+import { Tag, Receipt, Users, ArrowRight, Briefcase, Plus } from "@/lib/ui/icons";
 import { apiClient } from "@/lib/api/client";
 import { toast } from "sonner";
 import type { ConversationWithContact } from "@/hooks/inbox/useConversationsRealtime";
@@ -22,6 +22,8 @@ import { ConversationTagsEditor } from "./ConversationTagsEditor";
 import { ContactTagsEditor } from "./ContactTagsEditor";
 import { useDefaultPipeline } from "@/hooks/pipelines/useDefaultPipeline";
 import { NewLeadDialog } from "@/components/kanban/NewLeadDialog";
+import { QuickRecruitmentDialog } from "./QuickRecruitmentDialog";
+import { NewContactDialog } from "@/components/contacts/NewContactDialog";
 import { CustomFieldsEditor, type CustomFieldDef } from "@/components/contacts/CustomFieldsEditor";
 import { useEditLead } from "@/hooks/kanban/useUpdateLead";
 import { cn } from "@/lib/utils";
@@ -434,6 +436,8 @@ export function CRMSidePanel({ conversation }: Props) {
 
   const [tagEditorOpen, setTagEditorOpen] = useState(false);
   const [leadDialogOpen, setLeadDialogOpen] = useState(false);
+  const [recruitmentDialogOpen, setRecruitmentDialogOpen] = useState(false);
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [leadAtivoId, setLeadAtivoId] = useState<string | null>(null);
   const defaultPipeline = useDefaultPipeline(leadDialogOpen);
 
@@ -548,9 +552,22 @@ export function CRMSidePanel({ conversation }: Props) {
   return (
     <aside className="flex h-full flex-col gap-4 overflow-y-auto border-l border-border bg-background p-4">
       <section>
-        <h3 className="text-xs font-semibold text-text">
-          {t("Contato")}
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-semibold text-text">
+            {t("Contato")}
+          </h3>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-1.5 text-[11px] text-primary hover:text-primary"
+            disabled={readonly}
+            onClick={() => setContactDialogOpen(true)}
+            title={t("Cadastrar ou salvar dados deste contato")}
+          >
+            <Plus size={12} className="mr-1" weight="bold" aria-hidden />
+            {contactId ? t("Editar contato") : t("+ Salvar contato")}
+          </Button>
+        </div>
         <Card className="mt-2 space-y-2 p-3 text-sm">
           <div className="font-medium">{displayName}</div>
           {contact?.phone_number && (
@@ -565,8 +582,13 @@ export function CRMSidePanel({ conversation }: Props) {
               ))}
             </div>
           )}
-          <div className="flex flex-wrap gap-2 pt-1">
-            {contactId&&conversation?<Link className="underline" href={`/app/agenda?contato=${contactId}&conversa=${conversation.id}`}>{t("Marcar compromisso")}</Link>:null}
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {contactId && conversation ? (
+              <Link className="text-xs underline text-muted-foreground hover:text-text self-center mr-1" href={`/app/agenda?contato=${contactId}&conversa=${conversation.id}`}>
+                {t("Agendar")}
+              </Link>
+            ) : null}
+
             <Button
               size="sm"
               variant="outline"
@@ -577,20 +599,37 @@ export function CRMSidePanel({ conversation }: Props) {
             >
               <Tag size={12} className="mr-1" weight="regular" aria-hidden /> {t("Tag")}
             </Button>
+
+            {/* Ação 1-Click: Funil de Recrutamento & Seleção */}
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-xs border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary"
+              disabled={readonly}
+              onClick={() => setRecruitmentDialogOpen(true)}
+              title={t("Inscrever este contato no Funil de Seleção de uma vaga")}
+            >
+              <Briefcase size={12} className="mr-1 text-primary" weight="bold" aria-hidden />
+              {t("Vaga / R&S")}
+            </Button>
+
+            {/* Ação Comercial: Lead de Vendas / Pipeline */}
             <Button
               size="sm"
               variant="outline"
               className="h-7 px-2 text-xs"
               disabled={readonly || !contactId || (leadDialogOpen && defaultPipeline.isLoading)}
               onClick={() => setLeadDialogOpen(true)}
+              title={t("Criar oportunidade no funil comercial de vendas")}
             >
               <Users size={12} className="mr-1" weight="regular" aria-hidden />
               {leadDialogOpen && defaultPipeline.isLoading ? t("Carregando…") : t("Lead")}
             </Button>
+
             {contactId && (
               <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
                 <Link href={`/app/contacts/${contactId}`}>
-                  {t("Ver contato")}
+                  {t("Ver")}
                   <ArrowRight size={12} className="ml-1" weight="regular" aria-hidden />
                 </Link>
               </Button>
@@ -599,6 +638,25 @@ export function CRMSidePanel({ conversation }: Props) {
           {tagEditorOpen && contactId && <ContactTagsEditor contactId={contactId} tags={tags} />}
         </Card>
       </section>
+
+      {/* Diálogo de Inscrição Direta no Funil de Seleção R&S */}
+      <QuickRecruitmentDialog
+        open={recruitmentDialogOpen}
+        onOpenChange={setRecruitmentDialogOpen}
+        contactId={contactId}
+        initialName={displayName !== "Sem nome" ? displayName : null}
+        initialPhone={contact?.phone_number ?? null}
+        onSuccess={() => recarregar()}
+      />
+
+      {/* Diálogo Rápido para Criar/Salvar Contato na Base */}
+      <NewContactDialog
+        open={contactDialogOpen}
+        onOpenChange={setContactDialogOpen}
+        nomeInicial={displayName !== "Sem nome" ? displayName : ""}
+        telefoneInicial={contact?.phone_number ?? ""}
+        onCriado={() => recarregar()}
+      />
 
       {contactId && defaultPipeline.data && (
         <NewLeadDialog

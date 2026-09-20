@@ -53,6 +53,7 @@ export interface ContactFormDialogProps {
   onOpenChange: (open: boolean) => void;
   contact?: Contact;
   nomeInicial?: string;
+  telefoneInicial?: string;
   empresaInicialId?: string | null;
   customFieldDefs?: CustomFieldDef[];
   onCriado?: (contato: Contact) => void;
@@ -61,13 +62,18 @@ export interface ContactFormDialogProps {
 function valuesFromContact(
   contact: Contact | undefined,
   nomeInicial?: string,
+  telefoneInicial?: string,
   empresaInicialId?: string | null,
 ): FormShape {
   return {
     name: contact?.name ?? nomeInicial ?? "",
     display_name: contact?.display_name ?? "",
     email: contact?.email ?? "",
-    phone_number: contact?.phone_number ? phoneForDisplay(contact.phone_number) : "",
+    phone_number: contact?.phone_number
+      ? phoneForDisplay(contact.phone_number)
+      : telefoneInicial
+        ? maskPhoneBR(telefoneInicial)
+        : "",
     cpf: "",
     birthdate: contact?.birthdate ?? "",
     tagsRaw: contact?.tags.join(", ") ?? "",
@@ -84,6 +90,7 @@ export function ContactFormDialog({
   onOpenChange,
   contact,
   nomeInicial,
+  telefoneInicial,
   empresaInicialId,
   customFieldDefs = [],
   onCriado,
@@ -95,7 +102,7 @@ export function ContactFormDialog({
   const companies = companiesData?.data ?? [];
   const [serverError, setServerError] = useState<string | null>(null);
   const form = useForm<FormShape>({
-    defaultValues: valuesFromContact(contact, nomeInicial, empresaInicialId),
+    defaultValues: valuesFromContact(contact, nomeInicial, telefoneInicial, empresaInicialId),
   });
 
   const customFields = useWatch({ control: form.control, name: "custom_fields" });
@@ -105,14 +112,14 @@ export function ContactFormDialog({
 
   useEffect(() => {
     if (open) {
-      form.reset(valuesFromContact(contact, nomeInicial, empresaInicialId));
+      form.reset(valuesFromContact(contact, nomeInicial, telefoneInicial, empresaInicialId));
       setServerError(null);
     }
-  }, [contact, empresaInicialId, form, nomeInicial, open]);
+  }, [contact, empresaInicialId, form, nomeInicial, open, telefoneInicial]);
 
   function handleOpenChange(value: boolean) {
     if (!value) {
-      form.reset(valuesFromContact(contact, nomeInicial, empresaInicialId));
+      form.reset(valuesFromContact(contact, nomeInicial, telefoneInicial, empresaInicialId));
       setServerError(null);
     }
     onOpenChange(value);

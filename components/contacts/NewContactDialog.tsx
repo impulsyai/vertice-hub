@@ -4,6 +4,7 @@ import { ContactFormDialog, type ContactFormDialogProps } from "@/components/con
 
 type Props = Omit<ContactFormDialogProps, "mode" | "contact"> & {
   nomeInicial?: string;
+  telefoneInicial?: string;
 };
 
 export function NewContactDialog(props: Props) {

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useT } from "@/hooks/i18n/useT";
 import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
-import { UsersThree, Kanban, ArrowSquareOut } from "@/lib/ui/icons";
+import { UsersThree, Kanban, ArrowSquareOut, Plus } from "@/lib/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { useApplicationList, useJobList } from "@/lib/people/client-hooks";
 import { RECRUITMENT_STAGES, type RecruitmentStage } from "@/lib/people/types";
+import { QuickRecruitmentDialog } from "@/components/inbox/QuickRecruitmentDialog";
 
 export function CandidaturasClient() {
   const t = useT();
@@ -25,11 +26,12 @@ export function CandidaturasClient() {
   const [selectedJob, setSelectedJob] = useState<string>("all");
   const [selectedStage, setSelectedStage] = useState<string>("all");
   const [page, setPage] = useState(1);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: jobsData } = useJobList({ limit: 100 });
   const jobs = jobsData?.data ?? [];
 
-  const { data, isLoading } = useApplicationList({
+  const { data, isLoading, refetch } = useApplicationList({
     job_opening_id: selectedJob !== "all" ? selectedJob : undefined,
     stage: selectedStage !== "all" ? selectedStage : undefined,
     page,
@@ -48,13 +50,29 @@ export function CandidaturasClient() {
             {t("Visão consolidada de todas as inscrições e movimentações do funil de R&S.")}
           </p>
         </div>
-        <Link href="/app/recrutamento/pipeline">
-          <Button className="gap-2 shrink-0">
-            <Kanban className="h-4 w-4" />
-            {t("Abrir Funil de Seleção")}
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => setDialogOpen(true)}
+            className="gap-1.5 shrink-0"
+          >
+            <Plus className="h-4 w-4" weight="bold" />
+            {t("Nova Candidatura")}
           </Button>
-        </Link>
+          <Link href="/app/recrutamento/pipeline">
+            <Button variant="outline" className="gap-2 shrink-0">
+              <Kanban className="h-4 w-4" />
+              {t("Abrir Funil de Seleção")}
+            </Button>
+          </Link>
+        </div>
       </header>
+
+      <QuickRecruitmentDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        initialJobId={selectedJob !== "all" ? selectedJob : undefined}
+        onSuccess={() => void refetch()}
+      />
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-3">
