@@ -104,25 +104,25 @@ describe("sidebarGroups", () => {
   });
 
   it("o CRM tem hub, e o sidebar dele fica só com o uso diário", () => {
-    // A decisão que devolveu a dobra em 900px (e2e `navegacao.spec.ts`): quando
-    // Tarefas virou o quinto destino de CRM, o menu passou a rolar por 13px.
-    // O conserto foi o hub — o desenho que o grupo IA já usava —, não mais
-    // densidade raspada do `Sidebar.tsx`.
-    //
-    // A lista é EXATA de propósito. `toContain` deixaria um sexto item entrar
-    // calado no sidebar e reabrir a mesma corrida por pixel.
     const crm = sidebarGroups(true, null).find((g) => g.group.id === "crm");
     expect(crm?.items.map((i) => i.href)).toEqual([
-      "/app/kanban",
+      "/app/crm/empresas",
       "/app/contacts",
+      "/app/kanban",
       "/app/tasks",
     ]);
     expect(NAV_GROUPS.find((g) => g.id === "crm")?.hub?.href).toBe("/app/crm");
   });
 
-  it("Recrutamento usa o hub sem ocupar três linhas diretas no sidebar", () => {
+  it("Recrutamento tem acesso direto no sidebar para uso ágil na Vértice", () => {
     const recrutamento = sidebarGroups(true, null).find((g) => g.group.id === "recrutamento");
-    expect(recrutamento?.items.map((i) => i.href)).toEqual([]);
+    expect(recrutamento?.items.map((i) => i.href)).toEqual([
+      "/app/recrutamento/talentos",
+      "/app/recrutamento/curriculos",
+      "/app/recrutamento/vagas",
+      "/app/recrutamento/candidaturas",
+      "/app/recrutamento/pipeline",
+    ]);
     expect(NAV_GROUPS.find((g) => g.id === "recrutamento")?.hub?.href).toBe(
       "/app/recrutamento",
     );
@@ -142,30 +142,23 @@ describe("sidebarGroups", () => {
     expect(ids).toContain("atendimento");
   });
 
-  it("a ordem dentro do grupo de IA é a do uso real: agentes, follow-ups, roteadores", () => {
-    // Provedores e Execuções NÃO entram aqui, e a razão é medida: pô-las na
-    // sidebar estourou a dobra em 900px (e2e `navegacao.spec.ts`). Elas seguem
-    // o padrão das outras nove telas do grupo — alcançáveis pelo hub "Ver tudo
-    // em IA", que é o desenho existente para tela de configuração.
+  it("a ordem dentro do grupo de IA é a do uso real: assistentes e follow-ups no uso diário", () => {
     const ia = sidebarGroups(true, null).find((g) => g.group.id === "ia");
     expect(ia?.items.map((i) => i.href)).toEqual([
       "/app/ai/agents",
       "/app/ai/followups",
-      "/app/ai/routers",
     ]);
   });
 });
 
 describe("hubSections", () => {
-  it("o hub do CRM é inventário: as cinco telas do grupo, nas duas seções", () => {
-    // As seções são a régua do sidebar escrita por extenso — o que se abre todo
-    // dia contra o que se define uma vez. Lista EXATA: `toContain` deixaria uma
-    // tela nova entrar sem que ninguém decidisse de que lado dela ela cai.
+  it("o hub do CRM é inventário: as seis telas do grupo, nas duas seções", () => {
     const secoes = hubSections("crm", true, null);
     expect(secoes.map((s) => s.section)).toEqual(["O dia a dia da venda", "Preparar a venda"]);
     expect(secoes.flatMap((s) => s.items.map((i) => i.href))).toEqual([
-      "/app/kanban",
+      "/app/crm/empresas",
       "/app/contacts",
+      "/app/kanban",
       "/app/tasks",
       "/app/products",
       "/app/settings/tenant/pipelines",

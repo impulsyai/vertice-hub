@@ -5,6 +5,7 @@ import { apiClient } from "@/lib/api/client";
 import { showApiError } from "@/components/feedback/ApiErrorToast";
 import type {
   ClientCompany,
+  ClientCompanyContact,
   VerticeCandidate,
   VerticeCandidateResume,
   VerticeJobOpening,
@@ -25,6 +26,34 @@ interface PaginatedResponse<T> {
 interface ApiEnvelope<T> {
   data: T;
 }
+
+export type CompanyContactRow = ClientCompanyContact & {
+  contact?: {
+    id: string;
+    name: string | null;
+    display_name: string | null;
+    phone_number: string | null;
+    email: string | null;
+  } | null;
+};
+
+export interface CompanyOpportunityRow {
+  id: string;
+  title: string;
+  status: string;
+  value_cents: number | null;
+  currency: string | null;
+  stage_id: string;
+  pipeline_id: string;
+  stage?: { name: string } | null;
+  created_at: string;
+}
+
+export type CompanyDetailRow = ClientCompany & {
+  contacts?: CompanyContactRow[];
+  jobs?: VerticeJobOpening[];
+  leads?: CompanyOpportunityRow[];
+};
 
 type CandidateDetailRow = VerticeCandidate & {
   resumes?: VerticeCandidateResume[];
@@ -92,6 +121,26 @@ export function useUpdateCompany(id: string) {
       qc.invalidateQueries({ queryKey: ["people-company-detail", id] });
     },
     onError: (err) => showApiError(err),
+  });
+}
+
+export function useCompanyDetail(companyId?: string | null) {
+  return useQuery({
+    queryKey: ["people-company-detail", companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      try {
+        const response = await apiClient.get<ApiEnvelope<CompanyDetailRow>>(
+          `/api/v1/people/companies/${companyId}`,
+        );
+        const row = unwrap(response);
+        const { contacts = [], jobs = [], leads = [], ...company } = row;
+        return { company: company as ClientCompany, contacts, jobs, leads };
+      } catch (err) {
+        showApiError(err);
+        throw err;
+      }
+    },
   });
 }
 

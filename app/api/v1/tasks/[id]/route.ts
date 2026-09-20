@@ -27,7 +27,7 @@ import { PRIORIDADES_DA_TAREFA, SITUACOES_DA_TAREFA, type Tarefa } from "@/lib/t
 export const dynamic = "force-dynamic";
 
 const COLUNAS =
-  "id, organization_id, title, description, due_date, priority, status, lead_id, contact_id, assigned_to, created_by, created_at, updated_at";
+  "id, organization_id, title, description, due_date, priority, status, lead_id, contact_id, client_company_id, assigned_to, created_by, created_at, updated_at";
 
 const edicaoSchema = z
   .object({
@@ -38,6 +38,7 @@ const edicaoSchema = z
     status: z.enum(SITUACOES_DA_TAREFA).optional(),
     lead_id: z.string().uuid().nullable().optional(),
     contact_id: z.string().uuid().nullable().optional(),
+    client_company_id: z.string().uuid().nullable().optional(),
     assigned_to: z.string().uuid().nullable().optional(),
   })
   // PATCH vazio gravaria só o `updated_at` e devolveria 200: a tela diria

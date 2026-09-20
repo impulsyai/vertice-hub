@@ -36,6 +36,20 @@ export interface Contact {
     last_message_at: string | null;
     unread: number;
   };
+  /**
+   * Derivado: vínculo B2B com empresa cliente via `client_company_contacts`.
+   */
+  company_link?: {
+    id: string;
+    client_company_id: string;
+    role_in_company: string | null;
+    is_primary: boolean;
+    company?: {
+      id: string;
+      trade_name: string | null;
+      legal_name: string | null;
+    } | null;
+  } | null;
 }
 
 /**

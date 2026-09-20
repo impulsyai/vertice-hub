@@ -19,7 +19,7 @@ export default async function RecrutamentoHubPage() {
       interfaceSettings={activeOrg?.interface_settings}
       title={traduzir("Recrutamento", idioma)}
       subtitle={traduzir(
-        "Banco de talentos, vagas, candidaturas e pipeline seletivo.",
+        "Banco de talentos, vagas abertas, candidaturas e Funil de Seleção executivo.",
         idioma,
       )}
       locale={idioma}

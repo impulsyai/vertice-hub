@@ -63,6 +63,10 @@ export const contactCreateSchema = z.object({
   source_metadata: z.record(z.string(), z.unknown()).optional(),
   consent: z.record(z.string(), z.unknown()).optional(),
   custom_fields: customFieldsSchema.optional(),
+  // CRM B2B — vínculo opcional com empresa cliente / cargo / decisor
+  client_company_id: z.string().uuid().nullable().optional(),
+  role_in_company: z.string().max(200).nullable().optional(),
+  is_primary: z.boolean().optional(),
 });
 export type ContactCreate = z.infer<typeof contactCreateSchema>;
 

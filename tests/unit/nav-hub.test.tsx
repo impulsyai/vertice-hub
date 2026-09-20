@@ -35,7 +35,7 @@ describe("NavHub", () => {
 
   it("mostra também o que já está no sidebar — é inventário, não sobra", () => {
     render(<NavHub group="ia" isPlatformAdmin role={null} title="Agente de IA" subtitle="" />);
-    expect(screen.getByRole("link", { name: /Agentes/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Assistentes/ })).toBeTruthy();
   });
 
   it("some com a seção inteira quando a permissão esvazia", () => {

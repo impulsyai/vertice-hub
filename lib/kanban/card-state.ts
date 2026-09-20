@@ -16,6 +16,14 @@ export interface CardInput {
   valueCents: number | null;
   currency: string | null;
   owner: OwnerDisplay;
+  /** Nome da Empresa cliente B2B (se houver). */
+  companyName?: string | null;
+  /** Nome do Decisor / Contato comercial (se houver). */
+  contactName?: string | null;
+  /** Cargo/Função do Decisor na empresa (se houver). */
+  contactRole?: string | null;
+  /** Data de fechamento previsto (se houver). */
+  expectedCloseDate?: string | null;
   /** Nome do estágio atual — o "3d em Negociação" do rodapé. */
   stageName: string;
   /** Horas paradas no estágio (board calcula; null = sem sinal). */
@@ -82,6 +90,9 @@ export function buildCardInput(
     | "owner_agent"
     | "next_action"
     | "score"
+    | "company"
+    | "contact"
+    | "expected_close_date"
   >,
   opts: {
     stageName: string;
@@ -110,6 +121,10 @@ export function buildCardInput(
     valueCents: lead.value_cents,
     currency: lead.currency,
     owner: resolveLeadOwner(lead, opts.ownerNames),
+    companyName: lead.company ? (lead.company.trade_name || lead.company.legal_name || null) : null,
+    contactName: lead.contact?.name || null,
+    contactRole: lead.contact?.role_in_company || null,
+    expectedCloseDate: lead.expected_close_date || null,
     stageName: opts.stageName,
     hoursInStage,
     isCooling: opts.coolingIds?.has(lead.id) ?? false,

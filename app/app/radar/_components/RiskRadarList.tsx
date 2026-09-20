@@ -175,53 +175,78 @@ function RadarRow({ lead }: { lead: AtRiskLead }) {
     <li
       data-testid="radar-item"
       data-risk={lead.risk}
-      className="flex items-start gap-2 pr-3 transition-colors hover:bg-accent/50"
+      className="flex flex-col md:flex-row md:items-center gap-2 p-3 transition-colors hover:bg-accent/50 border-b last:border-b-0"
     >
-      <Link href={href} className="flex min-w-0 flex-1 items-start gap-3 px-4 py-3">
-        <Badge variant={meta.variant} className="mt-0.5 shrink-0">
-          {t(meta.label)}
-        </Badge>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{lead.title}</p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-            {lead.contact_name ? <span className="truncate">{lead.contact_name}</span> : null}
-            <span className="inline-flex items-center gap-1">
-              <ClockCountdown size={13} aria-hidden />
-              {coldFor(lead.hours_since_activity, t)}
-            </span>
-            <span className="inline-flex items-center gap-1" data-testid="radar-assignee">
-              {dono}
-            </span>
-          </p>
-          {lead.agenda?.appointment_id ? (
-            <p className="mt-1 text-xs text-info-fg">{t(lead.agenda.motivo === "presenca_vencida" ? "Presença não confirmada · revise o compromisso" : lead.agenda.motivo === "presenca_pendente" ? "Confirme a presença · cobrança aguardando" : "Compromisso agendado · cobrança aguardando")}</p>
-          ) : lead.in_flight && lead.next_followup_at ? (
-            <p className="mt-1 inline-flex items-center gap-1 text-xs text-info-fg">
-              <PaperPlaneTilt size={13} aria-hidden />
-              {t("Assistente retorna")} {followupWhen(lead.next_followup_at, t)}
-            </p>
-          ) : (
-            <p className="mt-1 inline-flex items-center gap-1 text-xs text-warning-fg">
-              <Warning size={13} aria-hidden />
-              {t("Sem próximo passo agendado")}
-            </p>
-          )}
+      <Link href={href} className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <Badge variant={meta.variant} className="shrink-0 text-[11px]">
+            {t(meta.label)}
+          </Badge>
+          <p className="truncate text-sm font-semibold text-foreground">{lead.title}</p>
         </div>
+
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
+          {lead.contact_name ? (
+            <span className="font-medium text-foreground/80 truncate">{lead.contact_name}</span>
+          ) : null}
+          <span className="inline-flex items-center gap-1">
+            <ClockCountdown size={13} aria-hidden />
+            {coldFor(lead.hours_since_activity, t)}
+          </span>
+          <span className="inline-flex items-center gap-1" data-testid="radar-assignee">
+            {dono}
+          </span>
+        </div>
+
+        {lead.agenda?.appointment_id ? (
+          <p className="text-xs text-info-fg font-medium">
+            {t(
+              lead.agenda.motivo === "presenca_vencida"
+                ? "Presença não confirmada · revise o compromisso"
+                : lead.agenda.motivo === "presenca_pendente"
+                ? "Confirme a presença · cobrança aguardando"
+                : "Compromisso agendado · cobrança aguardando"
+            )}
+          </p>
+        ) : lead.in_flight && lead.next_followup_at ? (
+          <p className="inline-flex items-center gap-1 text-xs text-info-fg font-medium">
+            <PaperPlaneTilt size={13} aria-hidden />
+            {t("Assistente retorna")} {followupWhen(lead.next_followup_at, t)}
+          </p>
+        ) : (
+          <p className="inline-flex items-center gap-1 text-xs text-warning-fg font-medium">
+            <Warning size={13} aria-hidden />
+            {t("Sem próximo passo agendado")}
+          </p>
+        )}
       </Link>
-      <div className="flex shrink-0 items-center gap-2 self-center">
-        {lead.agenda?.appointment_id ? <Link className="text-xs underline" href={`/app/agenda?compromisso=${lead.agenda.appointment_id}`}>{t("Ver compromisso")}</Link> : null}
-        {canClaim ? (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={claim.isPending}
-            onClick={handleClaim}
-            data-testid="radar-claim"
+
+      <div className="flex shrink-0 items-center justify-between md:justify-end gap-2 pt-2 md:pt-0 border-t border-dashed md:border-0">
+        {lead.agenda?.appointment_id ? (
+          <Link
+            className="text-xs font-medium text-primary hover:underline"
+            href={`/app/agenda?compromisso=${lead.agenda.appointment_id}`}
           >
-            {t("Assumir")}
-          </Button>
+            {t("Ver compromisso")}
+          </Link>
         ) : null}
-        <ArrowRight size={16} className="text-muted-foreground" aria-hidden />
+        <div className="flex items-center gap-2 ml-auto md:ml-0">
+          {canClaim ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              disabled={claim.isPending}
+              onClick={handleClaim}
+              data-testid="radar-claim"
+            >
+              {t("Assumir")}
+            </Button>
+          ) : null}
+          <Link href={href} className="text-muted-foreground hover:text-foreground">
+            <ArrowRight size={16} aria-hidden />
+          </Link>
+        </div>
       </div>
     </li>
   );

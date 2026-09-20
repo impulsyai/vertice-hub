@@ -15,7 +15,7 @@ import type { Role } from "@/lib/auth/types";
  * Doutrina: docs/doctrine/sistema-vivo.md — "por qual porta se chega até mim?"
  */
 
-export type NavGroupId = "atendimento" | "crm" | "recrutamento" | "ia" | "canais" | "analise" | "organizacao";
+export type NavGroupId = "inicio" | "atendimento" | "crm" | "recrutamento" | "ia" | "canais" | "analise" | "organizacao";
 
 export interface NavGroup {
   id: NavGroupId;
@@ -50,52 +50,44 @@ export interface NavMetadata {
  * se ajusta uma vez por mês por último.
  */
 export const NAV_GROUPS: NavGroup[] = [
+  { id: "inicio", label: "Início" },
   { id: "atendimento", label: "Atendimento" },
-  { id: "crm", label: "CRM", hub: { href: "/app/crm", label: "Ver tudo em CRM" } },
+  { id: "crm", label: "Comercial", hub: { href: "/app/crm", label: "Ver tudo em Comercial" } },
   {
     id: "recrutamento",
     label: "Recrutamento",
     hub: { href: "/app/recrutamento", label: "Ver tudo em Recrutamento" },
   },
-  { id: "ia", label: "Agente de IA", hub: { href: "/app/ai", label: "Ver tudo em IA" } },
+  { id: "ia", label: "Automação & IA", hub: { href: "/app/ai", label: "Ver tudo em IA" } },
   { id: "canais", label: "Canais" },
   { id: "analise", label: "Análise", hub: { href: "/app/analise", label: "Ver tudo em Análise" } },
   {
     id: "organizacao",
-    label: "Organização",
+    label: "Configurações",
     hub: { href: "/app/settings", label: "Configurações" },
   },
 ];
 
 /**
  * Grupo cujo hub vive no RODAPÉ fixo do sidebar, fora da área que rola.
- *
- * Medido em tela (1280×768, o notebook comum): com todos os grupos na área
- * rolável, o conteúdo dava 1019px contra 663px visíveis — Configurações ficava
- * fora da dobra em TODAS as alturas testadas, inclusive 1080px. É o item que
- * mais se procura quando não se acha algo; deixá-lo dependendo de scroll
- * recriaria, em outra forma, o problema que esta reorganização veio resolver.
  */
 export const GRUPO_NO_RODAPE: NavGroupId = "organizacao";
 
-/**
- * Como `minRole` foi escolhido — medido tela a tela, não estimado:
- *
- *   1. A página redireciona por papel?  → usa esse papel. Assim a navegação
- *      nunca mostra um link que morre em /403.
- *   2. Não redireciona, mas a navegação antiga já filtrava? → mantém o filtro
- *      antigo, para esta mudança reorganizar sem alterar quem vê o quê.
- *   3. Nenhum dos dois → viewer.
- *
- * `ROLE_RANK` só distingue papel dentro do tenant; capacidade interna da tela
- * (`canShare` em Respostas rápidas, `canCompare` em Desempenho) NÃO é porta
- * fechada e por isso não vira `minRole`.
- */
 export const NAV_CATALOG = [
+  // ---- Início — Visão executiva & operacional ----
+  {
+    href: "/app",
+    label: "Dashboard",
+    description: "Visão executiva e operacional do seu dia, comercial e recrutamento.",
+    icon: "House",
+    group: "inicio",
+    sidebar: true,
+  },
+
   // ---- Atendimento — onde o operador passa o dia ----
   {
     href: "/app/inbox",
-    label: "Inbox",
+    label: "Conversas",
     description: "As conversas de WhatsApp, com você e a IA atendendo lado a lado.",
     icon: "Inbox",
     group: "atendimento",
@@ -110,18 +102,6 @@ export const NAV_CATALOG = [
     sidebar: true,
   },
   {
-    // Entra em "atendimento", e não em "organizacao", porque a Agenda é onde o
-    // dia acontece e não onde ele se configura: quem atende abre isto de manhã
-    // junto com o Inbox. Os TIPOS de agendamento — que são configuração de
-    // verdade — foram para Configurações, como este comentário previa: ver
-    // `/app/settings/tenant/agenda` no grupo "organizacao".
-    //
-    // ⚠️ ESTA FRASE ESTAVA VENCIDA: dizia "a disponibilidade ainda não tem tela",
-    // e tem — é a aba "Atendimento" de `/app/team`, com editor de fuso e janelas
-    // (`app/app/team/_components/AttendantsClient.tsx`). Ela chegou a custar uma
-    // investigação inteira: quem leu isto aqui concluiu que faltava construir a
-    // tela, quando o que faltava era o CAMINHO até ela. O aviso da Agenda agora
-    // aponta para `/app/team?aba=atendimento`.
     href: "/app/agenda",
     label: "Agenda",
     description: "O que está marcado, com quem, e quem atende — seu e da equipe.",
@@ -130,9 +110,6 @@ export const NAV_CATALOG = [
     sidebar: true,
   },
   {
-    // Renomeado de "Templates": estes são scripts do atendente, consumidos pelo
-    // Composer do inbox. O nome "Templates" fica livre para os da Meta (HSM),
-    // onde é o termo técnico correto.
     href: "/app/templates",
     label: "Respostas rápidas",
     description: "Scripts salvos para responder mais rápido, seus ou da equipe.",
@@ -141,22 +118,12 @@ export const NAV_CATALOG = [
     sidebar: true,
   },
 
-  // ---- CRM — o funil ----
+  // ---- CRM — o dia a dia comercial ----
   {
-    // ⚠️ ERA "Kanban", e a URL continua sendo. O nome saiu da interface porque o
-    // produto tinha CINCO vocabulários para a mesma coisa — "Kanban" no menu,
-    // "Pipelines" no título desta tela, "Funis" no menu ao lado, "funil" em todo
-    // o corpo dela e "quadro" no onboarding inteiro. Três deles no mesmo
-    // viewport: o <h1> dizia "Pipelines", o estado vazio dizia "Sem pipelines
-    // configurados" e o botão embaixo dizia "Criar meu primeiro funil".
-    //
-    // Ficou "Funis" porque é o que esta tela É: a lista dos funis, de onde se
-    // abre o quadro de cada um. "Pipeline" é palavra de quem construiu o
-    // sistema; "funil de vendas" é palavra de quem vende.
-    href: "/app/kanban",
-    label: "Funis",
-    description: "Seus funis de venda — clique em um para abrir o quadro de clientes.",
-    icon: "Kanban",
+    href: "/app/crm/empresas",
+    label: "Empresas",
+    description: "Empresas clientes B2B, contatos vinculados e posições abertas.",
+    icon: "Buildings",
     group: "crm",
     section: "O dia a dia da venda",
     sidebar: true,
@@ -171,11 +138,15 @@ export const NAV_CATALOG = [
     sidebar: true,
   },
   {
-    // Extraída do PR #418 (@clinicacentrodosorrisosc-code). Fica no CRM e no
-    // sidebar porque é tela de USO DIÁRIO — quem atende abre para ver o que
-    // vence hoje, do mesmo jeito que abre o Inbox. Sem `minRole`: `viewer` VÊ
-    // o que o time combinou (é informação de operação), e a criação é cobrada
-    // pela rota, com `requireRole("agent")`.
+    href: "/app/kanban",
+    label: "Oportunidades",
+    description: "Seus funis de venda — clique em um para abrir o quadro de clientes.",
+    icon: "Kanban",
+    group: "crm",
+    section: "O dia a dia da venda",
+    sidebar: true,
+  },
+  {
     href: "/app/tasks",
     label: "Tarefas",
     description: "O que ficou combinado, com prazo — e o que já venceu sem ninguém fazer.",
@@ -185,65 +156,14 @@ export const NAV_CATALOG = [
     sidebar: true,
   },
   {
-    // ⚠️ Esta tela nasceu porque a FERRAMENTA já existia sem ela. O agente de IA
-    // vinha com "procurar produto na loja" ligada por padrão, lendo uma tabela
-    // que ninguém nunca preencheu — e o efeito não era silêncio: era o agente
-    // respondendo "não tenho nada com esse nome" para uma loja de estoque cheio.
-    //
-    // Fica no grupo do CRM, e não em Configurações, porque o catálogo é insumo
-    // de VENDA: ele existe para o agente responder preço na conversa.
-    //
-    // ⚠️ ESTA FRASE DIZIA "consultar preço é trabalho de quem ATENDE, todo dia",
-    // e era o argumento para o `sidebar: true`. Ela se contradizia com a própria
-    // descrição do destino, uma linha abaixo: quem responde o preço é o
-    // atendente de IA, dentro do Inbox. O humano não abre esta tela para
-    // vender — abre para cadastrar o que vende.
     href: "/app/products",
     label: "Produtos",
     description: "O catálogo da loja, com o preço que o atendente de IA responde.",
     icon: "Storefront",
     group: "crm",
     section: "Preparar a venda",
-    // SEM `sidebar`: mora atrás de "Ver tudo em CRM".
-    //
-    // O critério é QUEM CONSOME a tela, e a descrição acima já o entrega: o
-    // preço quem responde é o atendente de IA, dentro da conversa. Esta tela é
-    // onde o catálogo se CADASTRA — trabalho de quando entra produto novo ou
-    // muda preço, não de toda manhã. Quem atende não a abre para vender; abre o
-    // Inbox e o funil, que continuam no menu.
   },
   {
-    // A promessa que o comentário da Agenda fazia desde que ela nasceu. Aqui se
-    // decide O QUE se pode marcar, quanto dura e quem atende — e é isto que a
-    // tela de marcar e o agente de IA oferecem ao cliente.
-    //
-    // Nasceu porque a `calendar_event_types` tinha dez categorias no CHECK,
-    // duração, buffers e antecedência mínima, e NÃO havia como criar ou editar
-    // um tipo por lugar nenhum: a organização recebia três semeados e ficava com
-    // eles para sempre.
-    href: "/app/settings/tenant/agenda",
-    label: "Tipos de agendamento",
-    description: "O que se pode marcar, quanto dura, onde acontece e quem atende.",
-    icon: "CalendarBlank",
-    group: "organizacao",
-    // "Sua empresa", junto de Atendimento e Empresa: é configuração do NEGÓCIO,
-    // não da conta de quem está logado. O gate `navegacao-registry` cobra a
-    // seção em todo grupo que tem hub, e sem ela o destino não aparece no hub.
-    section: "Sua empresa",
-    // SEM `sidebar`, como as outras DEZ entradas de "organizacao": este grupo
-    // tem hub, e se chega às telas dele por "Configurações". Eu tinha posto
-    // `sidebar: true` e a cerca reprovou dizendo "a tela existe e não tem porta
-    // na navegação" — a porta existia, era outra.
-  },
-  {
-    // Estava enterrado em Configurações e ninguém sabia que existia — o achado
-    // que originou esta reorganização. A URL não muda; só o lugar na navegação.
-    //
-    // ⚠️ ERA "Funis", nome que ele DISPUTAVA com o destino acima: os dois
-    // listavam as mesmas linhas de `crm_pipelines`, lado a lado no mesmo grupo,
-    // com nomes que não diziam qual servia para quê. A diferença real é o VERBO,
-    // e é ela que o nome carrega agora: lá se ABRE o funil, aqui se CONFIGURA o
-    // que ele significa.
     href: "/app/settings/tenant/pipelines",
     label: "Etapas do funil",
     description: "As colunas de cada funil, o vocabulário do negócio e os motivos de perda.",
@@ -251,24 +171,6 @@ export const NAV_CATALOG = [
     group: "crm",
     section: "Preparar a venda",
     minRole: "manager",
-    // SEM `sidebar`: mora atrás de "Ver tudo em CRM".
-    //
-    // ⚠️ O ACHADO ORIGINAL NÃO FOI DESFEITO. Ele era "esta tela está enterrada
-    // em CONFIGURAÇÕES e ninguém sabe que existe" — o problema era o GRUPO
-    // errado, não a profundidade. Ela continua sendo CRM: aparece no hub do
-    // CRM, no ⌘K, e o caminho é "CRM › Ver tudo em CRM", nunca mais
-    // "Configurações". O que muda é a frequência: desenhar as colunas do funil
-    // e escrever os motivos de perda é trabalho de montagem, feito uma vez e
-    // revisitado por `manager` de vez em quando — enquanto Funis, Contatos e
-    // Tarefas se abrem todo dia. É esse o corte que decide quem fica no menu.
-  },
-  {
-    href: "/app/crm/empresas",
-    label: "Empresas",
-    description: "Empresas clientes B2B, contatos vinculados e posições abertas.",
-    icon: "Buildings",
-    group: "recrutamento",
-    section: "Contas e Clientes",
   },
 
   // ---- Recrutamento — R&S e Banco de Talentos ----
@@ -279,30 +181,7 @@ export const NAV_CATALOG = [
     icon: "UsersThree",
     group: "recrutamento",
     section: "Gestão de Talentos",
-  },
-  {
-    href: "/app/recrutamento/vagas",
-    label: "Vagas",
-    description: "Posições abertas para empresas clientes e acompanhamento de processo.",
-    icon: "ClipboardText",
-    group: "recrutamento",
-    section: "Processos Seletivos",
-  },
-  {
-    href: "/app/recrutamento/pipeline",
-    label: "Funil de Seleção",
-    description: "Quadro com as 10 etapas seletivas de 01 Recebido a 10 Desistiu.",
-    icon: "Kanban",
-    group: "recrutamento",
-    section: "Processos Seletivos",
-  },
-  {
-    href: "/app/recrutamento/candidaturas",
-    label: "Candidaturas",
-    description: "Visão consolidada de todas as candidaturas ativas e histórico.",
-    icon: "ListChecks",
-    group: "recrutamento",
-    section: "Processos Seletivos",
+    sidebar: true,
   },
   {
     href: "/app/recrutamento/curriculos",
@@ -311,12 +190,40 @@ export const NAV_CATALOG = [
     icon: "FileText",
     group: "recrutamento",
     section: "Gestão de Talentos",
+    sidebar: true,
+  },
+  {
+    href: "/app/recrutamento/vagas",
+    label: "Vagas",
+    description: "Posições abertas para empresas clientes e acompanhamento de processo.",
+    icon: "ClipboardText",
+    group: "recrutamento",
+    section: "Processos Seletivos",
+    sidebar: true,
+  },
+  {
+    href: "/app/recrutamento/candidaturas",
+    label: "Candidaturas",
+    description: "Visão consolidada de todas as candidaturas ativas e histórico.",
+    icon: "ListChecks",
+    group: "recrutamento",
+    section: "Processos Seletivos",
+    sidebar: true,
+  },
+  {
+    href: "/app/recrutamento/pipeline",
+    label: "Funil de Seleção",
+    description: "Quadro com as 10 etapas seletivas de 01 Recebido a 10 Desistiu.",
+    icon: "Kanban",
+    group: "recrutamento",
+    section: "Processos Seletivos",
+    sidebar: true,
   },
 
   // ---- Agente de IA — montar, ensinar, acompanhar ----
   {
     href: "/app/ai/agents",
-    label: "Agentes",
+    label: "Assistentes",
     description: "Quem atende por você: instruções, modelo, ferramentas e publicação.",
     icon: "Robot",
     group: "ia",
@@ -342,7 +249,6 @@ export const NAV_CATALOG = [
     group: "ia",
     section: "Montar o agente",
     minRole: "manager",
-    sidebar: true,
   },
   {
     href: "/app/ai/credentials",
@@ -494,30 +400,12 @@ export const NAV_CATALOG = [
     label: "Webhooks",
     description: "Avise outros sistemas quando algo acontecer aqui dentro.",
     icon: "WebhooksLogo",
-    group: "canais",
+    group: "organizacao",
+    section: "Integrações",
     minRole: "manager",
-    sidebar: true,
   },
 
   // ---- Análise — olhar o sistema funcionando ----
-  //
-  // ── QUEM FICA NO MENU, E POR QUÊ ─────────────────────────────────────────
-  //
-  // A régua é a FREQUÊNCIA de quem opera vendas por WhatsApp, não a importância
-  // da tela. As três de cima entram na rotina — o dono abre Desempenho para
-  // saber como vai o mês, Meta Ads para saber quanto custou trazer quem chegou,
-  // e Atividades para saber se a equipe (e a IA) trabalhou no período. São
-  // perguntas que se refazem toda semana, e um menu é para o que se refaz.
-  //
-  // As duas de baixo são visita DELIBERADA: "Evolução da IA" é revisão do
-  // agente, coisa de quando se senta para ensiná-lo — e quem senta para isso já
-  // vai ao grupo de IA; "Audit Log" é forense, aberto quando algo deu errado e
-  // se precisa saber quem mexeu. Nenhuma das duas se abre de passagem, e é
-  // justamente disso que o hub é feito: quem vai lá vai de propósito.
-  //
-  // Sair do menu não é sair do produto — o hub `/app/analise` é INVENTÁRIO e
-  // lista as cinco (`hubSections`), então as duas continuam a um clique, com a
-  // frase que explica para que servem. O ⌘K também as acha por nome.
   {
     href: "/app/metrics",
     label: "Desempenho",
@@ -528,20 +416,13 @@ export const NAV_CATALOG = [
     sidebar: true,
   },
   {
-    // Logo abaixo de Desempenho porque responde a metade da MESMA pergunta: lá
-    // está o que aconteceu depois que a pessoa chegou; aqui, quanto custou
-    // trazê-la. Ler as duas juntas é o que fecha a conta do custo por cliente.
     href: "/app/ads/meta",
     label: "Meta Ads",
     description: "Quanto custou cada resultado das campanhas que trazem gente para cá.",
     icon: "Megaphone",
     group: "analise",
     section: "Os números do período",
-    // `manager`, e não o `viewer` de Desempenho: aqui não há recorte por
-    // pessoa — orçamento e criativo são da empresa inteira. Mesmo grau dos
-    // outros dois vizinhos do grupo.
     minRole: "manager",
-    sidebar: true,
   },
   {
     // Irmã de "Desempenho", não a mesma coisa: lá é DESFECHO (funil agora,
@@ -579,6 +460,14 @@ export const NAV_CATALOG = [
   },
 
   // ---- Organização — conta, empresa, acesso ----
+  {
+    href: "/app/settings/tenant/agenda",
+    label: "Tipos de agendamento",
+    description: "O que se pode marcar, quanto dura, onde acontece e quem atende.",
+    icon: "CalendarBlank",
+    group: "organizacao",
+    section: "Sua empresa",
+  },
   {
     href: "/app/settings/profile",
     label: "Perfil",

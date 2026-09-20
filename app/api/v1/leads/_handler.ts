@@ -237,7 +237,56 @@ export async function getLeadHandler(
       traduzir("Lead não encontrado.", ctx.idioma ?? "pt-BR"),
     );
   }
-  return data as Record<string, unknown>;
+
+  const lead = data as Record<string, unknown>;
+
+  let company: { id: string; trade_name: string | null; legal_name: string | null } | null = null;
+  if (lead.client_company_id) {
+    const { data: comp } = await supabase
+      .from("client_companies")
+      .select("id, trade_name, legal_name")
+      .eq("id", lead.client_company_id as string)
+      .eq("organization_id", ctx.organization_id)
+      .maybeSingle();
+    if (comp) company = comp;
+  }
+
+  let contact: { id: string; name: string; email: string | null; phone: string | null; role_in_company?: string | null } | null = null;
+  if (lead.contact_id) {
+    const { data: c } = await supabase
+      .from("contacts")
+      .select("id, name, email, phone_number")
+      .eq("id", lead.contact_id as string)
+      .eq("organization_id", ctx.organization_id)
+      .maybeSingle();
+
+    if (c) {
+      let role_in_company: string | null = null;
+      if (lead.client_company_id) {
+        const { data: link } = await supabase
+          .from("client_company_contacts")
+          .select("role_in_company")
+          .eq("client_company_id", lead.client_company_id as string)
+          .eq("contact_id", lead.contact_id as string)
+          .eq("organization_id", ctx.organization_id)
+          .maybeSingle();
+        if (link) role_in_company = link.role_in_company;
+      }
+      contact = {
+        id: c.id,
+        name: c.name,
+        email: c.email ?? null,
+        phone: c.phone_number ?? null,
+        role_in_company,
+      };
+    }
+  }
+
+  return {
+    ...lead,
+    company,
+    contact,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -297,6 +346,50 @@ export async function createLeadHandler(
   }
   const nextPos = maxRow?.position_in_stage ? Number(maxRow.position_in_stage) + 1000 : 1000;
 
+  if (input.client_company_id) {
+    const { data: comp, error: compErr } = await supabase
+      .from("client_companies")
+      .select("id")
+      .eq("id", input.client_company_id)
+      .eq("organization_id", ctx.organization_id)
+      .maybeSingle();
+
+    if (compErr) {
+      throw new ApiError(500, "internal_error", undefined, ctx.requestId, compErr.message);
+    }
+    if (!comp) {
+      throw new ApiError(
+        422,
+        "validation_failed",
+        undefined,
+        ctx.requestId,
+        traduzir("Empresa cliente não encontrada nesta organização.", ctx.idioma ?? "pt-BR"),
+      );
+    }
+  }
+
+  if (input.contact_id) {
+    const { data: contactRow, error: contactErr } = await supabase
+      .from("contacts")
+      .select("id")
+      .eq("id", input.contact_id)
+      .eq("organization_id", ctx.organization_id)
+      .maybeSingle();
+
+    if (contactErr) {
+      throw new ApiError(500, "internal_error", undefined, ctx.requestId, contactErr.message);
+    }
+    if (!contactRow) {
+      throw new ApiError(
+        422,
+        "validation_failed",
+        undefined,
+        ctx.requestId,
+        traduzir("Contato não encontrado nesta organização.", ctx.idioma ?? "pt-BR"),
+      );
+    }
+  }
+
   // Nascer com dono e sem owner_kind é drift silencioso (o CHECK aceita kind
   // null): o lead teria dono e sumiria do filtro e das métricas por kind.
   const ownerPatch =
@@ -312,6 +405,7 @@ export async function createLeadHandler(
       stage_id: input.stage_id,
       title: input.title,
       description: input.description ?? null,
+      client_company_id: input.client_company_id ?? null,
       contact_id: input.contact_id ?? null,
       value_cents: input.value_cents ?? null,
       currency: input.currency ?? "BRL",
@@ -420,7 +514,54 @@ export async function updateLeadHandler(
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (input.title !== undefined) patch.title = input.title;
   if (input.description !== undefined) patch.description = input.description;
-  if (input.contact_id !== undefined) patch.contact_id = input.contact_id;
+  if (input.client_company_id !== undefined) {
+    if (input.client_company_id !== null) {
+      const { data: comp, error: compErr } = await supabase
+        .from("client_companies")
+        .select("id")
+        .eq("id", input.client_company_id)
+        .eq("organization_id", ctx.organization_id)
+        .maybeSingle();
+
+      if (compErr) {
+        throw new ApiError(500, "internal_error", undefined, ctx.requestId, compErr.message);
+      }
+      if (!comp) {
+        throw new ApiError(
+          422,
+          "validation_failed",
+          undefined,
+          ctx.requestId,
+          traduzir("Empresa cliente não encontrada nesta organização.", ctx.idioma ?? "pt-BR"),
+        );
+      }
+    }
+    patch.client_company_id = input.client_company_id;
+  }
+  if (input.contact_id !== undefined) {
+    if (input.contact_id !== null) {
+      const { data: contactRow, error: contactErr } = await supabase
+        .from("contacts")
+        .select("id")
+        .eq("id", input.contact_id)
+        .eq("organization_id", ctx.organization_id)
+        .maybeSingle();
+
+      if (contactErr) {
+        throw new ApiError(500, "internal_error", undefined, ctx.requestId, contactErr.message);
+      }
+      if (!contactRow) {
+        throw new ApiError(
+          422,
+          "validation_failed",
+          undefined,
+          ctx.requestId,
+          traduzir("Contato não encontrado nesta organização.", ctx.idioma ?? "pt-BR"),
+        );
+      }
+    }
+    patch.contact_id = input.contact_id;
+  }
   if (input.value_cents !== undefined) patch.value_cents = input.value_cents;
   if (input.currency !== undefined) patch.currency = input.currency;
   // Dono do negócio (0070): regra em lib/leads/owner-patch.ts, compartilhada
@@ -569,7 +710,7 @@ export async function updateLeadHandler(
     metadata: { ...a.metadataActor, fields },
   });
 
-  return updated as Record<string, unknown>;
+  return await getLeadHandler(supabase, ctx, leadId);
 }
 
 // ---------------------------------------------------------------------------

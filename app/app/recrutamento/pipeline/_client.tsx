@@ -143,18 +143,24 @@ export function PipelineClient() {
       ) : (
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex gap-3 overflow-x-auto pb-4 h-full select-none">
-            {RECRUITMENT_STAGES.map((stage) => {
+            {RECRUITMENT_STAGES.map((stage, idx) => {
               const stageApps = columns.get(stage.id) ?? [];
+              const stepNumber = String(idx + 1).padStart(2, "0");
               return (
                 <div
                   key={stage.id}
-                  className="flex flex-col w-72 shrink-0 rounded-lg border border-border bg-muted/20 p-2.5 h-full overflow-hidden"
+                  className="flex flex-col w-72 shrink-0 rounded-lg border border-border/80 bg-muted/25 p-2.5 h-full overflow-hidden shadow-xs"
                 >
-                  <div className="flex items-center justify-between pb-2 px-1 border-b border-border/50 shrink-0">
-                    <span className="text-xs font-semibold tracking-tight text-foreground truncate">
-                      {stage.label}
-                    </span>
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                  <div className="flex items-center justify-between pb-2 px-1 border-b border-border/60 shrink-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[10px] font-mono font-semibold text-primary bg-primary/10 px-1 py-0.2 rounded-md">
+                        {stepNumber}
+                      </span>
+                      <span className="text-xs font-semibold tracking-tight text-foreground truncate">
+                        {stage.label.replace(/^\d+\s*/, '')}
+                      </span>
+                    </div>
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-background font-mono border border-border/50">
                       {stageApps.length}
                     </Badge>
                   </div>
@@ -175,8 +181,10 @@ export function PipelineClient() {
                                 ref={providedDrag.innerRef}
                                 {...providedDrag.draggableProps}
                                 {...providedDrag.dragHandleProps}
-                                className={`rounded-md border bg-card p-3 shadow-xs transition-shadow ${
-                                  snapshotDrag.isDragging ? "shadow-md ring-1 ring-primary/40 rotate-1" : "hover:border-primary/50"
+                                className={`rounded-md border bg-card p-3 shadow-xs transition-all ${
+                                  snapshotDrag.isDragging
+                                    ? "shadow-lg ring-2 ring-primary/40 rotate-1 bg-card"
+                                    : "hover:border-primary/40 hover:shadow-xs"
                                 }`}
                               >
                                 <div className="space-y-2">
@@ -199,8 +207,8 @@ export function PipelineClient() {
 
                                   <div className="pt-1.5 border-t border-border/40 flex flex-col gap-1 text-[11px] text-muted-foreground">
                                     <div className="flex items-center gap-1 truncate">
-                                      <Briefcase className="h-3 w-3 shrink-0" />
-                                      <span className="truncate">{app.job_opening?.title ?? t("Vaga")}</span>
+                                      <Briefcase className="h-3 w-3 shrink-0 text-primary" />
+                                      <span className="truncate font-medium text-foreground/90">{app.job_opening?.title ?? t("Vaga")}</span>
                                     </div>
                                     <div className="flex items-center gap-1 truncate">
                                       <Buildings className="h-3 w-3 shrink-0" />

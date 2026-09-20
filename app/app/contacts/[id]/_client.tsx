@@ -5,7 +5,8 @@ import { useLocaleDeData } from "@/hooks/i18n/useLocaleDeData";
 import { useT } from "@/hooks/i18n/useT";
 import { useState } from "react";
 import { format } from "date-fns";
-import { ShieldCheck, PencilSimple } from "@/lib/ui/icons";
+import { ShieldCheck, PencilSimple, Buildings } from "@/lib/ui/icons";
+import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -94,6 +95,36 @@ export function ContactDetailClient({ contactId }: Props) {
             {contact.email && contact.phone_number && <span>•</span>}
             {contact.phone_number && <span>{phoneForDisplay(contact.phone_number)}</span>}
           </div>
+          {contact.company_link && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-muted-foreground">{t("Empresa")}:</span>
+              <Link
+                href={`/app/crm/empresas/${contact.company_link.client_company_id}`}
+                className="font-medium text-primary hover:underline inline-flex items-center gap-1"
+              >
+                <Buildings size={14} weight="bold" aria-hidden />
+                <span>
+                  {contact.company_link.company?.trade_name ||
+                    contact.company_link.company?.legal_name ||
+                    t("Empresa")}
+                </span>
+              </Link>
+              {contact.company_link.role_in_company && (
+                <>
+                  <span className="text-muted-foreground">•</span>
+                  <span className="text-foreground">{contact.company_link.role_in_company}</span>
+                </>
+              )}
+              {contact.company_link.is_primary && (
+                <Badge
+                  variant="outline"
+                  className="text-[11px] py-0 px-1.5 border-primary/40 bg-primary/10 text-primary font-medium"
+                >
+                  {t("Contato Principal")}
+                </Badge>
+              )}
+            </div>
+          )}
           <div className="mt-2 flex flex-wrap gap-1">
             {contact.tags.map((t) => (
               <Badge key={t} variant="neutral">
@@ -146,6 +177,49 @@ export function ContactDetailClient({ contactId }: Props) {
               <div>
                 <dt className="text-xs uppercase text-muted-foreground">Display name</dt>
                 <dd className="mt-1">{contact.display_name ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase text-muted-foreground">{t("Empresa vinculada")}</dt>
+                <dd className="mt-1">
+                  {contact.company_link ? (
+                    <Link
+                      href={`/app/crm/empresas/${contact.company_link.client_company_id}`}
+                      className="font-medium text-primary hover:underline inline-flex items-center gap-1"
+                    >
+                      <Buildings size={14} weight="bold" aria-hidden />
+                      <span>
+                        {contact.company_link.company?.trade_name ||
+                          contact.company_link.company?.legal_name ||
+                          contact.company_link.client_company_id}
+                      </span>
+                    </Link>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase text-muted-foreground">{t("Cargo / Função")}</dt>
+                <dd className="mt-1">
+                  {contact.company_link?.role_in_company || "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase text-muted-foreground">{t("Contato Principal")}</dt>
+                <dd className="mt-1">
+                  {contact.company_link?.is_primary ? (
+                    <Badge
+                      variant="outline"
+                      className="text-[11px] py-0 px-1.5 border-primary/40 bg-primary/10 text-primary font-medium"
+                    >
+                      {t("Sim")}
+                    </Badge>
+                  ) : contact.company_link ? (
+                    <span className="text-muted-foreground">{t("Não")}</span>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
               </div>
               <div>
                 <dt className="text-xs uppercase text-muted-foreground">Email</dt>

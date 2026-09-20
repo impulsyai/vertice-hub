@@ -62,21 +62,32 @@ export function TenantSwitcher() {
           texto, mas a 18px visíveis o nome vira "M…", e as colisões de 13px com
           a busca continuam. O espaço é que não existe.
         */}
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={isPending || !!user.support}
-          className="gap-2"
-          aria-label={`${t("Organização")}: ${active?.name ?? t("Selecionar org")}`}
-          title={user.support ? "Saia do acompanhamento para trocar de organização" : undefined}
-          data-testid="tenant-switcher"
-        >
-          <Storefront size={16} weight="duotone" aria-hidden />
-          <span className="hidden max-w-[160px] truncate md:inline">
-            {active?.name ?? "Selecionar org"}
-          </span>
-          <CaretDown size={12} aria-hidden className="hidden md:inline" />
-        </Button>
+        {/*
+          No celular o seletor de organização é só o ícone.
+        */}
+        {(() => {
+          const orgName = active?.name ?? t("Selecionar org");
+          const displayName = orgName.startsWith("Vértice")
+            ? (orgName.length > 20 ? "Vértice" : orgName)
+            : orgName;
+          return (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isPending || !!user.support}
+              className="gap-2"
+              aria-label={`${t("Organização")}: ${orgName}`}
+              title={user.support ? "Saia do acompanhamento para trocar de organização" : orgName}
+              data-testid="tenant-switcher"
+            >
+              <Storefront size={16} weight="duotone" aria-hidden />
+              <span className="hidden max-w-[200px] truncate md:inline">
+                {displayName}
+              </span>
+              <CaretDown size={12} aria-hidden className="hidden md:inline" />
+            </Button>
+          );
+        })()}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[220px]">
         {user.organizations.map((org) => (

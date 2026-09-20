@@ -78,46 +78,86 @@ export function VagaDetalheClient({ id }: { id: string }) {
     );
   }
 
+const STAGE_LABELS: Record<string, string> = {
+  received: "01 Recebido",
+  screening: "02 Triagem",
+  vertice_interview: "Entrevista Vértice",
+  assessment: "Avaliação Técnica",
+  shortlist: "Shortlist",
+  client_interview: "Entrevista Cliente",
+  finalist: "Finalista",
+  approved: "Aprovado",
+  rejected: "Reprovado",
+  withdrawn: "Desistiu",
+};
+
+const PRIORITY_LABELS: Record<string, string> = {
+  low: "Baixa",
+  medium: "Média",
+  high: "Alta",
+  urgent: "Urgente",
+};
+
+const WORK_MODEL_LABELS: Record<string, string> = {
+  presential: "Presencial",
+  hybrid: "Híbrido",
+  remote: "Remoto",
+};
+
   const { job, applications } = data;
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start sm:items-center gap-3">
           <Link href="/app/recrutamento/vagas">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 mt-1 sm:mt-0">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">{job.title}</h1>
-              <Badge variant={job.status === "open" ? "default" : "secondary"}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
+                {t("Posição Corporativa")}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">{job.title}</h1>
+              <Badge
+                variant="outline"
+                className={
+                  job.status === "open"
+                    ? "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium"
+                    : "border-stone-300 bg-stone-100 text-stone-700 font-normal"
+                }
+              >
                 {job.status === "open" ? t("Aberta") : job.status}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <Buildings className="h-4 w-4" />
-              <span>{job.client_company?.trade_name ?? t("Empresa Cliente")}</span>
+            <p className="text-sm text-muted-foreground flex flex-wrap items-center gap-2 mt-1">
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                <Buildings className="h-4 w-4 text-primary shrink-0" />
+                {job.client_company?.trade_name ?? t("Empresa Cliente")}
+              </span>
               <span>•</span>
-              <span className="capitalize">{job.work_model}</span>
+              <span>{WORK_MODEL_LABELS[job.work_model] ?? job.work_model}</span>
               {job.city && <span>• {job.city}/{job.state}</span>}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0">
           <Link href={`/app/recrutamento/pipeline?job_id=${job.id}`}>
-            <Button className="gap-2">
+            <Button className="gap-2 text-xs sm:text-sm h-9">
               <Kanban className="h-4 w-4" />
               {t("Abrir Funil de Seleção")}
             </Button>
           </Link>
-          <Button variant="outline" onClick={() => setIsEditOpen(true)} className="gap-2">
+          <Button variant="outline" onClick={() => setIsEditOpen(true)} className="gap-2 text-xs sm:text-sm h-9">
             <PencilSimple className="h-4 w-4" />
             {t("Editar Vaga")}
           </Button>
-          <Button variant="outline" onClick={() => setIsAddOpen(true)} className="gap-2">
+          <Button variant="outline" onClick={() => setIsAddOpen(true)} className="gap-2 text-xs sm:text-sm h-9">
             <Plus className="h-4 w-4" />
             {t("Adicionar Candidato")}
           </Button>
@@ -178,8 +218,8 @@ export function VagaDetalheClient({ id }: { id: string }) {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Badge variant="secondary" className="capitalize">
-                          {app.stage.replace("_", " ")}
+                        <Badge variant="secondary">
+                          {STAGE_LABELS[app.stage] ?? app.stage.replace("_", " ")}
                         </Badge>
                       </div>
                     </div>
@@ -203,15 +243,15 @@ export function VagaDetalheClient({ id }: { id: string }) {
               </div>
               <div>
                 <span className="text-xs text-muted-foreground block">{t("Modelo de Trabalho")}</span>
-                <span className="font-medium capitalize">{job.work_model}</span>
+                <span className="font-medium">{WORK_MODEL_LABELS[job.work_model] ?? job.work_model}</span>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground block">{t("Vagas Abertas")}</span>
+                <span className="text-xs text-muted-foreground block">{t("Quantidade de Posições")}</span>
                 <span className="font-medium">{job.openings_count}</span>
               </div>
               <div>
                 <span className="text-xs text-muted-foreground block">{t("Prioridade")}</span>
-                <span className="font-medium capitalize">{job.priority}</span>
+                <span className="font-medium">{PRIORITY_LABELS[job.priority] ?? job.priority}</span>
               </div>
               <div>
                 <span className="text-xs text-muted-foreground block">{t("Data de Abertura")}</span>

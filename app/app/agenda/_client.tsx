@@ -162,9 +162,13 @@ export function AgendaClient({
   // primeiro em ordem alfabética e não havia como marcar outro: numa org com
   // "Atendimento", "Consulta", "Reunião", só "Atendimento" era alcançável pela
   // tela. As categorias existiam no banco, no seed e na API — e a tela oferecia
-  // uma. Achado escrevendo a spec de marcar, não lendo o código.
   const [tipoId, setTipoId] = React.useState<string | null>(() => tiposIniciais[0]?.id ?? null);
   const tipo = tiposIniciais.find((t) => t.id === tipoId) ?? tiposIniciais[0] ?? null;
+  const [opportunityId, setOpportunityId] = React.useState<string>("");
+  const [customTitle, setCustomTitle] = React.useState<string>("");
+  const [observacoes, setObservacoes] = React.useState<string>("");
+  const [modalidade, setModalidade] = React.useState<"online" | "presencial">("online");
+  const [localLink, setLocalLink] = React.useState<string>("");
   const [visao, setVisao] = React.useState<VisaoDaAgenda>("semana");
   /**
    * No CELULAR a agenda abre no DIA, não na semana.
@@ -500,6 +504,10 @@ export function AgendaClient({
             // não usado reapareceria na PRÓXIMA marcação, que é de outro
             // cliente — convite para a pessoa errada, sem ninguém ter pedido.
             setEmailConvidado("");
+            setCustomTitle("");
+            setObservacoes("");
+            setLocalLink("");
+            setOpportunityId("");
             // E o próprio cliente, que é o pior dos quatro a sobrar: medido numa
             // instalação real em 2026-09-12, "Novo agendamento" abriu com um
             // contato JÁ selecionado, herdado de uma abertura anterior feita a
@@ -541,34 +549,98 @@ export function AgendaClient({
           maior só roubaria contexto da tela atrás.
         */}
         {/*
-          A CADEIA DE ALTURAS, e ela é o que faz a lista de horários rolar.
-          
-          O `overflow-y-auto` da lista (`PainelDeMarcacao`) sempre esteve no
-          elemento certo e era INERTE: `overflow-y-auto` cujo pai tem altura
-          `auto` não rola — o filho cresce, `scrollHeight === clientHeight`, e os
-          últimos horários ficavam abaixo da dobra sem nenhum jeito de alcançá-los.
-          E a página também não rolava: o `SheetContent` é `position: fixed`, e
-          transbordo de elemento fixo não estende a área rolável do documento.
-          
-          Abaixo de `lg` o próprio Sheet rola (ali o painel empilha e a lista é
-          uma seção, não uma coluna). De `lg` para cima o Sheet segura a altura e
-          a LISTA rola, com calendário e contexto parados.
-          
-          ⚠️ `lg:overflow-hidden` e não `overflow-y-auto` em todo breakpoint: em
-          `lg` o Sheet tem 1040px com `p-6` → 992px de caixa contra ~980px de
-          painel. Uma barra vertical come essa folga, e como o CSS computa
-          `overflow-x: visible` como `auto` quando `overflow-y` não é `visible`,
-          nasceria barra HORIZONTAL exatamente no breakpoint que o conserto de
-          largura acabou de reparar.
+          O Sheet é uma sobreposição fixa: seu conteúdo não pode aumentar a
+          página por trás, mas precisa ter uma área própria para rolar. Antes,
+          o overflow ficava dividido entre o Sheet e a lista de horários; em
+          alturas menores o modal cortava os campos e a confirmação sem oferecer
+          um caminho de scroll contínuo.
         */}
         <SheetContent
           side="right"
-          className="flex w-full flex-col overflow-y-auto sm:max-w-3xl lg:max-w-[1040px] lg:overflow-hidden"
+          className="flex h-full max-h-[100dvh] w-full min-h-0 flex-col overflow-hidden sm:max-w-3xl lg:max-w-[1040px]"
         >
-          <SheetHeader>
+          <SheetHeader className="shrink-0">
             <SheetTitle>{remarcandoId ? t("Remarcar agendamento") : t("Novo agendamento")}</SheetTitle>
           </SheetHeader>
-            {!remarcandoId?<VinculoDaMarcacao contactId={contactId} conversationId={conversationId} onChange={(contact,conversation)=>escolherVinculo({contact,conversation})}/>:null}
+          <div
+            data-testid="novo-agendamento-scroll"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 space-y-3 pt-2"
+          >
+            {!remarcandoId ? (
+              <div className="space-y-3 pt-2">
+                {/* Título do compromisso */}
+                <div>
+                  <label className="block text-xs font-medium text-text-muted" htmlFor="titulo-compromisso">
+                    {t("Título do compromisso")} <span className="opacity-70">({t("opcional")})</span>
+                  </label>
+                  <input
+                    id="titulo-compromisso"
+                    type="text"
+                    value={customTitle}
+                    onChange={(e) => setCustomTitle(e.target.value)}
+                    placeholder={tipo ? tipo.nome : t("Reunião com Decisor")}
+                    className="mt-1 w-full rounded-md border bg-surface p-2 text-sm border-border focus:border-border-strong outline-hidden"
+                  />
+                </div>
+
+                <VinculoDaMarcacao
+                  contactId={contactId}
+                  conversationId={conversationId}
+                  opportunityId={opportunityId}
+                  onChange={(contact, conversation) => escolherVinculo({ contact, conversation })}
+                  onOpportunityChange={setOpportunityId}
+                  onContactSelected={(c) => {
+                    if (!emailConvidado && c.email) setEmailConvidado(c.email);
+                  }}
+                />
+
+                {/* Modalidade & Local/Link */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-text-muted">
+                      {t("Modalidade")}
+                    </label>
+                    <select
+                      value={modalidade}
+                      onChange={(e) => setModalidade(e.target.value as "online" | "presencial")}
+                      className="mt-1 w-full rounded-md border bg-surface p-2 text-sm border-border"
+                    >
+                      <option value="online">{t("Online (Meet / Zoom / Teams)")}</option>
+                      <option value="presencial">{t("Presencial")}</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-text-muted" htmlFor="local-link">
+                      {t("Local ou Link")} <span className="opacity-70">({t("opcional")})</span>
+                    </label>
+                    <input
+                      id="local-link"
+                      type="text"
+                      value={localLink}
+                      onChange={(e) => setLocalLink(e.target.value)}
+                      placeholder={modalidade === "online" ? "https://meet.google.com/..." : "Endereço da reunião"}
+                      className="mt-1 w-full rounded-md border bg-surface p-2 text-sm border-border focus:border-border-strong outline-hidden"
+                    />
+                  </div>
+                </div>
+
+                {/* Observações / Pauta */}
+                <div>
+                  <label className="block text-xs font-medium text-text-muted" htmlFor="observacoes-pauta">
+                    {t("Observações / Pauta")} <span className="opacity-70">({t("opcional")})</span>
+                  </label>
+                  <textarea
+                    id="observacoes-pauta"
+                    rows={2}
+                    value={observacoes}
+                    onChange={(e) => setObservacoes(e.target.value)}
+                    placeholder={t("Pauta do encontro, contexto e alinhamentos prévios...")}
+                    className="mt-1 w-full rounded-md border bg-surface p-2 text-sm border-border focus:border-border-strong outline-hidden resize-none"
+                  />
+                </div>
+              </div>
+            ) : null}
           {tiposIniciais.length > 1 && (
             <div className="mt-4" data-testid="tipos-de-agendamento">
               <p className="mb-2 text-xs font-medium text-text-muted">{t("Tipo de agendamento")}</p>
@@ -636,9 +708,8 @@ export function AgendaClient({
             </p>
           </div>
           {tipo && (
-            <div className="mt-4 lg:min-h-0 lg:flex-1">
+            <div className="mt-4">
               <PainelDeMarcacao
-                className="lg:h-full"
                 ancora={new Date()}
                 agora={new Date()}
                 responsavel={
@@ -662,7 +733,24 @@ export function AgendaClient({
                 // `fuso_da_regra` já vinha da rota e já era tipado pelo hook;
                 // ninguém em tela o lia. Chutar São Paulo para quem atende em
                 // Manaus é uma hora de diferença no horário oferecido ao cliente.
-                local={rotuloDoLocal(tipo.localKind, tipo.localDetalhes)}
+                // `local` reflete a escolha real do usuário, não o default do tipo.
+                //
+                // ERA: `rotuloDoLocal(tipo.localKind, tipo.localDetalhes)` — fixo no
+                // tipo de evento, nunca mudava quando o usuário trocava a Modalidade
+                // no select. Resultado: painel dizia "Presencial" mesmo com "Online"
+                // selecionado, e vice-versa.
+                //
+                // Regra de prioridade:
+                //   1. localLink preenchido → sempre vence (link ou endereço concreto)
+                //   2. online sem link → "Online" (não chutamos link)
+                //   3. presencial → rótulo do tipo ou "Presencial" como fallback
+                local={
+                  localLink.trim()
+                    ? localLink.trim()
+                    : modalidade === "online"
+                    ? "Online"
+                    : (rotuloDoLocal(tipo.localKind, tipo.localDetalhes) ?? "Presencial")
+                }
                 fuso={horarios?.fuso_da_regra}
                 horariosPorDia={horariosPorDia}
                 publicouHorarios={horarios?.publicou_horarios ?? true}
@@ -708,16 +796,31 @@ export function AgendaClient({
                         return r;
                       });
                   }
+                  const notesPayload = [
+                    observacoes.trim(),
+                    modalidade ? `Modalidade: ${modalidade === "online" ? "Online" : "Presencial"}` : "",
+                    localLink.trim() ? `Local/Link: ${localLink.trim()}` : "",
+                    opportunityId ? `Oportunidade ID: ${opportunityId}` : "",
+                  ]
+                    .filter(Boolean)
+                    .join("\n");
+
                   return marcar
                     .mutateAsync({
                       event_type_id: tipo.id,
-                      contact_id:contactId||undefined,
-                      conversation_id:conversationId||undefined,
+                      contact_id: contactId || undefined,
+                      conversation_id: conversationId || undefined,
                       starts_at: instante,
                       guest_email: convidado,
+                      title: customTitle.trim() || undefined,
+                      notes: notesPayload || undefined,
                     })
                     .then((r) => {
                       setEmailConvidado("");
+                      setCustomTitle("");
+                      setObservacoes("");
+                      setLocalLink("");
+                      setOpportunityId("");
                       // Guardado para o fechamento saber para onde levar a grade.
                       setMarcadoEm(instante);
                       return r;
@@ -745,6 +848,7 @@ export function AgendaClient({
               />
             </div>
           )}
+          </div>
         </SheetContent>
       </Sheet>
 
