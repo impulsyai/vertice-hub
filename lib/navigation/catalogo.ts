@@ -42,6 +42,8 @@ export interface NavMetadata {
   minRole?: Role;
   /** Ausente = só no hub. `true` = uso diário, sobe para o sidebar. */
   sidebar?: boolean;
+  /** false = rota preservada no catalogo, mas escondida das superficies V1. */
+  v1Visible?: boolean;
   healthDot?: boolean;
 }
 
@@ -158,6 +160,7 @@ export const NAV_CATALOG = [
   {
     href: "/app/products",
     label: "Produtos",
+    v1Visible: false,
     description: "O catálogo da loja, com o preço que o atendente de IA responde.",
     icon: "Storefront",
     group: "crm",
@@ -375,25 +378,16 @@ export const NAV_CATALOG = [
     // Não tinha link nenhum no app inteiro: só se chegava digitando a URL.
     href: "/app/integrations/nuvemshop",
     label: "Nuvemshop",
+    v1Visible: false,
     description: "Conecte a loja para trazer pedidos e clientes para dentro do CRM.",
     icon: "Storefront",
     group: "canais",
     // A página não filtra por papel, mas as Server Actions de conectar e
     // desconectar exigem admin — mostrar a um viewer seria oferecer botão morto.
     minRole: "admin",
-    // SEM `sidebar`: fora do menu lateral por decisão do dono do produto — a
-    // integração não é usada nesta instalação e ocupava uma linha de "Canais"
-    // toda vez que alguém abria o app.
-    //
-    // Continua sendo DESTINO, e é por isso que a linha some em vez do bloco
-    // inteiro: `searchable()` (abaixo) filtra só por papel, então a tela segue
-    // no ⌘K; a rota, a página e as Server Actions ficam intactas; e
-    // `tests/unit/navegacao-completude.test.ts` continua vendo uma porta para
-    // `/app/integrations/nuvemshop` — apagar a entrada exigiria justificá-la na
-    // allowlist de "rota sem porta", que é coisa de rota morta, e esta não está.
-    //
-    // ⚠️ O grupo "canais" não tem hub, então o ⌘K passa a ser a ÚNICA porta
-    // navegável. Para voltar a mostrá-la, basta devolver `sidebar: true`.
+    // Não participa da navegação V1. O destino permanece no catálogo para
+    // preservar a porta da rota e a completude do registro, sem expor a
+    // integração nas projeções de menu ou pesquisa.
   },
   {
     href: "/app/webhooks",
@@ -418,6 +412,7 @@ export const NAV_CATALOG = [
   {
     href: "/app/ads/meta",
     label: "Meta Ads",
+    v1Visible: false,
     description: "Quanto custou cada resultado das campanhas que trazem gente para cá.",
     icon: "Megaphone",
     group: "analise",
@@ -529,6 +524,7 @@ export const NAV_CATALOG = [
     // por qualquer transporte). Ver `lib/plataformas-de-anuncio/types.ts`.
     href: "/app/settings/conversoes",
     label: "Conversões",
+    v1Visible: false,
     description:
       "Devolver ao anúncio as vendas que ele trouxe, para ele aprender a procurar mais clientes parecidos.",
     icon: "ChartLineUp",
@@ -549,6 +545,7 @@ export const NAV_CATALOG = [
     // errado no campo errado e se perde uma semana achando que quebrou.
     href: "/app/settings/meta-ads",
     label: "Meta Ads",
+    v1Visible: false,
     description: "Conectar a conta de anúncios para ler o desempenho das campanhas.",
     icon: "Megaphone",
     group: "organizacao",
@@ -576,6 +573,7 @@ export const NAV_CATALOG = [
   {
     href: "/app/settings/billing",
     label: "Billing",
+    v1Visible: false,
     description: "Plano e cobrança.",
     icon: "Receipt",
     group: "organizacao",

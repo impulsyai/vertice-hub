@@ -124,7 +124,7 @@ describe("Sidebar agrupado", () => {
     comoPapel("admin");
     authRef.activeOrg!.interface_settings = {
       preset: "simplificada",
-      destinos: ["/app/products"],
+      destinos: ["/app/kanban"],
     };
     render(<Sidebar collapsed={false} />);
     expect(screen.getByRole("link", { name: "Ver tudo em Comercial" })).toHaveAttribute(

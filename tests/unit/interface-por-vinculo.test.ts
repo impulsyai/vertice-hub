@@ -11,12 +11,16 @@ import { sidebarGroups, searchable, hubSections } from "@/lib/navigation/registr
 import { signInviteToken, verifyInviteToken } from "@/lib/auth/invite-token";
 const complete = { preset: "completa" } as const;
 const simplified = { preset: "simplificada" } as const;
-const granular = { preset: "completa", destinos: ["/app/products"] } as const;
+const granular = { preset: "completa", destinos: ["/app/settings/tenant/pipelines"] } as const;
 const hrefs = (settings: unknown, role: "agent" | "admin" = "admin", platform = false) =>
   destinosDaInterface(settings, platform, role).map((d) => d.href);
 describe("interface por vínculo é apresentação", () => {
   it("legado completa acompanha catálogo e não duplica IDs", () => {
-    expect(hrefs(null)).toEqual(NAV_CATALOG.map((d) => d.href));
+    expect(hrefs(null)).toEqual(
+      NAV_CATALOG.filter((d) => !("v1Visible" in d) || d.v1Visible !== false).map(
+        (d) => d.href,
+      ),
+    );
     expect(new Set(NAV_CATALOG.map((d) => d.href)).size).toBe(NAV_CATALOG.length);
   });
   it("simplificada tem operação e Conexões somente quando papel permite", () => {
@@ -47,12 +51,19 @@ describe("interface por vínculo é apresentação", () => {
       hubSections("crm", false, "admin", settings)
         .flatMap((s) => s.items)
         .map((d) => d.href),
-    ).toEqual(["/app/products"]);
-    expect(searchable(false, "admin", settings).map((d) => d.href)).toContain("/app/products");
-    expect(homeDaInterface(settings, false, "admin")).toBe("/app/products");
+    ).toEqual(["/app/settings/tenant/pipelines"]);
+    expect(searchable(false, "admin", settings).map((d) => d.href)).toContain(
+      "/app/settings/tenant/pipelines",
+    );
+    expect(homeDaInterface(settings, false, "admin")).toBe("/app/settings/tenant/pipelines");
     expect(hrefs(settings)).toEqual(
       expect.arrayContaining(["/app/team", "/app/settings/profile", "/app/settings/security"]),
     );
+  });
+  it("não reexpõe destino V1 oculto salvo em configuração antiga", () => {
+    expect(
+      hrefs({ preset: "completa", destinos: ["/app/products"] }),
+    ).not.toContain("/app/products");
   });
   it("escrita recusa arbitrário/vazio; leitura remove obsoleto e degrada sem lançar", () => {
     expect(

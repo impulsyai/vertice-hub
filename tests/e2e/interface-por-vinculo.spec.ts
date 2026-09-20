@@ -117,22 +117,22 @@ test("interface por membro atualiza ao vivo, preserva formulário e convite apli
     await member.goto("/app/radar");
     await expect(member.getByRole("heading", { name: /Radar/ }).first()).toBeVisible();
     await member.goto("/app/settings/profile");
-    await customize(page, emails[1]!, "Produtos");
+    await customize(page, emails[1]!, "Casos");
     await expect(nav(member).getByRole("link", { name: "Inbox", exact: true })).toHaveCount(0);
     await member.goto("/app");
-    await member.waitForURL("**/app/products");
-    await nav(member).getByRole("link", { name: "Ver tudo em CRM" }).click();
-    await expect(member.getByRole("link", { name: /Produtos/ }).last()).toBeVisible();
+    await member.waitForURL("**/app/ai/cases");
+    await nav(member).getByRole("link", { name: "Ver tudo em IA" }).click();
+    await expect(member.getByRole("link", { name: /Casos/ }).last()).toBeVisible();
     await expect(member.getByRole("link", { name: /Contatos/ })).toHaveCount(0);
     await member.keyboard.press("ControlOrMeta+k");
-    await expect(member.getByRole("option").filter({ hasText: "Produtos" })).toBeVisible();
+    await expect(member.getByRole("option").filter({ hasText: "Casos" })).toBeVisible();
     await expect(member.getByRole("option").filter({ hasText: "Inbox" })).toHaveCount(0);
     await member.keyboard.press("Escape");
     mkdirSync(evidence, { recursive: true });
     await member.screenshot({ path: `${evidence}/interface-hub-only.png` });
     await member.setViewportSize({ width: 390, height: 844 });
     await member.getByRole("button", { name: "Abrir navegação" }).click();
-    await expect(member.getByRole("link", { name: "Ver tudo em CRM" }).last()).toBeVisible();
+    await expect(member.getByRole("link", { name: "Ver tudo em IA" }).last()).toBeVisible();
     expect(
       await member.evaluate(
         () => document.body.scrollWidth <= document.documentElement.clientWidth + 1,
@@ -171,12 +171,12 @@ test("interface por membro atualiza ao vivo, preserva formulário e convite apli
       destinos: ["/app/tasks"],
     });
     await page.goto("/app/team");
-    await customize(page, emails[3]!, "Produtos");
+    await customize(page, emails[3]!, "Casos");
     await guest.goto(link);
     await guest.getByRole("button", { name: /aceitar/i }).click();
-    await guest.waitForURL("**/app/products");
+    await guest.waitForURL("**/app/ai/cases");
     // A coluna também descreve a seleção para quem só pode consultar a equipe.
-    await customize(page, emails[2]!, "Produtos");
+    await customize(page, emails[2]!, "Casos");
     await page.getByRole("combobox", { name: `Papel de ${emails[2]}` }).click();
     await page.getByRole("option", { name: "manager", exact: true }).click();
     await expect(page.getByText("Papel atualizado.", { exact: true })).toBeVisible();
