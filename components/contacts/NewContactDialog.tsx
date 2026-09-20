@@ -43,18 +43,19 @@ interface Props {
   /**
    * Nome já digitado por quem chamou, para não redigitar. Quem abre com um termo
    * de busca em mãos passa aqui; o resto continua abrindo vazio.
-   *
-   * É `defaultValue` do formulário, então só vale na montagem — quem precisa
-   * trocar o termo com o diálogo já montado remonta com `key`.
    */
   nomeInicial?: string;
+  /**
+   * Telefone sugerido para pré-preenchimento (ex: vindo do WhatsApp).
+   */
+  telefoneInicial?: string;
   /**
    * Recebe o contato recém-criado. Existe para quem abriu o diálogo NO MEIO de
    * outro fluxo (marcar um horário, por exemplo) poder seguir com ele já
    * selecionado, em vez de mandar a pessoa procurar de novo o que acabou de criar.
    */
   onCriado?: (contato: Contact) => void;
-  /** Empresa que deve ficar vinculada quando o diÃ¡logo Ã© aberto pelo dossiÃª. */
+  /** Empresa que deve ficar vinculada quando o diálogo é aberto pelo dossiê. */
   empresaInicialId?: string | null;
 }
 
@@ -62,6 +63,7 @@ export function NewContactDialog({
   open,
   onOpenChange,
   nomeInicial,
+  telefoneInicial,
   onCriado,
   empresaInicialId,
 }: Props) {
@@ -77,7 +79,7 @@ export function NewContactDialog({
     defaultValues: {
       name: nomeInicial ?? "",
       email: "",
-      phone_number: "",
+      phone_number: telefoneInicial ? maskPhoneBR(telefoneInicial) : "",
       cpf: "",
       tagsRaw: "",
       role_in_company: "",
