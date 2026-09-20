@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
 import { Briefcase, Plus, MagnifyingGlass, ArrowSquareOut } from "@/lib/ui/icons";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +30,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useJobList, useCreateJob, useCompanyList } from "@/lib/people/client-hooks";
-import type { JobStatus, VerticeJobOpening } from "@/lib/people/types";
+import type {
+  EmploymentType,
+  JobPriority,
+  JobStatus,
+  VerticeJobOpening,
+  WorkModel,
+} from "@/lib/people/types";
+import { EditJobDialog } from "@/app/app/recrutamento/vagas/[id]/_client";
 
 const STATUS_LABELS: Record<JobStatus, string> = {
   open: "Aberta",
@@ -46,6 +54,7 @@ export function VagasClient() {
   const [status, setStatus] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [isNewOpen, setIsNewOpen] = useState(false);
+  const [editingJob, setEditingJob] = useState<VerticeJobOpening | null>(null);
 
   const { data, isLoading } = useJobList({
     search: search || undefined,
@@ -187,6 +196,14 @@ export function VagasClient() {
                       <ArrowSquareOut className="h-3.5 w-3.5" />
                     </Button>
                   </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => setEditingJob(job)}
+                  >
+                    {t("Editar")}
+                  </Button>
                 </div>
               </div>
             ))}
@@ -261,6 +278,14 @@ export function VagasClient() {
                             <ArrowSquareOut className="h-3.5 w-3.5" />
                           </Button>
                         </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => setEditingJob(job)}
+                        >
+                          {t("Editar")}
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -297,6 +322,15 @@ export function VagasClient() {
         </div>
       )}
       <NewJobDialog open={isNewOpen} onOpenChange={setIsNewOpen} />
+      {editingJob && (
+        <EditJobDialog
+          job={editingJob}
+          open={!!editingJob}
+          onOpenChange={(open) => {
+            if (!open) setEditingJob(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -320,21 +354,38 @@ export function NewJobDialog({
   const { register, handleSubmit, setValue, watch, reset, formState: { isSubmitting } } = useForm<{
     title: string;
     client_company_id: string;
-    work_model: "remote" | "hybrid" | "presential";
+    work_model: WorkModel;
+    employment_type: EmploymentType;
+    priority: JobPriority;
+    status: JobStatus;
+    openings_count: number;
+    salary_min?: number;
+    salary_max?: number;
     location?: string;
     city?: string;
     state?: string;
     department?: string;
     description?: string;
     requirements?: string;
+    responsibilities?: string;
+    benefits?: string;
+    closing_date?: string;
   }>({
     defaultValues: {
       work_model: "presential",
+      employment_type: "clt",
+      priority: "medium",
+      status: "open",
+      openings_count: 1,
       client_company_id: initialCompanyId ?? "",
     },
   });
 
   const selectedCompany = watch("client_company_id");
+  const selectedWorkModel = watch("work_model");
+  const selectedEmploymentType = watch("employment_type");
+  const selectedPriority = watch("priority");
+  const selectedStatus = watch("status");
 
   useEffect(() => {
     if (open && initialCompanyId) {
@@ -345,13 +396,22 @@ export function NewJobDialog({
   async function onSubmit(data: {
     title: string;
     client_company_id: string;
-    work_model: "remote" | "hybrid" | "presential";
+    work_model: WorkModel;
+    employment_type: EmploymentType;
+    priority: JobPriority;
+    status: JobStatus;
+    openings_count: number;
+    salary_min?: number;
+    salary_max?: number;
     location?: string;
     city?: string;
     state?: string;
     department?: string;
     description?: string;
     requirements?: string;
+    responsibilities?: string;
+    benefits?: string;
+    closing_date?: string;
   }) {
     if (!data.client_company_id) {
       toast.error(t("Selecione uma empresa cliente"));
@@ -363,17 +423,29 @@ export function NewJobDialog({
         title: data.title,
         client_company_id: data.client_company_id,
         work_model: data.work_model,
+        employment_type: data.employment_type,
+        priority: data.priority,
+        status: data.status,
+        openings_count: Number(data.openings_count) || 1,
+        salary_min: data.salary_min ? Number(data.salary_min) : undefined,
+        salary_max: data.salary_max ? Number(data.salary_max) : undefined,
         location: data.location || undefined,
         city: data.city || undefined,
         state: data.state || undefined,
         department: data.department || undefined,
         description: data.description || undefined,
         requirements: data.requirements || undefined,
-        status: "open",
+        responsibilities: data.responsibilities || undefined,
+        benefits: data.benefits || undefined,
+        closing_date: data.closing_date || undefined,
       });
       toast.success(t("Vaga aberta com sucesso!"));
       reset({
         work_model: "presential",
+        employment_type: "clt",
+        priority: "medium",
+        status: "open",
+        openings_count: 1,
         client_company_id: initialCompanyId ?? "",
       });
       onCreated?.();
@@ -419,8 +491,8 @@ export function NewJobDialog({
             <div className="space-y-1">
               <Label>{t("Modelo de Trabalho")}</Label>
               <Select
-                defaultValue="presential"
-                onValueChange={(val) => setValue("work_model", val as "remote" | "hybrid" | "presential")}
+                value={selectedWorkModel}
+                onValueChange={(val) => setValue("work_model", val as WorkModel)}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -438,6 +510,57 @@ export function NewJobDialog({
             </div>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label>{t("Tipo de Contratação")}</Label>
+              <Select value={selectedEmploymentType} onValueChange={(val) => setValue("employment_type", val as EmploymentType)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="clt">{t("CLT")}</SelectItem>
+                  <SelectItem value="pj">{t("PJ")}</SelectItem>
+                  <SelectItem value="internship">{t("Estágio")}</SelectItem>
+                  <SelectItem value="temporary">{t("Temporário")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>{t("Prioridade")}</Label>
+              <Select value={selectedPriority} onValueChange={(val) => setValue("priority", val as JobPriority)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">{t("Baixa")}</SelectItem>
+                  <SelectItem value="medium">{t("Média")}</SelectItem>
+                  <SelectItem value="high">{t("Alta")}</SelectItem>
+                  <SelectItem value="urgent">{t("Urgente")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>{t("Status")}</Label>
+              <Select value={selectedStatus} onValueChange={(val) => setValue("status", val as JobStatus)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open">{t("Aberta")}</SelectItem>
+                  <SelectItem value="draft">{t("Rascunho")}</SelectItem>
+                  <SelectItem value="paused">{t("Pausada")}</SelectItem>
+                  <SelectItem value="closed">{t("Fechada")}</SelectItem>
+                  <SelectItem value="cancelled">{t("Cancelada")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="location">{t("Local de Trabalho")}</Label>
+            <Input id="location" placeholder={t("ex: Escritório central ou região de atuação")} {...register("location")} />
+          </div>
+
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 space-y-1">
               <Label htmlFor="city">{t("Cidade")}</Label>
@@ -449,9 +572,45 @@ export function NewJobDialog({
             </div>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="openings_count">{t("Quantidade de Vagas")}</Label>
+              <Input id="openings_count" type="number" min={1} {...register("openings_count", { valueAsNumber: true })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="salary_min">{t("Salário Mínimo (R$)")}</Label>
+              <Input id="salary_min" type="number" step="any" {...register("salary_min", { valueAsNumber: true })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="salary_max">{t("Salário Máximo (R$)")}</Label>
+              <Input id="salary_max" type="number" step="any" {...register("salary_max", { valueAsNumber: true })} />
+            </div>
+          </div>
+
           <div className="space-y-1">
             <Label htmlFor="description">{t("Descrição do Perfil")}</Label>
-            <Input id="description" placeholder={t("Resumo da missão da vaga...")} {...register("description")} />
+            <Textarea id="description" rows={3} placeholder={t("Resumo da missão da vaga...")} {...register("description")} />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="requirements">{t("Requisitos e Qualificações")}</Label>
+            <Textarea id="requirements" rows={3} {...register("requirements")} />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="responsibilities">{t("Responsabilidades")}</Label>
+            <Textarea id="responsibilities" rows={3} {...register("responsibilities")} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="benefits">{t("Benefícios")}</Label>
+              <Textarea id="benefits" rows={3} {...register("benefits")} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="closing_date">{t("Data de Encerramento")}</Label>
+              <Input id="closing_date" type="date" {...register("closing_date")} />
+            </div>
           </div>
 
           <DialogFooter className="pt-2">

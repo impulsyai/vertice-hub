@@ -41,6 +41,7 @@ import {
   useJobDetail,
   useCandidateList,
   useCreateApplication,
+  useCompanyList,
   useUpdateJob,
 } from "@/lib/people/client-hooks";
 import type { JobOpening, WorkModel, EmploymentType, JobPriority, JobStatus } from "@/lib/people/types";
@@ -355,7 +356,7 @@ function AddCandidateToJobDialog({
   );
 }
 
-function EditJobDialog({
+export function EditJobDialog({
   job,
   open,
   onOpenChange,
@@ -366,6 +367,8 @@ function EditJobDialog({
 }) {
   const t = useT();
   const update = useUpdateJob(job.id);
+  const { data: companiesData } = useCompanyList({ limit: 100 });
+  const companies = companiesData?.data ?? [];
   const {
     register,
     handleSubmit,
@@ -374,7 +377,9 @@ function EditJobDialog({
     formState: { isSubmitting },
   } = useForm<{
     title: string;
+    client_company_id: string;
     department?: string;
+    location?: string;
     city?: string;
     state?: string;
     work_model: WorkModel;
@@ -386,10 +391,15 @@ function EditJobDialog({
     salary_max?: number;
     description?: string;
     requirements?: string;
+    responsibilities?: string;
+    benefits?: string;
+    closing_date?: string;
   }>({
     defaultValues: {
       title: job.title ?? "",
+      client_company_id: job.client_company_id ?? "",
       department: job.department ?? "",
+      location: job.location ?? "",
       city: job.city ?? "",
       state: job.state ?? "",
       work_model: job.work_model ?? "presential",
@@ -401,6 +411,9 @@ function EditJobDialog({
       salary_max: job.salary_max ?? undefined,
       description: job.description ?? "",
       requirements: job.requirements ?? "",
+      responsibilities: job.responsibilities ?? "",
+      benefits: job.benefits ?? "",
+      closing_date: job.closing_date ?? "",
     },
   });
 
@@ -408,10 +421,13 @@ function EditJobDialog({
   const selectedEmploymentType = watch("employment_type");
   const selectedPriority = watch("priority");
   const selectedStatus = watch("status");
+  const selectedCompany = watch("client_company_id");
 
   async function onSubmit(data: {
     title: string;
+    client_company_id: string;
     department?: string;
+    location?: string;
     city?: string;
     state?: string;
     work_model: WorkModel;
@@ -423,11 +439,16 @@ function EditJobDialog({
     salary_max?: number;
     description?: string;
     requirements?: string;
+    responsibilities?: string;
+    benefits?: string;
+    closing_date?: string;
   }) {
     try {
       await update.mutateAsync({
         title: data.title,
+        client_company_id: data.client_company_id,
         department: data.department || null,
+        location: data.location || null,
         city: data.city || null,
         state: data.state || null,
         work_model: data.work_model,
@@ -439,6 +460,9 @@ function EditJobDialog({
         salary_max: data.salary_max ? Number(data.salary_max) : null,
         description: data.description || null,
         requirements: data.requirements || null,
+        responsibilities: data.responsibilities || null,
+        benefits: data.benefits || null,
+        closing_date: data.closing_date || null,
       });
       toast.success(t("Vaga atualizada com sucesso!"));
       onOpenChange(false);
@@ -461,6 +485,22 @@ function EditJobDialog({
           <div className="space-y-1">
             <Label htmlFor="edit-job-title">{t("Título da Vaga")} *</Label>
             <Input id="edit-job-title" required {...register("title", { required: true })} />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="edit-job-company">{t("Empresa Cliente")} *</Label>
+            <Select value={selectedCompany} onValueChange={(value) => setValue("client_company_id", value)}>
+              <SelectTrigger id="edit-job-company">
+                <SelectValue placeholder={t("Selecione a empresa contratante...")} />
+              </SelectTrigger>
+              <SelectContent>
+                {companies.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>
+                    {company.trade_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -495,6 +535,11 @@ function EditJobDialog({
               <Label htmlFor="edit-job-state">{t("UF")}</Label>
               <Input id="edit-job-state" maxLength={2} placeholder="PE" {...register("state")} />
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="edit-job-location">{t("Local de Trabalho")}</Label>
+            <Input id="edit-job-location" {...register("location")} />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -600,6 +645,30 @@ function EditJobDialog({
             />
           </div>
 
+          <div className="space-y-1">
+            <Label htmlFor="edit-job-responsibilities">{t("Responsabilidades")}</Label>
+            <Textarea
+              id="edit-job-responsibilities"
+              rows={3}
+              {...register("responsibilities")}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="edit-job-benefits">{t("Benefícios")}</Label>
+              <Textarea
+                id="edit-job-benefits"
+                rows={3}
+                {...register("benefits")}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit-job-closing-date">{t("Data de Encerramento")}</Label>
+              <Input id="edit-job-closing-date" type="date" {...register("closing_date")} />
+            </div>
+          </div>
+
           <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t("Cancelar")}
@@ -613,4 +682,3 @@ function EditJobDialog({
     </Dialog>
   );
 }
-

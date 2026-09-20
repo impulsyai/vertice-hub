@@ -6,10 +6,11 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
-import { maskPhoneBR, normalizePhoneBR } from "@/lib/ui/form-masks";
+import { ESTADOS_BRASIL, maskPhoneBR, normalizePhoneBR, normalizeUrl } from "@/lib/ui/form-masks";
 import { createCandidateSchema } from "@/lib/people/schemas";
 import { User, Plus, MagnifyingGlass, ArrowSquareOut } from "@/lib/ui/icons";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +32,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCandidateList, useCreateCandidate } from "@/lib/people/client-hooks";
-import type { CandidateStatus } from "@/lib/people/types";
+import type { CandidateStatus, VerticeCandidate } from "@/lib/people/types";
+import { EditCandidateDialog } from "@/app/app/recrutamento/talentos/[id]/_client";
 
 const STATUS_LABELS: Record<CandidateStatus, string> = {
   active: "Ativo",
@@ -48,6 +50,7 @@ export function TalentosClient() {
   const [seniority, setSeniority] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [isNewOpen, setIsNewOpen] = useState(false);
+  const [editingCandidate, setEditingCandidate] = useState<VerticeCandidate | null>(null);
 
   const { data, isLoading } = useCandidateList({
     search: search || undefined,
@@ -185,6 +188,17 @@ export function TalentosClient() {
                     <span><span className="font-medium">{t("Local")}:</span> {c.city && c.state ? `${c.city}, ${c.state}` : c.city ?? "—"}</span>
                   </div>
                 </div>
+
+                <div className="pt-2 border-t border-border/60" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-full text-xs"
+                    onClick={() => setEditingCandidate(c)}
+                  >
+                    {t("Editar")}
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -236,6 +250,14 @@ export function TalentosClient() {
                     </td>
                     <td className="p-3.5 text-right">
                       <div onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => setEditingCandidate(c)}
+                        >
+                          {t("Editar")}
+                        </Button>
                         <Link href={`/app/recrutamento/talentos/${c.id}`}>
                           <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs hover:bg-accent/10 hover:text-primary">
                             <span>{t("Ver dossiê")}</span>
@@ -279,6 +301,15 @@ export function TalentosClient() {
       )}
 
       <NewCandidateDialog open={isNewOpen} onOpenChange={setIsNewOpen} />
+      {editingCandidate && (
+        <EditCandidateDialog
+          candidate={editingCandidate}
+          open={!!editingCandidate}
+          onOpenChange={(open) => {
+            if (!open) setEditingCandidate(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -313,6 +344,9 @@ type NewCandidateForm = {
   seniority?: string;
   city?: string;
   state?: string;
+  expected_salary?: number;
+  availability?: string;
+  status?: string;
   notes?: string;
 };
 
@@ -322,10 +356,21 @@ function NewCandidateDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     reset,
     setError,
     formState: { isSubmitting, errors },
-  } = useForm<NewCandidateForm>();
+  } = useForm<NewCandidateForm>({
+    defaultValues: {
+      seniority: "pleno",
+      status: "active",
+    },
+  });
+
+  const currentSeniority = watch("seniority");
+  const currentStatus = watch("status");
+  const currentState = watch("state");
 
   const fieldError = (field: keyof NewCandidateForm) => {
     const message = errors[field]?.message;
@@ -339,13 +384,16 @@ function NewCandidateDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       full_name: data.full_name,
       email: data.email?.trim() || undefined,
       phone_e164: normalizePhoneBR(data.phone_e164),
-      linkedin_url: data.linkedin_url?.trim() || undefined,
+      linkedin_url: data.linkedin_url?.trim() ? normalizeUrl(data.linkedin_url) : undefined,
       current_job_title: data.current_job_title?.trim() || undefined,
       current_company: data.current_company?.trim() || undefined,
       area: data.area?.trim() || undefined,
       seniority: data.seniority?.trim() || undefined,
       city: data.city?.trim() || undefined,
       state: data.state?.trim() || undefined,
+      expected_salary: data.expected_salary ? Number(data.expected_salary) : undefined,
+      availability: data.availability?.trim() || undefined,
+      status: data.status || "active",
       notes: data.notes?.trim() || undefined,
     };
     const parsed = createCandidateSchema.safeParse(payload);
@@ -436,6 +484,41 @@ function NewCandidateDialog({ open, onOpenChange }: { open: boolean; onOpenChang
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
+              <Label htmlFor="status">{t("Status")}</Label>
+              <Select value={currentStatus} onValueChange={(value) => setValue("status", value)}>
+                <SelectTrigger id="status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">{t("Ativo")}</SelectItem>
+                  <SelectItem value="in_process">{t("Em Processo")}</SelectItem>
+                  <SelectItem value="hired">{t("Contratado")}</SelectItem>
+                  <SelectItem value="inactive">{t("Inativo")}</SelectItem>
+                  <SelectItem value="do_not_contact">{t("N\u00e3o Contatar")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="seniority">{t("Senioridade")}</Label>
+              <Select value={currentSeniority} onValueChange={(value) => setValue("seniority", value)}>
+                <SelectTrigger id="seniority">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="junior">{t("J\u00fanior")}</SelectItem>
+                  <SelectItem value="pleno">{t("Pleno")}</SelectItem>
+                  <SelectItem value="senior">{t("S\u00e9nior")}</SelectItem>
+                  <SelectItem value="especialista">{t("Especialista")}</SelectItem>
+                  <SelectItem value="lead">{t("Coordena\u00e7\u00e3o")}</SelectItem>
+                  <SelectItem value="director">{t("Ger\u00eancia")}</SelectItem>
+                  <SelectItem value="c_level">{t("Diretoria / C-Level")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
               <Label htmlFor="current_job_title">{t("Cargo Atual")}</Label>
               <Input id="current_job_title" placeholder={t("ex: Gerente de Operações")} {...register("current_job_title")} />
             </div>
@@ -445,15 +528,9 @@ function NewCandidateDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="area">{t("Área")}</Label>
-              <Input id="area" placeholder={t("ex: Operações, Financeiro")} {...register("area")} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="seniority">{t("Senioridade")}</Label>
-              <Input id="seniority" placeholder={t("ex: Gerência, Sênior")} {...register("seniority")} />
-            </div>
+          <div className="space-y-1">
+            <Label htmlFor="area">{t("Área")}</Label>
+            <Input id="area" placeholder={t("ex: Operações, Financeiro")} {...register("area")} />
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -463,7 +540,35 @@ function NewCandidateDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             </div>
             <div className="space-y-1">
               <Label htmlFor="state">{t("UF")}</Label>
-              <Input id="state" placeholder={t("PE")} maxLength={2} {...register("state")} />
+              <Select value={currentState || ""} onValueChange={(value) => setValue("state", value)}>
+                <SelectTrigger id="state">
+                  <SelectValue placeholder={t("UF")} />
+                </SelectTrigger>
+                <SelectContent className="max-h-56">
+                  {ESTADOS_BRASIL.map((uf) => (
+                    <SelectItem key={uf.sigla} value={uf.sigla}>
+                      {uf.sigla} - {uf.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="expected_salary">{t("Pretensão Salarial")}</Label>
+              <Input
+                id="expected_salary"
+                type="number"
+                step="100"
+                placeholder="ex: 8500"
+                {...register("expected_salary", { valueAsNumber: true })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="availability">{t("Disponibilidade")}</Label>
+              <Input id="availability" placeholder={t("ex: Imediata, 30 dias")} {...register("availability")} />
             </div>
           </div>
 
@@ -477,6 +582,16 @@ function NewCandidateDialog({ open, onOpenChange }: { open: boolean; onOpenChang
               {...register("linkedin_url")}
             />
             {fieldError("linkedin_url") && <p className="text-xs text-red-600">{fieldError("linkedin_url")}</p>}
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="notes">{t("Observações")}</Label>
+            <Textarea
+              id="notes"
+              rows={3}
+              placeholder={t("Informações relevantes sobre perfil e entrevistas")}
+              {...register("notes")}
+            />
           </div>
 
           <DialogFooter className="pt-2">

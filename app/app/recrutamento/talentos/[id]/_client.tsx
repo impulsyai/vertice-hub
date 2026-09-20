@@ -394,7 +394,7 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
   );
 }
 
-function EditCandidateDialog({
+export function EditCandidateDialog({
   candidate,
   open,
   onOpenChange,

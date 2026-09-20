@@ -15,6 +15,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useContactList } from "@/hooks/contacts/useContactList";
+import { useDefaultPipeline } from "@/hooks/pipelines/useDefaultPipeline";
+import { camposDoFunil } from "@/lib/leads/campos-do-funil";
 import { ContactsTable } from "@/components/contacts/ContactsTable";
 import { NewContactDialog } from "@/components/contacts/NewContactDialog";
 import { ImportContactsDialog } from "@/components/contacts/ImportContactsDialog";
@@ -55,6 +57,8 @@ export function ContactsListClient() {
     [search, tag, source, orderBy, orderDir, limit],
   );
   const q = useContactList(filters);
+  const pipelineQuery = useDefaultPipeline(true);
+  const customFieldDefs = camposDoFunil(pipelineQuery.data?.pipeline.settings ?? null);
 
   const allContacts = useMemo(
     () => q.data?.pages.flatMap((p) => p.data) ?? [],
@@ -227,6 +231,7 @@ export function ContactsListClient() {
               orderBy={orderBy}
               orderDir={orderDir}
               onSort={handleSort}
+              customFieldDefs={customFieldDefs}
             />
           </Card>
           <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
@@ -248,7 +253,11 @@ export function ContactsListClient() {
         </>
       )}
 
-      <NewContactDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <NewContactDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        customFieldDefs={customFieldDefs}
+      />
       <ImportContactsDialog open={importOpen} onOpenChange={setImportOpen} />
       <MergeDialog open={duplicadosOpen} onOpenChange={setDuplicadosOpen} />
     </div>

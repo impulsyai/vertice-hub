@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, formatRelative, isToday, isYesterday } from "date-fns";
 import { toast } from "sonner";
-import { CaretDown, CaretUp, ChatCircle, Trash } from "@/lib/ui/icons";
+import { CaretDown, CaretUp, ChatCircle, PencilSimple, Trash } from "@/lib/ui/icons";
 import {
   Table,
   TableBody,
@@ -36,12 +36,15 @@ import type { ContactOrderBy } from "@/lib/schemas/contacts";
 import type { Contact } from "@/lib/types/contacts";
 import { rotuloDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { phoneForDisplay } from "@/lib/channels/phone-variants";
+import { EditContactDialog } from "@/components/contacts/EditContactDialog";
+import type { CustomFieldDef } from "@/components/contacts/CustomFieldsEditor";
 
 interface Props {
   contacts: Contact[];
   orderBy: ContactOrderBy;
   orderDir: "asc" | "desc";
   onSort: (column: ContactOrderBy) => void;
+  customFieldDefs?: CustomFieldDef[];
 }
 
 function displayName(c: Contact, t: (texto: string) => string = (texto) => texto): string {
@@ -105,11 +108,12 @@ function SortableHead({
   );
 }
 
-export function ContactsTable({ contacts, orderBy, orderDir, onSort }: Props) {
+export function ContactsTable({ contacts, orderBy, orderDir, onSort, customFieldDefs = [] }: Props) {
   const localeDaData = useLocaleDeData();
   const t = useT();
   const del = useDeleteContact();
   const [alvo, setAlvo] = useState<Contact | null>(null);
+  const [editando, setEditando] = useState<Contact | null>(null);
   const [abrindo, setAbrindo] = useState<string | null>(null);
   const router = useRouter();
   const qc = useQueryClient();
@@ -266,6 +270,18 @@ export function ContactsTable({ contacts, orderBy, orderDir, onSort }: Props) {
                     <ChatCircle size={16} weight="regular" aria-hidden />
                   </Button>
                 ) : null}
+                {!c.is_anonymized && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title={t("Editar contato")}
+                    aria-label={`${t("Editar contato")} ${displayName(c, t)}`}
+                    onClick={() => setEditando(c)}
+                  >
+                    <PencilSimple size={16} weight="regular" aria-hidden />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -305,6 +321,14 @@ export function ContactsTable({ contacts, orderBy, orderDir, onSort }: Props) {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+    {editando && (
+      <EditContactDialog
+        contact={editando}
+        open={editando !== null}
+        onOpenChange={(open) => { if (!open) setEditando(null); }}
+        customFieldDefs={customFieldDefs}
+      />
+    )}
     </>
   );
 }

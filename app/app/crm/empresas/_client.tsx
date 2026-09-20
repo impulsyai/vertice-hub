@@ -146,6 +146,20 @@ export function EmpresasClient() {
                     <span className="font-medium text-foreground">{t("Local")}:</span> {company.city && company.state ? `${company.city}, ${company.state}` : company.city ?? "—"}
                   </div>
                 </div>
+                <div
+                  className="flex justify-end border-t border-border/60 pt-2"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs"
+                    onClick={() => setEditingCompany(company)}
+                  >
+                    <PencilSimple className="h-3.5 w-3.5" />
+                    {t("Editar")}
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -298,9 +312,12 @@ function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     setError,
     formState: { isSubmitting, errors },
   } = useForm<CompanyFormValues>();
+  const selectedStatus = watch("status") ?? "active";
 
   const fieldError = (field: keyof CompanyFormValues) => {
     const message = errors[field]?.message;
@@ -318,7 +335,7 @@ function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
       city: data.city?.trim() || undefined,
       state: data.state?.trim() || undefined,
       notes: data.notes?.trim() || undefined,
-      status: "active" as const,
+      status: data.status ?? "active",
     };
     const parsed = createCompanySchema.safeParse(payload);
     if (!parsed.success) {
@@ -347,7 +364,7 @@ function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{t("Nova Empresa Cliente")}</DialogTitle>
           <DialogDescription>
@@ -396,6 +413,29 @@ function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
                 {...register("website")}
               />
               {fieldError("website") && <p className="text-xs text-red-600">{fieldError("website")}</p>}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label>{t("Status")}</Label>
+              <Select
+                value={selectedStatus}
+                onValueChange={(value) => setValue("status", value as CompanyFormValues["status"])}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">{t("Ativa")}</SelectItem>
+                  <SelectItem value="prospect">{t("Prospect")}</SelectItem>
+                  <SelectItem value="inactive">{t("Inativa")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="notes">{t("Observações")}</Label>
+              <Textarea id="notes" rows={2} {...register("notes")} />
             </div>
           </div>
 
