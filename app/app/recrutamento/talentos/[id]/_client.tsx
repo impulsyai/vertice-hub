@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
 import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
@@ -16,39 +16,23 @@ import {
   LinkedinLogo,
   UploadSimple,
   PencilSimple,
+  ChatCircle,
+  IdentificationCard,
+  Trash,
 } from "@/lib/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { apiClient } from "@/lib/api/client";
-import { useCandidateDetail, useUpdateCandidate } from "@/lib/people/client-hooks";
+import { useCandidateDetail } from "@/lib/people/client-hooks";
 import { useQueryClient } from "@tanstack/react-query";
-import { RECRUITMENT_STAGES, type VerticeCandidate } from "@/lib/people/types";
-import {
-  formatFileSize,
-  maskPhoneBR,
-  normalizePhoneBR,
-  normalizeUrl,
-  ESTADOS_BRASIL,
-} from "@/lib/ui/form-masks";
+import { RECRUITMENT_STAGES } from "@/lib/people/types";
+import { formatFileSize } from "@/lib/ui/form-masks";
+import { CandidateFormDialog } from "@/components/recruitment/CandidateForm";
+import { DeleteCandidateDialog } from "@/components/recruitment/DeleteCandidateDialog";
+import { useAuth } from "@/hooks/auth/AuthProvider";
+import { ROLE_RANK } from "@/lib/auth/types";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Ativo",
@@ -62,9 +46,16 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
   const t = useT();
   const tagDoIdioma = useTagDeIdioma();
   const qc = useQueryClient();
+  const router = useRouter();
+  const { user, activeOrg } = useAuth();
   const { data, isLoading, error } = useCandidateDetail(id);
   const [isUploading, setIsUploading] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isOpeningConversation, setIsOpeningConversation] = useState(false);
+  const canDeleteCandidate = Boolean(
+    user.is_platform_admin || (activeOrg && ROLE_RANK[activeOrg.role] >= ROLE_RANK.manager),
+  );
 
   if (isLoading) {
     return (
@@ -92,7 +83,7 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
     );
   }
 
-  const { candidate, resumes, applications } = data;
+  const { candidate, resumes, applications, contactContext } = data;
 
   async function handleDownloadResume(resumeId: string) {
     try {
@@ -136,6 +127,21 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
     }
   }
 
+  async function handleOpenConversation() {
+    if (isOpeningConversation || (!candidate.phone_e164 && !contactContext?.contact_id)) return;
+    try {
+      setIsOpeningConversation(true);
+      const response = await apiClient.post<{
+        data: { conversation_id: string };
+      }>(`/api/v1/people/candidates/${candidate.id}/conversation`, {});
+      router.push(`/app/inbox?conversation=${encodeURIComponent(response.data.conversation_id)}`);
+    } catch {
+      toast.error(t("Não foi possível abrir a conversa no WhatsApp."));
+    } finally {
+      setIsOpeningConversation(false);
+    }
+  }
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -168,14 +174,22 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
             </p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => setIsEditOpen(true)}
-          className="shrink-0 gap-2 border-border hover:bg-accent/10"
-        >
-          <PencilSimple className="h-4 w-4" />
-          {t("Editar Candidato")}
-        </Button>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setIsEditOpen(true)}
+            className="gap-2 border-border hover:bg-accent/10"
+          >
+            <PencilSimple className="h-4 w-4" />
+            {t("Editar Candidato")}
+          </Button>
+          {canDeleteCandidate && (
+            <Button variant="destructive" onClick={() => setIsDeleteOpen(true)} className="gap-2">
+              <Trash className="h-4 w-4" />
+              {t("Excluir Candidato")}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -251,6 +265,28 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
                   </a>
                 </div>
               )}
+              <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:flex-wrap">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={
+                    isOpeningConversation || (!candidate.phone_e164 && !contactContext?.contact_id)
+                  }
+                  onClick={() => void handleOpenConversation()}
+                >
+                  <ChatCircle className="h-4 w-4" />
+                  {isOpeningConversation ? t("Abrindo...") : t("Abrir conversa no Inbox")}
+                </Button>
+                {contactContext?.contact_id && (
+                  <Button type="button" variant="outline" size="sm" asChild className="gap-1.5">
+                    <Link href={`/app/contacts/${contactContext.contact_id}`}>
+                      <IdentificationCard className="h-4 w-4" />
+                      {t("Ver Ficha do Contato")}
+                    </Link>
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -384,279 +420,19 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
         </div>
       </div>
 
-      <EditCandidateDialog
+      <CandidateFormDialog
+        mode="edit"
         key={candidate.id + (candidate.updated_at ?? "")}
         candidate={candidate}
         open={isEditOpen}
         onOpenChange={setIsEditOpen}
       />
+      <DeleteCandidateDialog
+        candidate={candidate}
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        onDeleted={() => router.push("/app/recrutamento/talentos")}
+      />
     </div>
-  );
-}
-
-export function EditCandidateDialog({
-  candidate,
-  open,
-  onOpenChange,
-}: {
-  candidate: VerticeCandidate;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const t = useT();
-  const update = useUpdateCandidate(candidate.id);
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { isSubmitting },
-  } = useForm<{
-    full_name: string;
-    email?: string;
-    phone_e164?: string;
-    linkedin_url?: string;
-    current_job_title?: string;
-    current_company?: string;
-    area?: string;
-    seniority?: string;
-    city?: string;
-    state?: string;
-    expected_salary?: number;
-    availability?: string;
-    status?: string;
-    notes?: string;
-  }>({
-    defaultValues: {
-      full_name: candidate.full_name,
-      email: candidate.email ?? "",
-      phone_e164: candidate.phone_e164 ?? "",
-      linkedin_url: candidate.linkedin_url ?? "",
-      current_job_title: candidate.current_job_title ?? candidate.current_role ?? "",
-      current_company: candidate.current_company ?? "",
-      area: candidate.area ?? "",
-      seniority: candidate.seniority ?? "pleno",
-      city: candidate.city ?? "",
-      state: candidate.state ?? "",
-      expected_salary: candidate.expected_salary ?? undefined,
-      availability: candidate.availability ?? "",
-      status: candidate.status ?? "active",
-      notes: candidate.notes ?? "",
-    },
-  });
-
-  const currentSeniority = watch("seniority");
-  const currentStatus = watch("status");
-  const currentState = watch("state");
-
-  async function onSubmit(data: {
-    full_name: string;
-    email?: string;
-    phone_e164?: string;
-    linkedin_url?: string;
-    current_job_title?: string;
-    current_company?: string;
-    area?: string;
-    seniority?: string;
-    city?: string;
-    state?: string;
-    expected_salary?: number;
-    availability?: string;
-    status?: string;
-    notes?: string;
-  }) {
-    try {
-      await update.mutateAsync({
-        full_name: data.full_name,
-        email: data.email || null,
-        phone_e164: data.phone_e164 ? normalizePhoneBR(data.phone_e164) : null,
-        linkedin_url: data.linkedin_url ? normalizeUrl(data.linkedin_url) : null,
-        current_job_title: data.current_job_title || null,
-        current_company: data.current_company || null,
-        area: data.area || null,
-        seniority: data.seniority || null,
-        city: data.city || null,
-        state: data.state || null,
-        expected_salary: data.expected_salary ? Number(data.expected_salary) : null,
-        availability: data.availability || null,
-        status: data.status,
-        notes: data.notes || null,
-      });
-      toast.success(t("Candidato atualizado com sucesso!"));
-      onOpenChange(false);
-    } catch {
-      // Toast já emitido pelo hook
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("Editar Candidato")}</DialogTitle>
-          <DialogDescription>{t("Atualize as informações do profissional.")}</DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-2">
-          <div className="space-y-1">
-            <Label htmlFor="edit_full_name">{t("Nome Completo *")}</Label>
-            <Input id="edit_full_name" required {...register("full_name")} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="edit_status">{t("Status")}</Label>
-              <Select value={currentStatus} onValueChange={(val) => setValue("status", val)}>
-                <SelectTrigger id="edit_status" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">{t("Ativo")}</SelectItem>
-                  <SelectItem value="in_process">{t("Em Processo")}</SelectItem>
-                  <SelectItem value="hired">{t("Contratado")}</SelectItem>
-                  <SelectItem value="inactive">{t("Inativo")}</SelectItem>
-                  <SelectItem value="do_not_contact">{t("Não Contatar")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="edit_seniority">{t("Senioridade")}</Label>
-              <Select value={currentSeniority} onValueChange={(val) => setValue("seniority", val)}>
-                <SelectTrigger id="edit_seniority" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="junior">{t("Júnior")}</SelectItem>
-                  <SelectItem value="pleno">{t("Pleno")}</SelectItem>
-                  <SelectItem value="senior">{t("Sênior")}</SelectItem>
-                  <SelectItem value="especialista">{t("Especialista")}</SelectItem>
-                  <SelectItem value="lead">{t("Coordenação")}</SelectItem>
-                  <SelectItem value="director">{t("Gerência")}</SelectItem>
-                  <SelectItem value="c_level">{t("Diretoria / C-Level")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="edit_email">{t("E-mail")}</Label>
-              <Input
-                id="edit_email"
-                type="email"
-                placeholder="candidato@empresa.com"
-                {...register("email")}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="edit_phone">{t("Telefone / WhatsApp")}</Label>
-              <Input
-                id="edit_phone"
-                placeholder="(81) 99584-8588"
-                {...register("phone_e164", {
-                  onChange: (e) => {
-                    e.target.value = maskPhoneBR(e.target.value);
-                  },
-                })}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="edit_current_job_title">{t("Cargo Atual")}</Label>
-              <Input
-                id="edit_current_job_title"
-                placeholder={t("ex: Gerente de Operações")}
-                {...register("current_job_title")}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="edit_current_company">{t("Empresa Atual")}</Label>
-              <Input
-                id="edit_current_company"
-                placeholder={t("ex: Grupo Vértice")}
-                {...register("current_company")}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="edit_area">{t("Área")}</Label>
-              <Input id="edit_area" placeholder="ex: Recursos Humanos" {...register("area")} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="edit_availability">{t("Disponibilidade")}</Label>
-              <Input
-                id="edit_availability"
-                placeholder={t("ex: Imediata, 30 dias")}
-                {...register("availability")}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 space-y-1">
-              <Label htmlFor="edit_city">{t("Cidade")}</Label>
-              <Input id="edit_city" placeholder="Recife" {...register("city")} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="edit_state">{t("UF")}</Label>
-              <Select value={currentState || ""} onValueChange={(val) => setValue("state", val)}>
-                <SelectTrigger id="edit_state" className="w-full">
-                  <SelectValue placeholder="UF" />
-                </SelectTrigger>
-                <SelectContent className="max-h-56">
-                  {ESTADOS_BRASIL.map((uf) => (
-                    <SelectItem key={uf.sigla} value={uf.sigla}>
-                      {uf.sigla} - {uf.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="edit_expected_salary">{t("Pretensão Salarial")}</Label>
-            <Input
-              id="edit_expected_salary"
-              type="number"
-              step="100"
-              placeholder="ex: 8500"
-              {...register("expected_salary")}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="edit_linkedin_url">{t("Perfil LinkedIn")}</Label>
-            <Input
-              id="edit_linkedin_url"
-              placeholder="linkedin.com/in/nome-perfil"
-              {...register("linkedin_url")}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="edit_notes">{t("Observações")}</Label>
-            <Input
-              id="edit_notes"
-              placeholder={t("Informações relevantes sobre perfil e entrevistas")}
-              {...register("notes")}
-            />
-          </div>
-
-          <DialogFooter className="pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              {t("Cancelar")}
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? t("Salvando...") : t("Salvar Alterações")}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }

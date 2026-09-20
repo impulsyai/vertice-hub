@@ -545,6 +545,7 @@ export const AUDIT_ACTIONS = [
   "people.candidate_created",
   "people.candidate_updated",
   "people.candidate_deleted",
+  "people.candidate_contact_linked",
   "people.resume_uploaded",
   "people.job_created",
   "people.job_updated",

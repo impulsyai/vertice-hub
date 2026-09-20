@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Inbox" };
 export default async function InboxPage({
   searchParams,
 }: {
-  searchParams: Promise<{ id?: string }>;
+  searchParams: Promise<{ id?: string; conversation?: string }>;
 }) {
   const user = await loadAuthUser();
   if (!user) redirect("/login");
@@ -36,6 +36,6 @@ export default async function InboxPage({
       </div>
     );
   }
-  const { id } = await searchParams;
-  return <InboxLayout initialSelectedId={id ?? null} />;
+  const { id, conversation } = await searchParams;
+  return <InboxLayout initialSelectedId={id ?? conversation ?? null} />;
 }

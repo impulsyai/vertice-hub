@@ -125,7 +125,10 @@ export async function listContactsHandler(
     // ⚠️ `%` e `_` são curingas do LIKE, e `,`/`(`/`)` são delimitadores do DSL
     // do `.or()` — um nome com vírgula ("Silva, Maria") injetaria uma condição
     // extra na string do filtro. Mesmo escape de conversations/_handler.ts.
-    const s = q.search.trim().replace(/[%_]/g, (m) => `\\${m}`).replace(/[,()]/g, " ");
+    const s = q.search
+      .trim()
+      .replace(/[%_]/g, (m) => `\\${m}`)
+      .replace(/[,()]/g, " ");
     const digits = q.search.replace(/\D/g, "");
     const orParts = [
       `name.ilike.%${s}%`,
@@ -178,9 +181,7 @@ export async function listContactsHandler(
     }
     const op = asc ? "gt" : "lt";
     if (c.sort) {
-      query = query.or(
-        `${sortCol}.${op}.${c.sort},and(${sortCol}.eq.${c.sort},id.${op}.${c.id})`,
-      );
+      query = query.or(`${sortCol}.${op}.${c.sort},and(${sortCol}.eq.${c.sort},id.${op}.${c.id})`);
     } else {
       // Página na região de sort NULL (nulls last): pagina só por id.
       query = query.is(sortCol, null);
@@ -288,7 +289,8 @@ async function getCompanyLinkForContact(
 
   const rawCompany = data.company as unknown;
   const companyObj = Array.isArray(rawCompany)
-    ? (rawCompany[0] as { id: string; trade_name: string | null; legal_name: string | null } | undefined)
+    ? (rawCompany[0] as
+        { id: string; trade_name: string | null; legal_name: string | null } | undefined)
     : (rawCompany as { id: string; trade_name: string | null; legal_name: string | null } | null);
 
   return {
@@ -388,9 +390,11 @@ export async function getContactHandler(
     }
   }
 
-  const { contacts: enriched, error: convErr } = await withConversas(supabase, ctx.organization_id, [
-    contact,
-  ]);
+  const { contacts: enriched, error: convErr } = await withConversas(
+    supabase,
+    ctx.organization_id,
+    [contact],
+  );
   if (convErr) {
     throw new ApiError(500, "internal_error", undefined, ctx.requestId, convErr);
   }
@@ -402,12 +406,59 @@ export async function getContactHandler(
     input.contactId,
   );
 
+  type CandidateProfile = {
+    id: string;
+    current_job_title: string | null;
+    seniority: string | null;
+    status: string;
+  };
+  let candidateProfile: CandidateProfile | null = null;
+  let candidateProfileError: { message: string } | null = null;
+  const linkedCandidate = await supabase
+    .from("vertice_candidates")
+    .select("id, current_job_title, seniority, status")
+    .eq("organization_id", ctx.organization_id)
+    .eq("contact_id", input.contactId)
+    .maybeSingle();
+  candidateProfile = linkedCandidate.data as CandidateProfile | null;
+  candidateProfileError = linkedCandidate.error;
+
+  if (!candidateProfile && contact.phone_number) {
+    const variants = phoneLookupVariants(contact.phone_number);
+    if (variants.length > 0) {
+      const byPhone = await supabase
+        .from("vertice_candidates")
+        .select("id, current_job_title, seniority, status")
+        .eq("organization_id", ctx.organization_id)
+        .in("phone_e164", variants)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      candidateProfile = byPhone.data as CandidateProfile | null;
+      candidateProfileError = candidateProfileError ?? byPhone.error;
+    }
+  }
+  if (candidateProfileError) {
+    console.warn(
+      "[contacts.get] Falha ao carregar perfil de candidato:",
+      candidateProfileError.message,
+    );
+  }
+
   return {
     ...contactWithConversa,
     cpf_available: !!contact.cpf_hash,
     cpf_decrypted: cpfDecrypted,
     cpf_decrypt_denied: cpfDecryptDenied || undefined,
     company_link: companyLink,
+    candidate_profile: candidateProfile
+      ? {
+          id: candidateProfile.id,
+          current_job_title: candidateProfile.current_job_title ?? null,
+          seniority: candidateProfile.seniority ?? null,
+          status: candidateProfile.status,
+        }
+      : null,
   };
 }
 
@@ -608,7 +659,9 @@ export async function patchContactHandler(
   // O banco deriva a coluna sozinho — era só não escrever nela.
   if (input.email !== undefined) patch.email = input.email;
   if (input.phone_number !== undefined) {
-    patch.phone_number = input.phone_number ? canonicalPhoneBR(input.phone_number) : input.phone_number;
+    patch.phone_number = input.phone_number
+      ? canonicalPhoneBR(input.phone_number)
+      : input.phone_number;
   }
   if (input.birthdate !== undefined) patch.birthdate = input.birthdate;
   if (input.tags !== undefined) patch.tags = input.tags;
@@ -697,9 +750,7 @@ export async function patchContactHandler(
           ? input.role_in_company
           : (currentLink?.role_in_company ?? null);
       const newIsPrimary =
-        input.is_primary !== undefined
-          ? input.is_primary
-          : (currentLink?.is_primary ?? false);
+        input.is_primary !== undefined ? input.is_primary : (currentLink?.is_primary ?? false);
 
       if (newIsPrimary) {
         await supabase
@@ -735,9 +786,7 @@ export async function patchContactHandler(
       (input.role_in_company !== undefined || input.is_primary !== undefined)
     ) {
       const newRole =
-        input.role_in_company !== undefined
-          ? input.role_in_company
-          : currentLink.role_in_company;
+        input.role_in_company !== undefined ? input.role_in_company : currentLink.role_in_company;
       const newIsPrimary =
         input.is_primary !== undefined ? input.is_primary : currentLink.is_primary;
 
@@ -762,9 +811,10 @@ export async function patchContactHandler(
     }
   }
 
-  const tagServiceOrigin = input.tags !== undefined
-    ? await observeServiceOrigin(createAdminClient(), ctx.organization_id, contactId)
-    : null;
+  const tagServiceOrigin =
+    input.tags !== undefined
+      ? await observeServiceOrigin(createAdminClient(), ctx.organization_id, contactId)
+      : null;
   patch.updated_at = new Date().toISOString();
 
   const { data: updated, error: updErr } = await supabase
@@ -859,11 +909,7 @@ export async function patchContactHandler(
     metadata: { ...a.metadataActor, fields, ...sensiveis },
   });
 
-  contact.company_link = await getCompanyLinkForContact(
-    supabase,
-    ctx.organization_id,
-    contactId,
-  );
+  contact.company_link = await getCompanyLinkForContact(supabase, ctx.organization_id, contactId);
 
   return contact;
 }
@@ -984,7 +1030,10 @@ export async function deleteContactHandler(
       "state_conflict",
       undefined,
       ctx.requestId,
-      traduzir("Não foi possível excluir: o contato ainda tem registros vinculados.", ctx.idioma ?? "pt-BR"),
+      traduzir(
+        "Não foi possível excluir: o contato ainda tem registros vinculados.",
+        ctx.idioma ?? "pt-BR",
+      ),
     );
   }
 

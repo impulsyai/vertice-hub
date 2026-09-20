@@ -50,6 +50,14 @@ export interface Contact {
       legal_name: string | null;
     } | null;
   } | null;
+  /** Perfil de R&S vinculado ao contato, quando existir. */
+  candidate_profile?: {
+    id: string;
+    current_job_title: string | null;
+    current_role?: string | null;
+    seniority: string | null;
+    status: string;
+  } | null;
 }
 
 /**

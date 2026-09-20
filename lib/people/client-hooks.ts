@@ -58,6 +58,11 @@ export type CompanyDetailRow = ClientCompany & {
 type CandidateDetailRow = VerticeCandidate & {
   resumes?: VerticeCandidateResume[];
   applications?: VerticeJobApplication[];
+  contact_context?: {
+    contact_id: string;
+    phone_number: string | null;
+    conversation_id: string | null;
+  } | null;
 };
 
 type JobDetailRow = VerticeJobOpening & {
@@ -72,7 +77,12 @@ function unwrap<T>(response: ApiEnvelope<T>): T {
 // Client Companies
 // ---------------------------------------------------------------------------
 
-export function useCompanyList(params?: { search?: string; status?: string; page?: number; limit?: number }) {
+export function useCompanyList(params?: {
+  search?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}) {
   const qs = new URLSearchParams();
   if (params?.search) qs.set("search", params.search);
   if (params?.status) qs.set("status", params.status);
@@ -99,7 +109,10 @@ export function useCreateCompany() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      const response = await apiClient.post<ApiEnvelope<ClientCompany>>("/api/v1/people/companies", body);
+      const response = await apiClient.post<ApiEnvelope<ClientCompany>>(
+        "/api/v1/people/companies",
+        body,
+      );
       return unwrap(response);
     },
     onSuccess: () => {
@@ -113,7 +126,10 @@ export function useUpdateCompany(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      const response = await apiClient.patch<ApiEnvelope<ClientCompany>>(`/api/v1/people/companies/${id}`, body);
+      const response = await apiClient.patch<ApiEnvelope<ClientCompany>>(
+        `/api/v1/people/companies/${id}`,
+        body,
+      );
       return unwrap(response);
     },
     onSuccess: () => {
@@ -190,8 +206,13 @@ export function useCandidateDetail(candidateId?: string | null) {
           `/api/v1/people/candidates/${candidateId}`,
         );
         const row = unwrap(response);
-        const { resumes = [], applications = [], ...candidate } = row;
-        return { candidate: candidate as VerticeCandidate, resumes, applications };
+        const {
+          resumes = [],
+          applications = [],
+          contact_context: contactContext = null,
+          ...candidate
+        } = row;
+        return { candidate: candidate as VerticeCandidate, resumes, applications, contactContext };
       } catch (err) {
         showApiError(err);
         throw err;
@@ -204,7 +225,10 @@ export function useCreateCandidate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      const response = await apiClient.post<ApiEnvelope<VerticeCandidate>>("/api/v1/people/candidates", body);
+      const response = await apiClient.post<ApiEnvelope<VerticeCandidate>>(
+        "/api/v1/people/candidates",
+        body,
+      );
       return unwrap(response);
     },
     onSuccess: () => {
@@ -218,12 +242,30 @@ export function useUpdateCandidate(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      const response = await apiClient.patch<ApiEnvelope<VerticeCandidate>>(`/api/v1/people/candidates/${id}`, body);
+      const response = await apiClient.patch<ApiEnvelope<VerticeCandidate>>(
+        `/api/v1/people/candidates/${id}`,
+        body,
+      );
       return unwrap(response);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["people-candidates"] });
       qc.invalidateQueries({ queryKey: ["people-candidate-detail", id] });
+    },
+    onError: (err) => showApiError(err),
+  });
+}
+
+export function useDeleteCandidate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (candidateId: string) =>
+      apiClient.delete<{ data: { deleted: boolean; id: string } }>(
+        `/api/v1/people/candidates/${candidateId}`,
+      ),
+    onSuccess: (_response, candidateId) => {
+      qc.invalidateQueries({ queryKey: ["people-candidates"] });
+      qc.removeQueries({ queryKey: ["people-candidate-detail", candidateId] });
     },
     onError: (err) => showApiError(err),
   });
@@ -241,9 +283,9 @@ export function useResumeList(candidateId?: string) {
     queryKey: ["people-resumes", candidateId],
     queryFn: async () => {
       try {
-        const response = await apiClient.get<ApiEnvelope<PaginatedResponse<VerticeCandidateResume>>>(
-          `/api/v1/people/resumes?${qs.toString()}`,
-        );
+        const response = await apiClient.get<
+          ApiEnvelope<PaginatedResponse<VerticeCandidateResume>>
+        >(`/api/v1/people/resumes?${qs.toString()}`);
         return unwrap(response);
       } catch (err) {
         showApiError(err);
@@ -311,7 +353,10 @@ export function useCreateJob() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      const response = await apiClient.post<ApiEnvelope<VerticeJobOpening>>("/api/v1/people/jobs", body);
+      const response = await apiClient.post<ApiEnvelope<VerticeJobOpening>>(
+        "/api/v1/people/jobs",
+        body,
+      );
       return unwrap(response);
     },
     onSuccess: () => {
@@ -325,7 +370,10 @@ export function useUpdateJob(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      const response = await apiClient.patch<ApiEnvelope<VerticeJobOpening>>(`/api/v1/people/jobs/${id}`, body);
+      const response = await apiClient.patch<ApiEnvelope<VerticeJobOpening>>(
+        `/api/v1/people/jobs/${id}`,
+        body,
+      );
       return unwrap(response);
     },
     onSuccess: () => {
@@ -396,7 +444,15 @@ export function useCreateApplication() {
 export function useUpdateApplicationStage() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, stage, notes }: { id: string; stage: RecruitmentStage; notes?: string }) => {
+    mutationFn: async ({
+      id,
+      stage,
+      notes,
+    }: {
+      id: string;
+      stage: RecruitmentStage;
+      notes?: string;
+    }) => {
       const response = await apiClient.patch<ApiEnvelope<VerticeJobApplication>>(
         `/api/v1/people/applications/${id}/stage`,
         { stage, notes },
