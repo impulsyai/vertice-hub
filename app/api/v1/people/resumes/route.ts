@@ -7,14 +7,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateSha256 } from "@/lib/people/services";
 import { validateResumeFile } from "@/lib/people/file-validation";
-import {
-  registerCandidateResume,
-  ResumeRegistrationError,
-} from "@/lib/people/resume-registration";
+import { registerCandidateResume, ResumeRegistrationError } from "@/lib/people/resume-registration";
 
 export const dynamic = "force-dynamic";
 
-const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export async function GET(req: NextRequest) {
   const authz = await requireRole("viewer");
@@ -70,7 +67,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (file.size > MAX_FILE_SIZE) {
-    return fail("file_too_large", "O arquivo excede o limite máximo de 15MB.", 413);
+    return fail("file_too_large", "O arquivo excede o limite máximo de 10MB.", 413);
   }
 
   const arrayBuffer = await file.arrayBuffer();
@@ -105,15 +102,19 @@ export async function POST(req: NextRequest) {
 
   let result;
   try {
-    result = await registerCandidateResume(supabase, {
-      organizationId: authz.org.orgId,
-      candidateId,
-      originalFilename: file.name,
-      mimeType: validation.detectedMime || file.type,
-      fileSizeBytes: file.size,
-      sha256,
-      bytes: buffer,
-    }, { cleanupClient: createAdminClient() });
+    result = await registerCandidateResume(
+      supabase,
+      {
+        organizationId: authz.org.orgId,
+        candidateId,
+        originalFilename: file.name,
+        mimeType: validation.detectedMime || file.type,
+        fileSizeBytes: file.size,
+        sha256,
+        bytes: buffer,
+      },
+      { cleanupClient: createAdminClient() },
+    );
   } catch (error) {
     if (error instanceof ResumeRegistrationError) {
       const messages = {
