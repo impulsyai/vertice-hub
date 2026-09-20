@@ -68,9 +68,29 @@ function cadeia(rotulo: string): Record<string, unknown> {
   ) as Record<string, unknown>;
 }
 
+function cadeiaSelect(rotulo: string): Record<string, unknown> {
+  return new Proxy(
+    {},
+    {
+      get(_t, prop) {
+        if (prop === "then") {
+          return (resolve: (v: unknown) => void) => {
+            sequencia.push(rotulo);
+            return Promise.resolve({ data: null, error: null }).then(resolve);
+          };
+        }
+        return () => cadeiaSelect(rotulo);
+      },
+    },
+  ) as Record<string, unknown>;
+}
+
 const admin = {
   from(tabela: string) {
     return {
+      select(_cols?: string) {
+        return cadeiaSelect(`select:${tabela}`);
+      },
       update(payload: Record<string, unknown>) {
         ultimoUpdate = payload;
         return cadeia(`update:${tabela}`);
