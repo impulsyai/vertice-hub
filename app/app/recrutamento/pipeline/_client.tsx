@@ -6,18 +6,10 @@ import Link from "next/link";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
-import { Kanban, ArrowSquareOut, User, Buildings, Briefcase } from "@/lib/ui/icons";
+import { ArrowSquareOut, Buildings, Briefcase, Eye, FileText } from "@/lib/ui/icons";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   useApplicationList,
   useJobList,
@@ -28,6 +20,32 @@ import {
   type RecruitmentStage,
   type VerticeJobApplication,
 } from "@/lib/people/types";
+import { GroupedJobSelect } from "@/components/recruitment/GroupedJobSelect";
+import {
+  CandidateResumePreviewDialog,
+  type ResumePreviewTarget,
+} from "@/components/recruitment/CandidateResumePreviewDialog";
+
+const SENIORITY_LABELS: Record<string, string> = {
+  junior: "Júnior",
+  pleno: "Pleno",
+  senior: "Sênior",
+  especialista: "Especialista",
+  lead: "Coordenação",
+  coordenacao: "Coordenação",
+  director: "Gerência",
+  gerencia: "Gerência",
+  c_level: "Diretoria / C-Level",
+  diretoria: "Diretoria / C-Level",
+};
+
+function formatSalary(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
 
 export function PipelineClient() {
   const t = useT();
@@ -36,8 +54,9 @@ export function PipelineClient() {
 
   const [selectedJob, setSelectedJob] = useState<string>(initialJobId || "all");
 
-  const { data: jobsData } = useJobList({ limit: 100 });
+  const { data: jobsData } = useJobList({ status: "open", limit: 100 });
   const jobs = jobsData?.data ?? [];
+  const [resumeToPreview, setResumeToPreview] = useState<ResumePreviewTarget | null>(null);
 
   // Se initialJobId foi passado pela URL e jobs carregaram, sincroniza
   useEffect(() => {
@@ -104,8 +123,8 @@ export function PipelineClient() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] rounded-lg bg-background p-6 space-y-4 overflow-hidden">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shrink-0">
+    <div className="flex h-[calc(100vh-4rem)] flex-col space-y-4 overflow-hidden rounded-lg bg-background p-6">
+      <header className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{t("Funil de Seleção")}</h1>
           <p className="text-sm text-muted-foreground">
@@ -114,26 +133,25 @@ export function PipelineClient() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Select value={selectedJob} onValueChange={setSelectedJob}>
-            <SelectTrigger className="w-[280px]">
-              <SelectValue placeholder={t("Filtrar por vaga...")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("Todas as vagas ativas")}</SelectItem>
-              {jobs.map((j) => (
-                <SelectItem key={j.id} value={j.id}>
-                  {j.title} ({j.client_company?.trade_name ?? t("Cliente")})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <GroupedJobSelect
+            jobs={jobs}
+            value={selectedJob}
+            onValueChange={setSelectedJob}
+            placeholder={t("Filtrar por vaga...")}
+            allOption={{ value: "all", label: t("Todas as vagas ativas") }}
+            countLabel={t("vagas abertas")}
+            className="w-[280px]"
+          />
         </div>
       </header>
 
       {isLoading ? (
         <div className="flex h-full gap-4 overflow-x-auto rounded-lg border border-border/80 bg-muted/20 p-3 pb-4">
           {[1, 2, 3, 4, 5].map((col) => (
-            <div key={col} className="w-72 shrink-0 space-y-3 rounded-lg border border-border bg-muted/50 p-3 shadow-sm">
+            <div
+              key={col}
+              className="w-72 shrink-0 space-y-3 rounded-lg border border-border bg-muted/50 p-3 shadow-sm"
+            >
               <Skeleton className="h-6 w-32" />
               <Skeleton className="h-24 w-full" />
               <Skeleton className="h-24 w-full" />
@@ -149,18 +167,21 @@ export function PipelineClient() {
               return (
                 <div
                   key={stage.id}
-                  className="flex flex-col w-72 shrink-0 rounded-lg border border-border/80 bg-muted/50 p-2.5 h-full overflow-hidden shadow-sm"
+                  className="flex h-full w-72 shrink-0 flex-col overflow-hidden rounded-lg border border-border/80 bg-muted/50 p-2.5 shadow-sm"
                 >
-                  <div className="flex items-center justify-between pb-2 px-1 border-b border-border/60 shrink-0">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-[10px] font-mono font-semibold text-primary bg-primary/10 px-1 py-0.2 rounded-md">
+                  <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-1 pb-2">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="py-0.2 rounded-md bg-primary/10 px-1 font-mono text-[10px] font-semibold text-primary">
                         {stepNumber}
                       </span>
-                      <span className="text-xs font-semibold tracking-tight text-foreground truncate">
-                        {stage.label.replace(/^\d+\s*/, '')}
+                      <span className="truncate text-xs font-semibold tracking-tight text-foreground">
+                        {stage.label.replace(/^\d+\s*/, "")}
                       </span>
                     </div>
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-background font-mono border border-border/50">
+                    <Badge
+                      variant="secondary"
+                      className="h-4 border border-border/50 bg-background px-1.5 py-0 font-mono text-[10px]"
+                    >
                       {stageApps.length}
                     </Badge>
                   </div>
@@ -170,56 +191,137 @@ export function PipelineClient() {
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`flex-1 overflow-y-auto space-y-2 py-2 px-0.5 min-h-[120px] transition-colors rounded-md ${
+                        className={`min-h-[120px] flex-1 space-y-2 overflow-y-auto rounded-md px-0.5 py-2 transition-colors ${
                           snapshot.isDraggingOver ? "bg-primary/5" : ""
                         }`}
                       >
-                        {stageApps.map((app, index) => (
-                          <Draggable key={app.id} draggableId={app.id} index={index}>
-                            {(providedDrag, snapshotDrag) => (
-                              <div
-                                ref={providedDrag.innerRef}
-                                {...providedDrag.draggableProps}
-                                {...providedDrag.dragHandleProps}
-                                className={`rounded-md border border-border/80 bg-card p-3 shadow-sm transition-all ${
-                                  snapshotDrag.isDragging
-                                    ? "shadow-lg ring-2 ring-primary/40 rotate-1 bg-card"
-                                    : "hover:border-primary/40 hover:shadow-xs"
-                                }`}
-                              >
-                                <div className="space-y-2">
-                                  <div className="flex items-start justify-between gap-1">
-                                    <span className="font-medium text-sm text-foreground line-clamp-1">
-                                      {app.candidate?.full_name ?? t("Candidato")}
-                                    </span>
-                                    <Link
-                                      href={`/app/recrutamento/talentos/${app.candidate_id}`}
-                                      className="text-muted-foreground hover:text-primary transition-colors p-0.5"
-                                      title={t("Abrir Dossiê")}
-                                    >
-                                      <ArrowSquareOut className="h-3.5 w-3.5" />
-                                    </Link>
-                                  </div>
+                        {stageApps.map((app, index) => {
+                          const candidate = app.candidate;
+                          const opening = app.job_opening ?? app.job;
+                          const company = opening?.client_company ?? opening?.company;
+                          const resume =
+                            app.resume ??
+                            (app.resume_id
+                              ? {
+                                  id: app.resume_id,
+                                  original_filename: t("Currículo"),
+                                  mime_type: "application/pdf",
+                                }
+                              : null);
 
-                                  <div className="text-xs text-muted-foreground line-clamp-1">
-                                    {app.candidate?.current_job_title ?? app.candidate?.current_role ?? t("Sem cargo")}
-                                  </div>
-
-                                  <div className="pt-1.5 border-t border-border/40 flex flex-col gap-1 text-[11px] text-muted-foreground">
-                                    <div className="flex items-center gap-1 truncate">
-                                      <Briefcase className="h-3 w-3 shrink-0 text-primary" />
-                                      <span className="truncate font-medium text-foreground/90">{app.job_opening?.title ?? t("Vaga")}</span>
+                          return (
+                            <Draggable key={app.id} draggableId={app.id} index={index}>
+                              {(providedDrag, snapshotDrag) => (
+                                <div
+                                  ref={providedDrag.innerRef}
+                                  {...providedDrag.draggableProps}
+                                  {...providedDrag.dragHandleProps}
+                                  className={`rounded-md border border-border/80 bg-card p-3 shadow-sm transition-all ${
+                                    snapshotDrag.isDragging
+                                      ? "rotate-1 bg-card shadow-lg ring-2 ring-primary/40"
+                                      : "hover:border-primary/40 hover:shadow-xs"
+                                  }`}
+                                >
+                                  <div className="space-y-2">
+                                    <div className="flex items-start justify-between gap-1">
+                                      <span className="line-clamp-1 text-sm font-medium text-foreground">
+                                        {app.candidate?.full_name ?? t("Candidato")}
+                                      </span>
+                                      <div className="flex items-center gap-1">
+                                        {resume && (
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                            title={t("Visualizar Currículo")}
+                                            aria-label={t("Visualizar Currículo")}
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              setResumeToPreview(resume);
+                                            }}
+                                          >
+                                            <Eye className="h-3.5 w-3.5" />
+                                          </Button>
+                                        )}
+                                        <Link
+                                          href={`/app/recrutamento/talentos/${app.candidate_id}`}
+                                          className="text-muted-foreground transition-colors hover:text-primary"
+                                          title={t("Abrir Dossiê")}
+                                          onClick={(event) => event.stopPropagation()}
+                                        >
+                                          <ArrowSquareOut className="h-3.5 w-3.5" />
+                                        </Link>
+                                      </div>
                                     </div>
-                                    <div className="flex items-center gap-1 truncate">
-                                      <Buildings className="h-3 w-3 shrink-0" />
-                                      <span className="truncate">{app.job_opening?.client_company?.trade_name ?? t("Cliente")}</span>
+
+                                    <div className="line-clamp-1 text-xs text-muted-foreground">
+                                      {candidate?.current_job_title ??
+                                        candidate?.current_role ??
+                                        t("Sem cargo")}
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-1">
+                                      {candidate?.expected_salary != null &&
+                                        candidate.expected_salary > 0 && (
+                                          <Badge
+                                            variant="outline"
+                                            className="border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0 text-[10px] text-emerald-700 dark:text-emerald-300"
+                                          >
+                                            {formatSalary(candidate.expected_salary)}
+                                          </Badge>
+                                        )}
+                                      {candidate?.seniority && (
+                                        <Badge
+                                          variant="outline"
+                                          className="border-primary/30 bg-primary/10 px-1.5 py-0 text-[10px] text-primary"
+                                        >
+                                          {SENIORITY_LABELS[candidate.seniority] ??
+                                            candidate.seniority}
+                                        </Badge>
+                                      )}
+                                      {candidate?.availability && (
+                                        <Badge
+                                          variant="outline"
+                                          className="border-sky-500/30 bg-sky-500/10 px-1.5 py-0 text-[10px] text-sky-700 dark:text-sky-300"
+                                        >
+                                          {candidate.availability}
+                                        </Badge>
+                                      )}
+                                      {resume && (
+                                        <Badge
+                                          variant="outline"
+                                          className="gap-1 border-violet-500/30 bg-violet-500/10 px-1.5 py-0 text-[10px] text-violet-700 dark:text-violet-300"
+                                          title={t("Currículo anexado")}
+                                        >
+                                          <FileText className="h-3 w-3" />
+                                          {t("CV")}
+                                        </Badge>
+                                      )}
+                                    </div>
+
+                                    <div className="flex flex-col gap-1 border-t border-border/40 pt-1.5 text-[11px] text-muted-foreground">
+                                      <div className="flex items-center gap-1 truncate">
+                                        <Briefcase className="h-3 w-3 shrink-0 text-primary" />
+                                        <span className="truncate font-medium text-foreground/90">
+                                          {opening?.title ?? t("Vaga")}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1 truncate">
+                                        <Buildings className="h-3 w-3 shrink-0" />
+                                        <span className="truncate">
+                                          {company?.trade_name ??
+                                            company?.legal_name ??
+                                            t("Cliente")}
+                                        </span>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
+                              )}
+                            </Draggable>
+                          );
+                        })}
                         {provided.placeholder}
                       </div>
                     )}
@@ -230,6 +332,13 @@ export function PipelineClient() {
           </div>
         </DragDropContext>
       )}
+      <CandidateResumePreviewDialog
+        resume={resumeToPreview}
+        open={Boolean(resumeToPreview)}
+        onOpenChange={(open) => {
+          if (!open) setResumeToPreview(null);
+        }}
+      />
     </div>
   );
 }

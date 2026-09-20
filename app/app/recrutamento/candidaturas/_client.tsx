@@ -17,8 +17,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useApplicationList, useJobList } from "@/lib/people/client-hooks";
-import { RECRUITMENT_STAGES, type RecruitmentStage } from "@/lib/people/types";
+import { RECRUITMENT_STAGES } from "@/lib/people/types";
 import { QuickRecruitmentDialog } from "@/components/inbox/QuickRecruitmentDialog";
+import { GroupedJobSelect } from "@/components/recruitment/GroupedJobSelect";
 
 export function CandidaturasClient() {
   const t = useT();
@@ -51,15 +52,12 @@ export function CandidaturasClient() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            onClick={() => setDialogOpen(true)}
-            className="gap-1.5 shrink-0"
-          >
+          <Button onClick={() => setDialogOpen(true)} className="shrink-0 gap-1.5">
             <Plus className="h-4 w-4" weight="bold" />
             {t("Nova Candidatura")}
           </Button>
           <Link href="/app/recrutamento/pipeline">
-            <Button variant="outline" className="gap-2 shrink-0">
+            <Button variant="outline" className="shrink-0 gap-2">
               <Kanban className="h-4 w-4" />
               {t("Abrir Funil de Seleção")}
             </Button>
@@ -76,25 +74,18 @@ export function CandidaturasClient() {
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-3">
-        <Select
+        <GroupedJobSelect
+          jobs={jobs}
           value={selectedJob}
           onValueChange={(val) => {
             setSelectedJob(val);
             setPage(1);
           }}
-        >
-          <SelectTrigger className="w-[260px]">
-            <SelectValue placeholder={t("Filtrar por vaga")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("Todas as vagas")}</SelectItem>
-            {jobs.map((j) => (
-              <SelectItem key={j.id} value={j.id}>
-                {j.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          placeholder={t("Filtrar por vaga")}
+          allOption={{ value: "all", label: t("Todas as vagas") }}
+          countLabel={t("vagas")}
+          className="w-[260px]"
+        />
 
         <Select
           value={selectedStage}
@@ -125,12 +116,14 @@ export function CandidaturasClient() {
         </div>
       ) : applications.length === 0 ? (
         <Card className="flex flex-col items-center justify-center p-12 text-center">
-          <div className="rounded-full bg-surface-muted p-4 mb-4">
+          <div className="bg-surface-muted mb-4 rounded-full p-4">
             <UsersThree className="h-8 w-8 text-muted-foreground" />
           </div>
           <h3 className="text-lg font-medium">{t("Nenhuma candidatura encontrada")}</h3>
-          <p className="text-sm text-muted-foreground max-w-md mt-1 mb-4">
-            {t("Vincule talentos a vagas abertas para começar a acompanhar as etapas do processo seletivo.")}
+          <p className="mt-1 mb-4 max-w-md text-sm text-muted-foreground">
+            {t(
+              "Vincule talentos a vagas abertas para começar a acompanhar as etapas do processo seletivo.",
+            )}
           </p>
           <Link href="/app/recrutamento/vagas">
             <Button variant="outline">{t("Ir para Vagas")}</Button>
@@ -148,33 +141,49 @@ export function CandidaturasClient() {
                   onClick={() => {
                     window.location.href = `/app/recrutamento/talentos/${app.candidate_id}`;
                   }}
-                  className="rounded-lg border bg-card p-4 shadow-xs hover:border-primary/40 transition-colors cursor-pointer space-y-3"
+                  className="cursor-pointer space-y-3 rounded-lg border bg-card p-4 shadow-xs transition-colors hover:border-primary/40"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h4 className="font-semibold text-foreground text-sm">
+                      <h4 className="text-sm font-semibold text-foreground">
                         {app.candidate?.full_name ?? t("Candidato")}
                       </h4>
                       <p className="text-xs text-muted-foreground">
                         {app.candidate?.current_job_title ?? app.candidate?.current_role ?? "—"}
                       </p>
                     </div>
-                    <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary font-medium text-[11px] shrink-0">
+                    <Badge
+                      variant="outline"
+                      className="shrink-0 border-primary/30 bg-primary/10 text-[11px] font-medium text-primary"
+                    >
                       {stageDef?.label ?? app.stage}
                     </Badge>
                   </div>
 
-                  <div className="text-xs space-y-1 text-muted-foreground border-t pt-2">
+                  <div className="space-y-1 border-t pt-2 text-xs text-muted-foreground">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium text-foreground">{app.job_opening?.title ?? t("Vaga")}</span>
-                      <span>{new Date(app.stage_changed_at || app.created_at).toLocaleDateString(tagDoIdioma)}</span>
+                      <span className="font-medium text-foreground">
+                        {app.job_opening?.title ?? app.job?.title ?? t("Vaga")}
+                      </span>
+                      <span>
+                        {new Date(app.stage_changed_at || app.created_at).toLocaleDateString(
+                          tagDoIdioma,
+                        )}
+                      </span>
                     </div>
                     <div className="truncate">
-                      {app.job_opening?.client_company?.trade_name ?? "—"}
+                      {app.job_opening?.client_company?.trade_name ??
+                        app.job_opening?.company?.trade_name ??
+                        app.job?.client_company?.trade_name ??
+                        app.job?.company?.trade_name ??
+                        "—"}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-dashed" onClick={(e) => e.stopPropagation()}>
+                  <div
+                    className="flex items-center justify-end gap-2 border-t border-dashed pt-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <Link href={`/app/recrutamento/pipeline?job_id=${app.job_opening_id}`}>
                       <Button variant="outline" size="sm" className="h-7 text-xs">
                         {t("Funil")}
@@ -193,9 +202,9 @@ export function CandidaturasClient() {
           </div>
 
           {/* Desktop Table */}
-          <div className="hidden md:block rounded-md border bg-card overflow-hidden shadow-xs">
+          <div className="hidden overflow-hidden rounded-md border bg-card shadow-xs md:block">
             <table className="w-full text-sm">
-              <thead className="border-b bg-muted/60 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <thead className="border-b bg-muted/60 text-left text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                 <tr>
                   <th className="p-4">{t("Candidato")}</th>
                   <th className="p-4">{t("Vaga")}</th>
@@ -214,37 +223,48 @@ export function CandidaturasClient() {
                       onClick={() => {
                         window.location.href = `/app/recrutamento/talentos/${app.candidate_id}`;
                       }}
-                      className="hover:bg-accent/5 transition-colors cursor-pointer"
+                      className="cursor-pointer transition-colors hover:bg-accent/5"
                     >
                       <td className="p-4">
                         <Link
                           href={`/app/recrutamento/talentos/${app.candidate_id}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="font-medium text-foreground hover:text-primary transition-colors block"
+                          className="block font-medium text-foreground transition-colors hover:text-primary"
                         >
                           {app.candidate?.full_name ?? t("Candidato")}
                         </Link>
-                        <span className="text-xs text-muted-foreground">{app.candidate?.current_job_title ?? app.candidate?.current_role ?? "—"}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {app.candidate?.current_job_title ?? app.candidate?.current_role ?? "—"}
+                        </span>
                       </td>
                       <td className="p-4">
                         <Link
                           href={`/app/recrutamento/vagas/${app.job_opening_id}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="text-foreground hover:text-primary transition-colors block font-medium"
+                          className="block font-medium text-foreground transition-colors hover:text-primary"
                         >
-                          {app.job_opening?.title ?? t("Vaga")}
+                          {app.job_opening?.title ?? app.job?.title ?? t("Vaga")}
                         </Link>
                       </td>
                       <td className="p-4 text-muted-foreground">
-                        {app.job_opening?.client_company?.trade_name ?? "—"}
+                        {app.job_opening?.client_company?.trade_name ??
+                          app.job_opening?.company?.trade_name ??
+                          app.job?.client_company?.trade_name ??
+                          app.job?.company?.trade_name ??
+                          "—"}
                       </td>
                       <td className="p-4">
-                        <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary font-medium text-xs">
+                        <Badge
+                          variant="outline"
+                          className="border-primary/30 bg-primary/10 text-xs font-medium text-primary"
+                        >
                           {stageDef?.label ?? app.stage}
                         </Badge>
                       </td>
-                      <td className="p-4 text-muted-foreground text-xs">
-                        {new Date(app.stage_changed_at || app.created_at).toLocaleDateString(tagDoIdioma)}
+                      <td className="p-4 text-xs text-muted-foreground">
+                        {new Date(app.stage_changed_at || app.created_at).toLocaleDateString(
+                          tagDoIdioma,
+                        )}
                       </td>
                       <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
@@ -269,9 +289,10 @@ export function CandidaturasClient() {
           </div>
 
           {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between p-4 border-t text-xs text-muted-foreground">
+            <div className="flex items-center justify-between border-t p-4 text-xs text-muted-foreground">
               <span>
-                {t("Página")} {pagination.page} {t("de")} {pagination.totalPages} ({pagination.total} {t("candidaturas")})
+                {t("Página")} {pagination.page} {t("de")} {pagination.totalPages} (
+                {pagination.total} {t("candidaturas")})
               </span>
               <div className="flex gap-2">
                 <Button

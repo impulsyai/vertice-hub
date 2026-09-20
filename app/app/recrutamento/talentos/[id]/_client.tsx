@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   FileText,
   DownloadSimple,
+  Eye,
   Briefcase,
   EnvelopeSimple,
   Phone,
@@ -25,7 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiClient } from "@/lib/api/client";
-import { useCandidateDetail } from "@/lib/people/client-hooks";
+import { useCandidateDetail, useCandidateTimeline } from "@/lib/people/client-hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { RECRUITMENT_STAGES } from "@/lib/people/types";
 import { formatFileSize } from "@/lib/ui/form-masks";
@@ -33,6 +34,12 @@ import { CandidateFormDialog } from "@/components/recruitment/CandidateForm";
 import { DeleteCandidateDialog } from "@/components/recruitment/DeleteCandidateDialog";
 import { useAuth } from "@/hooks/auth/AuthProvider";
 import { ROLE_RANK } from "@/lib/auth/types";
+import {
+  CandidateResumePreviewDialog,
+  type ResumePreviewTarget,
+} from "@/components/recruitment/CandidateResumePreviewDialog";
+import { CandidateTimeline } from "@/components/recruitment/CandidateTimeline";
+import { CandidateOpinionReportButton } from "@/components/recruitment/CandidateOpinionReportButton";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Ativo",
@@ -49,10 +56,12 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
   const router = useRouter();
   const { user, activeOrg } = useAuth();
   const { data, isLoading, error } = useCandidateDetail(id);
+  const { data: timelineEvents = [] } = useCandidateTimeline(id);
   const [isUploading, setIsUploading] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isOpeningConversation, setIsOpeningConversation] = useState(false);
+  const [resumeToPreview, setResumeToPreview] = useState<ResumePreviewTarget | null>(null);
   const canDeleteCandidate = Boolean(
     user.is_platform_admin || (activeOrg && ROLE_RANK[activeOrg.role] >= ROLE_RANK.manager),
   );
@@ -118,6 +127,7 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
 
       toast.success(t("Currículo anexado com sucesso!"));
       qc.invalidateQueries({ queryKey: ["people-candidate-detail", candidate.id] });
+      qc.invalidateQueries({ queryKey: ["people-candidate-timeline", candidate.id] });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";
       toast.error(msg);
@@ -175,6 +185,12 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <CandidateOpinionReportButton
+            candidate={candidate}
+            applications={applications}
+            resumes={resumes}
+            events={timelineEvents}
+          />
           <Button
             variant="outline"
             onClick={() => setIsEditOpen(true)}
@@ -352,15 +368,29 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
                           </div>
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 w-full shrink-0 justify-center gap-1.5 text-xs sm:w-auto"
-                        onClick={() => handleDownloadResume(r.id)}
-                      >
-                        <DownloadSimple className="h-3.5 w-3.5" />
-                        {t("Download")}
-                      </Button>
+                      <div className="flex w-full shrink-0 gap-2 sm:w-auto">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          title={t("Visualizar Currículo")}
+                          aria-label={t("Visualizar Currículo")}
+                          onClick={() => setResumeToPreview(r)}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 flex-1 justify-center gap-1.5 text-xs sm:flex-none"
+                          onClick={() => handleDownloadResume(r.id)}
+                        >
+                          <DownloadSimple className="h-3.5 w-3.5" />
+                          {t("Download")}
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -388,10 +418,14 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
                     >
                       <div className="min-w-0">
                         <div className="truncate text-sm font-medium">
-                          {app.job_opening ? app.job_opening.title : t("Vaga vinculada")}
+                          {app.job_opening?.title ?? app.job?.title ?? t("Vaga vinculada")}
                         </div>
                         <div className="truncate text-xs text-muted-foreground">
-                          {app.job_opening?.client_company?.trade_name ?? t("Empresa Cliente")}
+                          {app.job_opening?.client_company?.trade_name ??
+                            app.job_opening?.company?.trade_name ??
+                            app.job?.client_company?.trade_name ??
+                            app.job?.company?.trade_name ??
+                            t("Empresa Cliente")}
                         </div>
                       </div>
                       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 sm:justify-end">
@@ -417,6 +451,13 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
               )}
             </CardContent>
           </Card>
+          <CandidateTimeline
+            key={candidate.id + (candidate.updated_at ?? "")}
+            candidate={candidate}
+            resumes={resumes}
+            applications={applications}
+            events={timelineEvents}
+          />
         </div>
       </div>
 
@@ -432,6 +473,13 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
         open={isDeleteOpen}
         onOpenChange={setIsDeleteOpen}
         onDeleted={() => router.push("/app/recrutamento/talentos")}
+      />
+      <CandidateResumePreviewDialog
+        resume={resumeToPreview}
+        open={Boolean(resumeToPreview)}
+        onOpenChange={(open) => {
+          if (!open) setResumeToPreview(null);
+        }}
       />
     </div>
   );

@@ -65,6 +65,17 @@ type CandidateDetailRow = VerticeCandidate & {
   } | null;
 };
 
+export interface CandidateTimelineEvent {
+  id: string;
+  created_at: string;
+  actor_user_id: string | null;
+  actor_name: string;
+  action: string;
+  resource_type: string | null;
+  resource_id: string | null;
+  metadata: Record<string, unknown>;
+}
+
 type JobDetailRow = VerticeJobOpening & {
   applications?: VerticeJobApplication[];
 };
@@ -221,6 +232,24 @@ export function useCandidateDetail(candidateId?: string | null) {
   });
 }
 
+export function useCandidateTimeline(candidateId?: string | null) {
+  return useQuery({
+    queryKey: ["people-candidate-timeline", candidateId],
+    enabled: !!candidateId,
+    queryFn: async () => {
+      try {
+        const response = await apiClient.get<ApiEnvelope<CandidateTimelineEvent[]>>(
+          `/api/v1/people/candidates/${candidateId}/timeline`,
+        );
+        return unwrap(response);
+      } catch (err) {
+        showApiError(err);
+        throw err;
+      }
+    },
+  });
+}
+
 export function useCreateCandidate() {
   const qc = useQueryClient();
   return useMutation({
@@ -251,6 +280,7 @@ export function useUpdateCandidate(id: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["people-candidates"] });
       qc.invalidateQueries({ queryKey: ["people-candidate-detail", id] });
+      qc.invalidateQueries({ queryKey: ["people-candidate-timeline", id] });
     },
     onError: (err) => showApiError(err),
   });

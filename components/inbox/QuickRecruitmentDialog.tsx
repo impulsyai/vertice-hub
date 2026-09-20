@@ -23,6 +23,7 @@ import { useCandidateList, useCreateApplication, useJobList } from "@/lib/people
 import type { VerticeCandidate, VerticeJobOpening } from "@/lib/people/types";
 import { normalizePhoneBR } from "@/lib/ui/form-masks";
 import { CandidateForm } from "@/components/recruitment/CandidateForm";
+import { GroupedJobSelect } from "@/components/recruitment/GroupedJobSelect";
 
 interface Props {
   open: boolean;
@@ -126,22 +127,15 @@ export function QuickRecruitmentDialog({
 
         <div className="space-y-1">
           <Label htmlFor="recruitment-job">{t("Vaga de Destino")} *</Label>
-          <Select value={selectedJobId} onValueChange={setSelectedJobId} disabled={jobsLoading}>
-            <SelectTrigger id="recruitment-job">
-              <SelectValue
-                placeholder={
-                  jobsLoading ? t("Carregando vagas...") : t("Selecione a vaga aberta...")
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {openJobs.map((job) => (
-                <SelectItem key={job.id} value={job.id}>
-                  {job.title} {job.department ? "· " + job.department : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <GroupedJobSelect
+            id="recruitment-job"
+            jobs={openJobs}
+            value={selectedJobId}
+            onValueChange={setSelectedJobId}
+            disabled={jobsLoading}
+            placeholder={jobsLoading ? t("Carregando vagas...") : t("Selecione a vaga aberta...")}
+            countLabel={t("vagas abertas")}
+          />
         </div>
 
         <div className="flex items-center justify-between border-y py-2 text-xs">

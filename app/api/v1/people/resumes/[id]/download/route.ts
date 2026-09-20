@@ -5,14 +5,12 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const authz = await requireRole("viewer");
   if (!authz.ok) return authz.response;
 
   const { id } = await params;
+  const inline = new URL(req.url).searchParams.get("inline") === "1";
   const supabase = await createClient();
 
   // 1. Localizar registro do currículo e checar tenant
@@ -28,11 +26,12 @@ export async function GET(
   }
 
   // 2. Gerar Signed URL válida por 60 segundos
-  const { data: signed, error: signError } = await supabase.storage
-    .from("candidate-resumes")
-    .createSignedUrl(resume.storage_path, 60, {
-      download: resume.original_filename,
-    });
+  const signedResult = inline
+    ? await supabase.storage.from("candidate-resumes").createSignedUrl(resume.storage_path, 60)
+    : await supabase.storage
+        .from("candidate-resumes")
+        .createSignedUrl(resume.storage_path, 60, { download: resume.original_filename });
+  const { data: signed, error: signError } = signedResult;
 
   if (signError || !signed?.signedUrl) {
     return fail("storage_error", signError?.message || "Erro ao gerar URL assinada.", 500);
