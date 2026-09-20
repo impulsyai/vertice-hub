@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
+import { maskPhoneBR, normalizePhoneBR } from "@/lib/ui/form-masks";
+import { createCandidateSchema } from "@/lib/people/schemas";
 import { User, Plus, MagnifyingGlass, ArrowSquareOut } from "@/lib/ui/icons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -300,50 +302,69 @@ function CandidateStatusBadge({ status }: { status: CandidateStatus }) {
   }
 }
 
+type NewCandidateForm = {
+  full_name: string;
+  email?: string;
+  phone_e164?: string;
+  linkedin_url?: string;
+  current_job_title?: string;
+  current_company?: string;
+  area?: string;
+  seniority?: string;
+  city?: string;
+  state?: string;
+  notes?: string;
+};
+
 function NewCandidateDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const t = useT();
   const create = useCreateCandidate();
-  const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<{
-    full_name: string;
-    email?: string;
-    phone_e164?: string;
-    linkedin_url?: string;
-    current_job_title?: string;
-    current_company?: string;
-    area?: string;
-    seniority?: string;
-    city?: string;
-    state?: string;
-    notes?: string;
-  }>();
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setError,
+    formState: { isSubmitting, errors },
+  } = useForm<NewCandidateForm>();
 
-  async function onSubmit(data: {
-    full_name: string;
-    email?: string;
-    phone_e164?: string;
-    linkedin_url?: string;
-    current_job_title?: string;
-    current_company?: string;
-    area?: string;
-    seniority?: string;
-    city?: string;
-    state?: string;
-    notes?: string;
-  }) {
+  const fieldError = (field: keyof NewCandidateForm) => {
+    const message = errors[field]?.message;
+    return typeof message === "string" ? message : undefined;
+  };
+  const fieldClass = (field: keyof NewCandidateForm) =>
+    fieldError(field) ? "border-red-500 focus-visible:ring-red-500" : undefined;
+
+  async function onSubmit(data: NewCandidateForm) {
+    const payload = {
+      full_name: data.full_name,
+      email: data.email?.trim() || undefined,
+      phone_e164: normalizePhoneBR(data.phone_e164),
+      linkedin_url: data.linkedin_url?.trim() || undefined,
+      current_job_title: data.current_job_title?.trim() || undefined,
+      current_company: data.current_company?.trim() || undefined,
+      area: data.area?.trim() || undefined,
+      seniority: data.seniority?.trim() || undefined,
+      city: data.city?.trim() || undefined,
+      state: data.state?.trim() || undefined,
+      notes: data.notes?.trim() || undefined,
+    };
+    const parsed = createCandidateSchema.safeParse(payload);
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const field = issue.path[0];
+        if (typeof field === "string" && field in data) {
+          setError(field as keyof NewCandidateForm, {
+            type: "validation",
+            message: issue.message,
+          });
+        }
+      }
+      toast.error(parsed.error.issues[0]?.message ?? t("Dados inválidos"));
+      return;
+    }
+
     try {
-      await create.mutateAsync({
-        full_name: data.full_name,
-        email: data.email || undefined,
-        phone_e164: data.phone_e164 || undefined,
-        linkedin_url: data.linkedin_url || undefined,
-        current_job_title: data.current_job_title || undefined,
-        current_company: data.current_company || undefined,
-        area: data.area || undefined,
-        seniority: data.seniority || undefined,
-        city: data.city || undefined,
-        state: data.state || undefined,
-        notes: data.notes || undefined,
-      });
+      await create.mutateAsync(parsed.data);
       toast.success(t("Candidato cadastrado com sucesso!"));
       reset();
       onOpenChange(false);
@@ -365,17 +386,51 @@ function NewCandidateDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
           <div className="space-y-1">
             <Label htmlFor="full_name">{t("Nome Completo")} *</Label>
-            <Input id="full_name" required placeholder={t("ex: Carlos Eduardo Silva")} {...register("full_name", { required: true })} />
+            <Input
+              id="full_name"
+              required
+              placeholder={t("ex: Carlos Eduardo Silva")}
+              className={fieldClass("full_name")}
+              aria-invalid={!!fieldError("full_name")}
+              {...register("full_name", { required: t("Nome é obrigatório") })}
+            />
+            {fieldError("full_name") && <p className="text-xs text-red-600">{fieldError("full_name")}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="email">{t("E-mail")}</Label>
-              <Input id="email" type="email" placeholder={t("ex: carlos@email.com")} {...register("email")} />
+              <Input
+                id="email"
+                type="email"
+                placeholder={t("ex: carlos@email.com")}
+                className={fieldClass("email")}
+                aria-invalid={!!fieldError("email")}
+                {...register("email", {
+                  validate: (value) =>
+                    !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || t("E-mail inválido"),
+                })}
+              />
+              {fieldError("email") && <p className="text-xs text-red-600">{fieldError("email")}</p>}
             </div>
             <div className="space-y-1">
               <Label htmlFor="phone_e164">{t("Telefone / WhatsApp")}</Label>
-              <Input id="phone_e164" placeholder={t("ex: (81) 98888-7777")} {...register("phone_e164")} />
+              <Input
+                id="phone_e164"
+                placeholder={t("ex: (81) 98888-7777")}
+                className={fieldClass("phone_e164")}
+                aria-invalid={!!fieldError("phone_e164")}
+                {...register("phone_e164", {
+                  onChange: (event) => {
+                    event.target.value = maskPhoneBR(event.target.value);
+                  },
+                  validate: (value) => {
+                    if (!value) return true;
+                    return /^\+\d{8,15}$/.test(normalizePhoneBR(value) ?? "") || t("Telefone inválido");
+                  },
+                })}
+              />
+              {fieldError("phone_e164") && <p className="text-xs text-red-600">{fieldError("phone_e164")}</p>}
             </div>
           </div>
 
@@ -414,7 +469,14 @@ function NewCandidateDialog({ open, onOpenChange }: { open: boolean; onOpenChang
 
           <div className="space-y-1">
             <Label htmlFor="linkedin_url">{t("Perfil LinkedIn")}</Label>
-            <Input id="linkedin_url" placeholder={t("https://linkedin.com/in/perfil")} {...register("linkedin_url")} />
+            <Input
+              id="linkedin_url"
+              placeholder={t("https://linkedin.com/in/perfil")}
+              className={fieldClass("linkedin_url")}
+              aria-invalid={!!fieldError("linkedin_url")}
+              {...register("linkedin_url")}
+            />
+            {fieldError("linkedin_url") && <p className="text-xs text-red-600">{fieldError("linkedin_url")}</p>}
           </div>
 
           <DialogFooter className="pt-2">

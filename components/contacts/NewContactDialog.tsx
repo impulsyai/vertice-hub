@@ -54,15 +54,23 @@ interface Props {
    * selecionado, em vez de mandar a pessoa procurar de novo o que acabou de criar.
    */
   onCriado?: (contato: Contact) => void;
+  /** Empresa que deve ficar vinculada quando o diÃ¡logo Ã© aberto pelo dossiÃª. */
+  empresaInicialId?: string | null;
 }
 
-export function NewContactDialog({ open, onOpenChange, nomeInicial, onCriado }: Props) {
+export function NewContactDialog({
+  open,
+  onOpenChange,
+  nomeInicial,
+  onCriado,
+  empresaInicialId,
+}: Props) {
   const t = useT();
   const create = useCreateContact();
   const { data: companiesData } = useCompanyList({ limit: 100 });
   const companies = companiesData?.data ?? [];
   const [serverError, setServerError] = useState<string | null>(null);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("none");
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(empresaInicialId ?? "none");
   const [isPrimary, setIsPrimary] = useState<boolean>(false);
 
   const form = useForm<FormShape>({
@@ -79,7 +87,7 @@ export function NewContactDialog({ open, onOpenChange, nomeInicial, onCriado }: 
   const handleOpenChange = (v: boolean) => {
     if (!v) {
       form.reset();
-      setSelectedCompanyId("none");
+      setSelectedCompanyId(empresaInicialId ?? "none");
       setIsPrimary(false);
       setServerError(null);
     }
@@ -120,7 +128,7 @@ export function NewContactDialog({ open, onOpenChange, nomeInicial, onCriado }: 
       const resposta = await create.mutateAsync(parsed.data as ContactCreate);
       toast.success(t("Contato criado"));
       form.reset();
-      setSelectedCompanyId("none");
+      setSelectedCompanyId(empresaInicialId ?? "none");
       setIsPrimary(false);
       onOpenChange(false);
       // `.data` é o envelope do `ok()`, e dentro dele mora `{ contact, action }`.
@@ -179,7 +187,11 @@ export function NewContactDialog({ open, onOpenChange, nomeInicial, onCriado }: 
 
           <div className="space-y-2">
             <Label htmlFor="company">{t("Empresa (opcional)")}</Label>
-            <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
+            <Select
+              value={selectedCompanyId}
+              onValueChange={setSelectedCompanyId}
+              disabled={!!empresaInicialId}
+            >
               <SelectTrigger id="company">
                 <SelectValue placeholder={t("Selecione uma empresa")} />
               </SelectTrigger>

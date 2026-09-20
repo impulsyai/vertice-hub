@@ -31,6 +31,19 @@ import {
 import { Label } from "@/components/ui/label";
 import { useCompanyList, useCreateCompany, useUpdateCompany } from "@/lib/people/client-hooks";
 import type { ClientCompany } from "@/lib/people/types";
+import { normalizeUrl } from "@/lib/ui/form-masks";
+import { createCompanySchema, updateCompanySchema } from "@/lib/people/schemas";
+
+type CompanyFormValues = {
+  trade_name: string;
+  legal_name?: string;
+  industry?: string;
+  website?: string;
+  city?: string;
+  state?: string;
+  status?: "prospect" | "active" | "inactive";
+  notes?: string;
+};
 
 export function EmpresasClient() {
   const t = useT();
@@ -281,36 +294,49 @@ export function EmpresasClient() {
 function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const t = useT();
   const create = useCreateCompany();
-  const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<{
-    trade_name: string;
-    legal_name?: string;
-    industry?: string;
-    website?: string;
-    city?: string;
-    state?: string;
-    notes?: string;
-  }>();
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setError,
+    formState: { isSubmitting, errors },
+  } = useForm<CompanyFormValues>();
 
-  async function onSubmit(data: {
-    trade_name: string;
-    legal_name?: string;
-    industry?: string;
-    website?: string;
-    city?: string;
-    state?: string;
-    notes?: string;
-  }) {
+  const fieldError = (field: keyof CompanyFormValues) => {
+    const message = errors[field]?.message;
+    return typeof message === "string" ? message : undefined;
+  };
+  const fieldClass = (field: keyof CompanyFormValues) =>
+    fieldError(field) ? "border-red-500 focus-visible:ring-red-500" : undefined;
+
+  async function onSubmit(data: CompanyFormValues) {
+    const payload = {
+      legal_name: data.legal_name?.trim() || data.trade_name.trim(),
+      trade_name: data.trade_name.trim() || undefined,
+      industry: data.industry?.trim() || undefined,
+      website: normalizeUrl(data.website) || undefined,
+      city: data.city?.trim() || undefined,
+      state: data.state?.trim() || undefined,
+      notes: data.notes?.trim() || undefined,
+      status: "active" as const,
+    };
+    const parsed = createCompanySchema.safeParse(payload);
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const field = issue.path[0];
+        if (typeof field === "string" && field in data) {
+          setError(field as keyof CompanyFormValues, {
+            type: "validation",
+            message: issue.message,
+          });
+        }
+      }
+      toast.error(parsed.error.issues[0]?.message ?? t("Dados inválidos"));
+      return;
+    }
+
     try {
-      await create.mutateAsync({
-        trade_name: data.trade_name,
-        legal_name: data.legal_name || undefined,
-        industry: data.industry || undefined,
-        website: data.website || undefined,
-        city: data.city || undefined,
-        state: data.state || undefined,
-        notes: data.notes || undefined,
-        status: "active",
-      });
+      await create.mutateAsync(parsed.data);
       toast.success(t("Empresa cliente criada com sucesso!"));
       reset();
       onOpenChange(false);
@@ -332,12 +358,27 @@ function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
           <div className="space-y-1">
             <Label htmlFor="trade_name">{t("Nome Fantasia")} *</Label>
-            <Input id="trade_name" required placeholder={t("ex: Tramontina")} {...register("trade_name", { required: true })} />
+            <Input
+              id="trade_name"
+              required
+              placeholder={t("ex: Tramontina")}
+              className={fieldClass("trade_name")}
+              aria-invalid={!!fieldError("trade_name")}
+              {...register("trade_name", { required: t("Nome Fantasia é obrigatório") })}
+            />
+            {fieldError("trade_name") && <p className="text-xs text-red-600">{fieldError("trade_name")}</p>}
           </div>
 
           <div className="space-y-1">
             <Label htmlFor="legal_name">{t("Razão Social")}</Label>
-            <Input id="legal_name" placeholder={t("ex: Tramontina S.A.")} {...register("legal_name")} />
+            <Input
+              id="legal_name"
+              placeholder={t("ex: Tramontina S.A.")}
+              className={fieldClass("legal_name")}
+              aria-invalid={!!fieldError("legal_name")}
+              {...register("legal_name")}
+            />
+            {fieldError("legal_name") && <p className="text-xs text-red-600">{fieldError("legal_name")}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -347,7 +388,14 @@ function NewCompanyDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
             </div>
             <div className="space-y-1">
               <Label htmlFor="website">{t("Website")}</Label>
-              <Input id="website" placeholder={t("ex: www.empresa.com.br")} {...register("website")} />
+              <Input
+                id="website"
+                placeholder={t("ex: www.empresa.com.br")}
+                className={fieldClass("website")}
+                aria-invalid={!!fieldError("website")}
+                {...register("website")}
+              />
+              {fieldError("website") && <p className="text-xs text-red-600">{fieldError("website")}</p>}
             </div>
           </div>
 
@@ -392,17 +440,9 @@ export function EditCompanyDialog({
     handleSubmit,
     setValue,
     watch,
-    formState: { isSubmitting },
-  } = useForm<{
-    trade_name: string;
-    legal_name?: string;
-    industry?: string;
-    website?: string;
-    city?: string;
-    state?: string;
-    status: "prospect" | "active" | "inactive";
-    notes?: string;
-  }>({
+    setError,
+    formState: { isSubmitting, errors },
+  } = useForm<CompanyFormValues>({
     defaultValues: {
       trade_name: company.trade_name ?? "",
       legal_name: company.legal_name ?? "",
@@ -417,27 +457,41 @@ export function EditCompanyDialog({
 
   const selectedStatus = watch("status");
 
-  async function onSubmit(data: {
-    trade_name: string;
-    legal_name?: string;
-    industry?: string;
-    website?: string;
-    city?: string;
-    state?: string;
-    status: "prospect" | "active" | "inactive";
-    notes?: string;
-  }) {
+  const fieldError = (field: keyof CompanyFormValues) => {
+    const message = errors[field]?.message;
+    return typeof message === "string" ? message : undefined;
+  };
+  const fieldClass = (field: keyof CompanyFormValues) =>
+    fieldError(field) ? "border-red-500 focus-visible:ring-red-500" : undefined;
+
+  async function onSubmit(data: CompanyFormValues) {
+    const payload = {
+      trade_name: data.trade_name.trim() || null,
+      legal_name: data.legal_name?.trim() || null,
+      industry: data.industry?.trim() || null,
+      website: normalizeUrl(data.website) || null,
+      city: data.city?.trim() || null,
+      state: data.state?.trim() || null,
+      status: data.status ?? "active",
+      notes: data.notes?.trim() || null,
+    };
+    const parsed = updateCompanySchema.safeParse(payload);
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const field = issue.path[0];
+        if (typeof field === "string" && field in data) {
+          setError(field as keyof CompanyFormValues, {
+            type: "validation",
+            message: issue.message,
+          });
+        }
+      }
+      toast.error(parsed.error.issues[0]?.message ?? t("Dados inválidos"));
+      return;
+    }
+
     try {
-      await update.mutateAsync({
-        trade_name: data.trade_name,
-        legal_name: data.legal_name || null,
-        industry: data.industry || null,
-        website: data.website || null,
-        city: data.city || null,
-        state: data.state || null,
-        status: data.status,
-        notes: data.notes || null,
-      });
+      await update.mutateAsync(parsed.data);
       toast.success(t("Empresa atualizada com sucesso!"));
       onOpenChange(false);
     } catch {
@@ -458,12 +512,20 @@ export function EditCompanyDialog({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
           <div className="space-y-1">
             <Label htmlFor="edit_trade_name">{t("Nome Fantasia")} *</Label>
-            <Input id="edit_trade_name" required {...register("trade_name", { required: true })} />
+            <Input
+              id="edit_trade_name"
+              required
+              className={fieldClass("trade_name")}
+              aria-invalid={!!fieldError("trade_name")}
+              {...register("trade_name", { required: t("Nome Fantasia é obrigatório") })}
+            />
+            {fieldError("trade_name") && <p className="text-xs text-red-600">{fieldError("trade_name")}</p>}
           </div>
 
           <div className="space-y-1">
             <Label htmlFor="edit_legal_name">{t("Razão Social")}</Label>
-            <Input id="edit_legal_name" {...register("legal_name")} />
+            <Input id="edit_legal_name" className={fieldClass("legal_name")} aria-invalid={!!fieldError("legal_name")} {...register("legal_name")} />
+            {fieldError("legal_name") && <p className="text-xs text-red-600">{fieldError("legal_name")}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -473,7 +535,8 @@ export function EditCompanyDialog({
             </div>
             <div className="space-y-1">
               <Label htmlFor="edit_website">{t("Website")}</Label>
-              <Input id="edit_website" {...register("website")} />
+              <Input id="edit_website" className={fieldClass("website")} aria-invalid={!!fieldError("website")} {...register("website")} />
+              {fieldError("website") && <p className="text-xs text-red-600">{fieldError("website")}</p>}
             </div>
           </div>
 

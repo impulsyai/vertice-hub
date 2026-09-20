@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -301,7 +301,17 @@ export function VagasClient() {
   );
 }
 
-function NewJobDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function NewJobDialog({
+  open,
+  onOpenChange,
+  initialCompanyId,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  initialCompanyId?: string | null;
+  onCreated?: () => void;
+}) {
   const t = useT();
   const create = useCreateJob();
   const { data: companiesData } = useCompanyList({ limit: 100 });
@@ -320,10 +330,17 @@ function NewJobDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
   }>({
     defaultValues: {
       work_model: "presential",
+      client_company_id: initialCompanyId ?? "",
     },
   });
 
   const selectedCompany = watch("client_company_id");
+
+  useEffect(() => {
+    if (open && initialCompanyId) {
+      setValue("client_company_id", initialCompanyId);
+    }
+  }, [initialCompanyId, open, setValue]);
 
   async function onSubmit(data: {
     title: string;
@@ -355,7 +372,11 @@ function NewJobDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
         status: "open",
       });
       toast.success(t("Vaga aberta com sucesso!"));
-      reset();
+      reset({
+        work_model: "presential",
+        client_company_id: initialCompanyId ?? "",
+      });
+      onCreated?.();
       onOpenChange(false);
     } catch {
       // erro tratado no hook
@@ -381,7 +402,7 @@ function NewJobDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
           <div className="space-y-1">
             <Label htmlFor="company">{t("Empresa Cliente")} *</Label>
             <Select value={selectedCompany} onValueChange={(val) => setValue("client_company_id", val)}>
-              <SelectTrigger id="company">
+              <SelectTrigger id="company" disabled={!!initialCompanyId}>
                 <SelectValue placeholder={t("Selecione a empresa contratante...")} />
               </SelectTrigger>
               <SelectContent>

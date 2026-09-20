@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
 import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
 import {
@@ -18,20 +20,33 @@ import {
   Kanban,
   ArrowSquareOut,
   Note,
+  Plus,
 } from "@/lib/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCompanyDetail } from "@/lib/people/client-hooks";
+import { Textarea } from "@/components/ui/textarea";
+import { useCompanyDetail, useUpdateCompany } from "@/lib/people/client-hooks";
 import { rotuloDoContato } from "@/lib/contacts/rotulo-do-contato";
+import { NewContactDialog } from "@/components/contacts/NewContactDialog";
+import { NewLeadDialog } from "@/components/kanban/NewLeadDialog";
+import { NewJobDialog } from "@/app/app/recrutamento/vagas/_client";
+import { useDefaultPipeline } from "@/hooks/pipelines/useDefaultPipeline";
 import { EditCompanyDialog } from "../_client";
 
 export function EmpresaDetalheClient({ id }: { id: string }) {
   const t = useT();
   const tagDoIdioma = useTagDeIdioma();
   const { data, isLoading, error } = useCompanyDetail(id);
+  const queryClient = useQueryClient();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isContactOpen, setIsContactOpen] = useState(false);
+  const [isOpportunityOpen, setIsOpportunityOpen] = useState(false);
+  const [isJobOpen, setIsJobOpen] = useState(false);
+  const { data: defaultPipeline } = useDefaultPipeline(true);
+  const leadPipelineId = defaultPipeline?.pipeline.id ?? null;
+  const leadStages = defaultPipeline?.stages ?? [];
 
   if (isLoading) {
     return (
@@ -196,8 +211,13 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                   {t("Cadastrada em")}:{" "}
                   {new Date(company.created_at).toLocaleDateString(tagDoIdioma, {
                     day: "2-digit",
-                    month: "long",
+                    month: "2-digit",
                     year: "numeric",
+                  })}{" "}
+                  {t("às")} {new Date(company.created_at).toLocaleTimeString(tagDoIdioma, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
                   })}
                 </div>
               )}
@@ -212,17 +232,11 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                 {t("Observações Comerciais & Alinhamentos")}
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-4">
-              {company.notes ? (
-                <div className="rounded-md border border-border/50 bg-muted/40 p-4 text-sm leading-relaxed whitespace-pre-wrap text-foreground">
-                  {company.notes}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">
-                  {t("Nenhuma observação cadastrada para esta empresa.")}
-                </p>
-              )}
-            </CardContent>
+            <CompanyNotesEditor
+              key={company.id + (company.updated_at ?? "")}
+              companyId={company.id}
+              notes={company.notes}
+            />
           </Card>
 
           {/* Oportunidades Comerciais (CRM B2B) */}
@@ -237,9 +251,22 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                   {t("Negócios e projetos comerciais vinculados a esta conta")}
                 </CardDescription>
               </div>
-              <Badge variant="secondary" className="text-xs font-normal">
-                {leads.length} {leads.length === 1 ? t("oportunidade") : t("oportunidades")}
-              </Badge>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs"
+                  onClick={() => setIsOpportunityOpen(true)}
+                  disabled={!leadPipelineId || leadStages.length === 0}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("Nova Oportunidade")}
+                </Button>
+                <Badge variant="secondary" className="text-xs font-normal">
+                  {leads.length} {leads.length === 1 ? t("oportunidade") : t("oportunidades")}
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="pt-4">
               {leads.length === 0 ? (
@@ -311,9 +338,21 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                 <Briefcase className="h-4 w-4 text-primary" />
                 {t("Vagas & Processos de R&S")}
               </CardTitle>
-              <Badge variant="secondary" className="text-xs font-normal">
-                {jobs.length} {jobs.length === 1 ? t("vaga") : t("vagas")}
-              </Badge>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs"
+                  onClick={() => setIsJobOpen(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("Nova Vaga")}
+                </Button>
+                <Badge variant="secondary" className="text-xs font-normal">
+                  {jobs.length} {jobs.length === 1 ? t("vaga") : t("vagas")}
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="pt-4">
               {jobs.length === 0 ? (
@@ -412,9 +451,21 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
                   {t("Decisores vinculados via CRM comercial.")}
                 </p>
               </div>
-              <Badge variant="secondary" className="shrink-0 text-xs font-normal">
-                {contacts.length}
-              </Badge>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs"
+                  onClick={() => setIsContactOpen(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("Novo Contato")}
+                </Button>
+                <Badge variant="secondary" className="text-xs font-normal">
+                  {contacts.length}
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="pt-4">
               {contacts.length === 0 ? (
@@ -509,6 +560,69 @@ export function EmpresaDetalheClient({ id }: { id: string }) {
           onOpenChange={setIsEditOpen}
         />
       )}
+      <NewContactDialog
+        open={isContactOpen}
+        onOpenChange={setIsContactOpen}
+        empresaInicialId={id}
+      />
+      {leadPipelineId && (
+        <NewLeadDialog
+          open={isOpportunityOpen}
+          onOpenChange={setIsOpportunityOpen}
+          pipelineId={leadPipelineId}
+          stages={leadStages}
+          initialCompanyId={id}
+          onCreated={() => {
+            void queryClient.invalidateQueries({ queryKey: ["people-company-detail", id] });
+          }}
+        />
+      )}
+      <NewJobDialog
+        open={isJobOpen}
+        onOpenChange={setIsJobOpen}
+        initialCompanyId={id}
+        onCreated={() => {
+          void queryClient.invalidateQueries({ queryKey: ["people-company-detail", id] });
+        }}
+      />
     </div>
+  );
+}
+
+function CompanyNotesEditor({
+  companyId,
+  notes,
+}: {
+  companyId: string;
+  notes: string | null;
+}) {
+  const t = useT();
+  const updateCompany = useUpdateCompany(companyId);
+  const [draft, setDraft] = useState(notes ?? "");
+
+  async function save() {
+    try {
+      await updateCompany.mutateAsync({ notes: draft.trim() || null });
+      toast.success(t("Observações salvas"));
+    } catch {
+      // erro tratado pelo hook
+    }
+  }
+
+  return (
+    <CardContent className="space-y-3 pt-4">
+      <Textarea
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        placeholder={t("Registre observações comerciais, alinhamentos e próximos passos...")}
+        rows={5}
+        aria-label={t("Observações Comerciais & Alinhamentos")}
+      />
+      <div className="flex justify-end">
+        <Button type="button" size="sm" onClick={save} disabled={updateCompany.isPending}>
+          {updateCompany.isPending ? t("Salvando...") : t("Salvar observações")}
+        </Button>
+      </div>
+    </CardContent>
   );
 }

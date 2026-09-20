@@ -381,9 +381,13 @@ export function useCreateApplication() {
       );
       return unwrap(response);
     },
-    onSuccess: () => {
+    onSuccess: (_application, variables) => {
       qc.invalidateQueries({ queryKey: ["people-applications"] });
       qc.invalidateQueries({ queryKey: ["people-candidates"] });
+      const jobId = typeof variables.job_opening_id === "string" ? variables.job_opening_id : null;
+      if (jobId) {
+        qc.invalidateQueries({ queryKey: ["people-job-detail", jobId] });
+      }
     },
     onError: (err) => showApiError(err),
   });

@@ -111,6 +111,12 @@ export function NewLeadDialog({
     }
   }, [initialStage, form]);
 
+  useEffect(() => {
+    if (open && initialCompanyId) {
+      form.setValue("client_company_id", initialCompanyId);
+    }
+  }, [initialCompanyId, open, form]);
+
   // Se a empresa mudar e o contato atual não pertencer à nova empresa, reseta o contato
   useEffect(() => {
     if (selectedCompanyId) {
