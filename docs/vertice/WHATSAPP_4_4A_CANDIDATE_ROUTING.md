@@ -3,7 +3,7 @@
 > **Status:** Implementado & Testado com Classificação Fail-Closed (Fase 4.4A)
 > **Data:** 2026-09-17
 > **Branch:** `feat/whatsapp-candidate-routing-4.4a`
-> **Base:** `main` (`ec2d1086784703d627d25a557510e64128fdfc82`)  
+> **Base:** `main` (`b54994dfb679b4b8a6391dca42c58fec320a13d0`)
 
 ---
 
@@ -79,7 +79,6 @@ flowchart TD
     G -- Não --> J{Candidate descartado sem erro? Consulta client_company_contacts}
     J -- Sim: Vínculo B2B --> K[CASO C: Company Contact B2B]
     J -- Não: Sem Vínculo B2B --> L[CASO D: Unknown Desconhecido]
-    
     E --> SUP[SUPRIMIR crm_leads, campanhas, follow-up e IA]
     IND --> SUP
     K --> COM[Fluxo Comercial Padrão Preservado]
