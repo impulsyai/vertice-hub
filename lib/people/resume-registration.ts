@@ -29,6 +29,7 @@ export interface RegisterCandidateResumeInput {
   fileSizeBytes: number;
   sha256: string;
   bytes: Buffer;
+  sourceType?: string;
 }
 
 export interface RegisterCandidateResumeOptions {
@@ -105,7 +106,7 @@ async function callRegistrationRpc(
     p_mime_type: metadata?.mime_type ?? input.mimeType,
     p_file_size_bytes: metadata?.file_size_bytes ?? input.fileSizeBytes,
     p_sha256: input.sha256,
-    p_source_type: "manual",
+    p_source_type: input.sourceType ?? "manual",
     p_source_mailbox: null,
     p_source_message_id: null,
   });
@@ -250,4 +251,130 @@ export async function registerCandidateResume(
     candidateId: input.candidateId,
   });
   throw new ResumeRegistrationError("cleanup_failed", 500);
+}
+
+/**
+ * Registro usado somente por ingestões server-to-server autenticadas por
+ * segredo, como o formulário institucional público.
+ *
+ * O RPC normal exige `auth.uid()` e deliberadamente não aceita service_role.
+ * Isso é correto para o fluxo de usuário autenticado, mas não existe usuário
+ * Supabase no formulário público. Este caminho mantém as mesmas invariantes
+ * com o client administrativo: todos os reads/writes filtram organização e
+ * candidato, há no máximo um currículo atual, e o objeto é removido se o
+ * registro relacional falhar.
+ */
+export async function registerCandidateResumeWithServiceRole(
+  supabase: SupabaseClient,
+  input: RegisterCandidateResumeInput,
+): Promise<RegisterCandidateResumeResult> {
+  const existing = await findResume(supabase, input);
+  if (existing) {
+    const { error: clearError } = await supabase
+      .from("vertice_candidate_resumes")
+      .update({ is_current: false, updated_at: new Date().toISOString() })
+      .eq("organization_id", input.organizationId)
+      .eq("candidate_id", input.candidateId)
+      .neq("id", existing.id)
+      .eq("is_current", true);
+    if (clearError) throw new ResumeRegistrationError("database_error", 500);
+
+    const { data, error } = await supabase
+      .from("vertice_candidate_resumes")
+      .update({ is_current: true, updated_at: new Date().toISOString() })
+      .eq("organization_id", input.organizationId)
+      .eq("candidate_id", input.candidateId)
+      .eq("id", existing.id)
+      .select("*")
+      .single();
+    if (error || !data) throw new ResumeRegistrationError("database_error", 500);
+    return {
+      resume: data as CandidateResume,
+      deduplicated: true,
+      recoveredAfterRpc: false,
+      storage: "skipped",
+    };
+  }
+
+  const extension =
+    input.mimeType === "application/pdf"
+      ? "pdf"
+      : input.mimeType === "application/msword"
+        ? "doc"
+        : "docx";
+  const storagePath = `${input.organizationId}/${input.candidateId}/${randomUUID()}.${extension}`;
+  const bucket = supabase.storage.from(BUCKET);
+  const { error: uploadError } = await bucket.upload(storagePath, input.bytes, {
+    contentType: input.mimeType,
+    upsert: false,
+  });
+  if (uploadError) {
+    if (isAlreadyExistsError(uploadError)) {
+      throw new ResumeRegistrationError("storage_conflict", 409);
+    }
+    throw new ResumeRegistrationError("database_error", 500);
+  }
+
+  const { data: current, error: currentError } = await supabase
+    .from("vertice_candidate_resumes")
+    .select("id")
+    .eq("organization_id", input.organizationId)
+    .eq("candidate_id", input.candidateId)
+    .eq("is_current", true)
+    .maybeSingle();
+  if (currentError) {
+    await bucket.remove([storagePath]);
+    throw new ResumeRegistrationError("database_error", 500);
+  }
+
+  if (current) {
+    const { error: clearError } = await supabase
+      .from("vertice_candidate_resumes")
+      .update({ is_current: false, updated_at: new Date().toISOString() })
+      .eq("organization_id", input.organizationId)
+      .eq("candidate_id", input.candidateId)
+      .eq("id", current.id)
+      .eq("is_current", true);
+    if (clearError) {
+      await bucket.remove([storagePath]);
+      throw new ResumeRegistrationError("database_error", 500);
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("vertice_candidate_resumes")
+    .insert({
+      organization_id: input.organizationId,
+      candidate_id: input.candidateId,
+      storage_path: storagePath,
+      original_filename: input.originalFilename,
+      mime_type: input.mimeType,
+      file_size_bytes: input.fileSizeBytes,
+      sha256: input.sha256,
+      source_type: input.sourceType ?? "manual",
+      is_current: true,
+    })
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    const cleanup = await bucket.remove([storagePath]);
+    if (current) {
+      await supabase
+        .from("vertice_candidate_resumes")
+        .update({ is_current: true, updated_at: new Date().toISOString() })
+        .eq("organization_id", input.organizationId)
+        .eq("candidate_id", input.candidateId)
+        .eq("id", current.id);
+    }
+    if (cleanup.error) throw new ResumeRegistrationError("cleanup_failed", 500);
+    throw new ResumeRegistrationError("database_error", 500);
+  }
+
+  return {
+    resume: data as CandidateResume,
+    deduplicated: false,
+    recoveredAfterRpc: false,
+    storage: "created",
+  };
 }

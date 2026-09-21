@@ -329,6 +329,13 @@ const schema = z.object({
     .url()
     .default("http://localhost:3000"),
 
+  // Ingestão server-to-server do site institucional Vértice. Nunca expor no
+  // browser: a rota pública exige a chave e resolve a organização por env,
+  // nunca pelo corpo recebido.
+  PUBLIC_SITE_ORGANIZATION_ID: z.string().optional().default(""),
+  SITE_INTAKE_SHARED_SECRET: z.string().optional().default(""),
+  SITE_INTAKE_ALLOWED_ORIGINS: z.string().optional().default(""),
+
   // Marca da instalação (white-label) — ver lib/branding.ts.
   // Sem prefixo NEXT_PUBLIC_ de propósito: essas seriam queimadas no bundle
   // durante o build da imagem, e o self-hoster roda uma imagem pré-buildada.
