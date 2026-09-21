@@ -20,15 +20,44 @@ import {
   ChatCircle,
   IdentificationCard,
   Trash,
+  Plus,
+  Kanban,
 } from "@/lib/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { apiClient } from "@/lib/api/client";
-import { useCandidateDetail, useCandidateTimeline } from "@/lib/people/client-hooks";
+import {
+  useCandidateDetail,
+  useCandidateTimeline,
+  useCreateApplication,
+  useJobList,
+} from "@/lib/people/client-hooks";
 import { useQueryClient } from "@tanstack/react-query";
-import { RECRUITMENT_STAGES } from "@/lib/people/types";
+import {
+  RECRUITMENT_STAGES,
+  type RecruitmentStage,
+  type VerticeCandidate,
+  type VerticeCandidateResume,
+} from "@/lib/people/types";
 import { formatFileSize } from "@/lib/ui/form-masks";
 import { CandidateFormDialog } from "@/components/recruitment/CandidateForm";
 import { DeleteCandidateDialog } from "@/components/recruitment/DeleteCandidateDialog";
@@ -41,6 +70,7 @@ import {
 import { CandidateTimeline } from "@/components/recruitment/CandidateTimeline";
 import { CandidateOpinionReportButton } from "@/components/recruitment/CandidateOpinionReportButton";
 import { CandidateSourceBadge } from "@/components/recruitment/CandidateSourceBadge";
+import { GroupedJobSelect } from "@/components/recruitment/GroupedJobSelect";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Ativo",
@@ -61,6 +91,7 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
   const [isUploading, setIsUploading] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isEnrollOpen, setIsEnrollOpen] = useState(false);
   const [isOpeningConversation, setIsOpeningConversation] = useState(false);
   const [resumeToPreview, setResumeToPreview] = useState<ResumePreviewTarget | null>(null);
   const canDeleteCandidate = Boolean(
@@ -196,6 +227,10 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
             resumes={resumes}
             events={timelineEvents}
           />
+          <Button onClick={() => setIsEnrollOpen(true)} className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            {t("Vincular a Vaga / Funil")}
+          </Button>
           <Button
             variant="outline"
             onClick={() => setIsEditOpen(true)}
@@ -419,14 +454,35 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
 
           {/* Candidaturas & Processos Seletivos */}
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
               <CardTitle className="text-base font-semibold">{t("Processos Seletivos")}</CardTitle>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="shrink-0 gap-1.5"
+                onClick={() => setIsEnrollOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {t("Vincular Vaga")}
+              </Button>
             </CardHeader>
             <CardContent>
               {applications.length === 0 ? (
                 <div className="py-6 text-center text-sm text-muted-foreground">
                   <Briefcase className="mx-auto mb-2 h-8 w-8 opacity-50" />
                   {t("Candidato ainda não foi vinculado a nenhuma vaga aberta.")}
+                  <div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="mt-3 gap-1.5"
+                      onClick={() => setIsEnrollOpen(true)}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      {t("Inscrever em Vaga Aberta")}
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="divide-y overflow-hidden rounded-md border">
@@ -458,8 +514,9 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 text-xs hover:bg-accent/10 hover:text-primary"
+                            className="h-7 gap-1.5 text-xs hover:bg-accent/10 hover:text-primary"
                           >
+                            <Kanban className="h-3.5 w-3.5" />
                             {t("Ver no Funil")}
                           </Button>
                         </Link>
@@ -500,6 +557,154 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
           if (!open) setResumeToPreview(null);
         }}
       />
+      <EnrollCandidateDialog
+        key={`${candidate.id}-${isEnrollOpen ? "open" : "closed"}`}
+        candidate={candidate}
+        resumes={resumes}
+        open={isEnrollOpen}
+        onOpenChange={setIsEnrollOpen}
+      />
     </div>
+  );
+}
+
+function EnrollCandidateDialog({
+  candidate,
+  resumes,
+  open,
+  onOpenChange,
+}: {
+  candidate: VerticeCandidate;
+  resumes: VerticeCandidateResume[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const t = useT();
+  const qc = useQueryClient();
+  const createApplication = useCreateApplication();
+  const { data: jobsData, isLoading: jobsLoading } = useJobList({ status: "open", limit: 100 });
+  const openJobs = jobsData?.data ?? [];
+  const currentResumeId = resumes.find((resume) => resume.is_current)?.id ?? "";
+  const [selectedJobId, setSelectedJobId] = useState("");
+  const [selectedStage, setSelectedStage] = useState<RecruitmentStage>("received");
+  const [selectedResumeId, setSelectedResumeId] = useState(currentResumeId);
+  const [notes, setNotes] = useState("");
+
+  async function handleSubmit() {
+    if (!selectedJobId) {
+      toast.error(t("Selecione uma vaga aberta."));
+      return;
+    }
+
+    try {
+      await createApplication.mutateAsync({
+        job_opening_id: selectedJobId,
+        candidate_id: candidate.id,
+        stage: selectedStage,
+        resume_id: selectedResumeId || null,
+        source: "manual",
+        notes: notes.trim() || null,
+      });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["people-candidate-detail", candidate.id] }),
+        qc.invalidateQueries({ queryKey: ["people-candidate-timeline", candidate.id] }),
+      ]);
+      toast.success(t("Candidato vinculado à vaga com sucesso!"));
+      onOpenChange(false);
+    } catch {
+      // O erro da API já é exibido pelo hook.
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{t("Vincular candidato a uma vaga")}</DialogTitle>
+          <DialogDescription>
+            {t("Escolha a vaga e a etapa inicial para inserir este candidato no funil de seleção.")}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="candidate-enrollment-job">{t("Vaga Aberta")} *</Label>
+            <GroupedJobSelect
+              id="candidate-enrollment-job"
+              jobs={openJobs}
+              value={selectedJobId}
+              onValueChange={setSelectedJobId}
+              disabled={jobsLoading}
+              placeholder={jobsLoading ? t("Carregando vagas...") : t("Selecione a vaga aberta...")}
+              countLabel={t("vagas abertas")}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="candidate-enrollment-stage">{t("Etapa Inicial do Funil")}</Label>
+            <Select
+              value={selectedStage}
+              onValueChange={(value) => setSelectedStage(value as RecruitmentStage)}
+            >
+              <SelectTrigger id="candidate-enrollment-stage">
+                <SelectValue placeholder={t("Selecione a etapa")} />
+              </SelectTrigger>
+              <SelectContent>
+                {RECRUITMENT_STAGES.map((stage) => (
+                  <SelectItem key={stage.id} value={stage.id}>
+                    {stage.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {resumes.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="candidate-enrollment-resume">{t("Currículo Vinculado")}</Label>
+              <Select value={selectedResumeId} onValueChange={setSelectedResumeId}>
+                <SelectTrigger id="candidate-enrollment-resume">
+                  <SelectValue placeholder={t("Selecione um currículo (opcional)")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {resumes.map((resume) => (
+                    <SelectItem key={resume.id} value={resume.id}>
+                      {resume.original_filename}
+                      {resume.is_current ? ` (${t("Atual")})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="candidate-enrollment-notes">
+              {t("Anotação Inicial / Parecer Rápido")}
+            </Label>
+            <Textarea
+              id="candidate-enrollment-notes"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder={t("Registre uma observação sobre esta indicação...")}
+              rows={4}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            {t("Cancelar")}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void handleSubmit()}
+            disabled={!selectedJobId || createApplication.isPending}
+          >
+            {createApplication.isPending ? t("Vinculando...") : t("Vincular ao Funil")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
