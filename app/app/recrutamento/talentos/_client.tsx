@@ -23,6 +23,7 @@ import { useCandidateList } from "@/lib/people/client-hooks";
 import type { CandidateStatus, VerticeCandidate } from "@/lib/people/types";
 import { CandidateFormDialog } from "@/components/recruitment/CandidateForm";
 import { DeleteCandidateDialog } from "@/components/recruitment/DeleteCandidateDialog";
+import { CandidateSourceBadge } from "@/components/recruitment/CandidateSourceBadge";
 
 const STATUS_LABELS: Record<CandidateStatus, string> = {
   active: "Ativo",
@@ -175,7 +176,10 @@ export function TalentosClient() {
                       {c.email ?? c.phone_e164 ?? "—"}
                     </p>
                   </div>
-                  <CandidateStatusBadge status={c.status} />
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <CandidateSourceBadge source={c.source} />
+                    <CandidateStatusBadge status={c.status} />
+                  </div>
                 </div>
 
                 <div className="space-y-1 text-xs">
@@ -250,13 +254,16 @@ export function TalentosClient() {
                     className="cursor-pointer transition-colors hover:bg-accent/5"
                   >
                     <td className="p-3.5">
-                      <Link
-                        href={`/app/recrutamento/talentos/${c.id}`}
-                        className="block font-medium text-foreground transition-colors hover:text-primary"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {c.full_name}
-                      </Link>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/app/recrutamento/talentos/${c.id}`}
+                          className="font-medium text-foreground transition-colors hover:text-primary"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {c.full_name}
+                        </Link>
+                        <CandidateSourceBadge source={c.source} />
+                      </div>
                       <span className="text-xs text-muted-foreground">
                         {c.email ?? c.phone_e164 ?? "—"}
                       </span>

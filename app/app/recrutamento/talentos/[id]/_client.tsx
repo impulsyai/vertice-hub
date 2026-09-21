@@ -40,6 +40,7 @@ import {
 } from "@/components/recruitment/CandidateResumePreviewDialog";
 import { CandidateTimeline } from "@/components/recruitment/CandidateTimeline";
 import { CandidateOpinionReportButton } from "@/components/recruitment/CandidateOpinionReportButton";
+import { CandidateSourceBadge } from "@/components/recruitment/CandidateSourceBadge";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Ativo",
@@ -177,10 +178,14 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
               >
                 {t(STATUS_LABELS[candidate.status] ?? candidate.status)}
               </Badge>
+              <CandidateSourceBadge source={candidate.source} prefix />
             </div>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {candidate.current_job_title ?? candidate.current_role ?? t("Sem cargo informado")}{" "}
-              {candidate.current_company ? `• ${candidate.current_company}` : ""}
+            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-sm font-medium text-foreground">
+              <Briefcase className="h-4 w-4 text-primary" aria-hidden="true" />
+              <span>{t("Cargo / Objetivo:")}</span>
+              <span className="font-semibold text-primary">
+                {candidate.current_job_title ?? candidate.current_role ?? t("Sem cargo informado")}
+              </span>
             </p>
           </div>
         </div>
@@ -218,6 +223,20 @@ export function CandidatoDetalheClient({ id }: { id: string }) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
+              <div>
+                <span className="block text-xs text-muted-foreground">
+                  {t("Cargo Atual / Objetivo")}
+                </span>
+                <span className="font-medium text-foreground">
+                  {candidate.current_job_title ?? candidate.current_role ?? "—"}
+                </span>
+              </div>
+              {candidate.current_company && (
+                <div>
+                  <span className="block text-xs text-muted-foreground">{t("Empresa Atual")}</span>
+                  <span className="font-medium text-foreground">{candidate.current_company}</span>
+                </div>
+              )}
               <div>
                 <span className="block text-xs text-muted-foreground">{t("Área")}</span>
                 <span className="font-medium">{candidate.area ?? "—"}</span>
