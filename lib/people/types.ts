@@ -17,6 +17,7 @@ export interface ClientCompany {
   city: string | null;
   state: string | null;
   status: CompanyStatus;
+  source: string;
   owner_user_id: string | null;
   notes: string | null;
   created_at: string;

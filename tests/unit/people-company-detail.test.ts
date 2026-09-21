@@ -19,6 +19,7 @@ describe("Vértice People — Company Detail & CRM Invariants", () => {
     city: "Recife",
     state: "PE",
     status: "active",
+    source: "manual",
     owner_user_id: null,
     notes: "Cliente estratégico em expansão. Decisor prefere contato via WhatsApp.",
     created_at: "2026-09-15T10:00:00Z",

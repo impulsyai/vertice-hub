@@ -3,16 +3,16 @@
 import { Badge } from "@/components/ui/badge";
 import { ChatCircle, Globe } from "@/lib/ui/icons";
 
-interface CandidateSourceBadgeProps {
+interface SourceBadgeProps {
   source: string | null | undefined;
   prefix?: boolean;
 }
 
-export function CandidateSourceBadge({ source, prefix = false }: CandidateSourceBadgeProps) {
+export function SourceBadge({ source, prefix = false }: SourceBadgeProps) {
   const normalizedSource = source?.trim().toLowerCase();
   if (!normalizedSource) return null;
 
-  const isSite = ["site_talentos", "site_talentos_v2", "site"].includes(normalizedSource);
+  const isSite = ["site_talentos", "site_talentos_v2", "site", "site_b2b"].includes(normalizedSource);
   const isWhatsapp = normalizedSource === "whatsapp";
   const isManual = normalizedSource === "manual";
   const label = isSite ? "Site" : isWhatsapp ? "WhatsApp" : isManual ? "Manual" : source;
@@ -30,3 +30,5 @@ export function CandidateSourceBadge({ source, prefix = false }: CandidateSource
     </Badge>
   );
 }
+
+export const CandidateSourceBadge = SourceBadge;

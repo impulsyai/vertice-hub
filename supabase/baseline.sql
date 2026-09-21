@@ -24729,6 +24729,7 @@ create table if not exists public.client_companies (
   city text,
   state text,
   status text not null default 'active',
+  source text not null default 'manual',
 
   owner_user_id uuid references auth.users(id) on delete set null,
   notes text,

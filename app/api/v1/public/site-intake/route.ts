@@ -268,7 +268,7 @@ async function upsertCompany(
   if (existing) {
     const { data, error } = await admin
       .from("client_companies")
-      .update({ notes, updated_at: new Date().toISOString() })
+      .update({ notes, source: "site_b2b", updated_at: new Date().toISOString() })
       .eq("organization_id", organizationId)
       .eq("id", existing.id)
       .select("*")
@@ -282,6 +282,7 @@ async function upsertCompany(
         organization_id: organizationId,
         legal_name: input.empresa,
         status: "prospect",
+        source: "site_b2b",
         notes,
       })
       .select("*")

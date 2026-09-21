@@ -33,6 +33,7 @@ import { useCompanyList, useCreateCompany, useUpdateCompany } from "@/lib/people
 import type { ClientCompany } from "@/lib/people/types";
 import { normalizeUrl } from "@/lib/ui/form-masks";
 import { createCompanySchema, updateCompanySchema } from "@/lib/people/schemas";
+import { SourceBadge } from "@/components/recruitment/CandidateSourceBadge";
 
 type CompanyFormValues = {
   trade_name: string;
@@ -119,23 +120,28 @@ export function EmpresasClient() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-base text-foreground truncate">{company.trade_name}</h3>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <h3 className="truncate text-base font-semibold text-foreground">{company.trade_name}</h3>
+                    </div>
                     {company.legal_name && (
                       <p className="text-xs text-muted-foreground truncate">{company.legal_name}</p>
                     )}
                   </div>
-                  <Badge
-                    variant="outline"
-                    className={
-                      company.status === "active"
-                        ? "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium"
-                        : company.status === "prospect"
-                        ? "border-amber-600/30 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium"
-                        : "border-stone-300 bg-stone-100 text-stone-700 font-normal"
-                    }
-                  >
-                    {company.status === "active" ? t("Ativa") : company.status === "prospect" ? t("Prospect") : t("Inativa")}
-                  </Badge>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <SourceBadge source={company.source} />
+                    <Badge
+                      variant="outline"
+                      className={
+                        company.status === "active"
+                          ? "border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium"
+                          : company.status === "prospect"
+                          ? "border-amber-600/30 bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium"
+                          : "border-stone-300 bg-stone-100 text-stone-700 font-normal"
+                      }
+                    >
+                      {company.status === "active" ? t("Ativa") : company.status === "prospect" ? t("Prospect") : t("Inativa")}
+                    </Badge>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-2 border-t border-border/60">
@@ -190,7 +196,10 @@ export function EmpresasClient() {
                         className="font-medium text-foreground hover:text-primary hover:underline transition-colors block"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {company.trade_name}
+                        <span className="inline-flex items-center gap-2">
+                          {company.trade_name}
+                          <SourceBadge source={company.source} />
+                        </span>
                       </Link>
                       {company.legal_name && (
                         <div className="text-xs text-muted-foreground">{company.legal_name}</div>
